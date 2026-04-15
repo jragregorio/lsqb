@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LuxeShade Quote Builder v1.0.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">JRAG</p>
+          <h1>LuxeShade Quote Builder v1.0.0</h1>
+          <p class="page-copy">
+            Import the source price list, set client-specific asking prices, then
+            encode measurements to generate a quote.
+          </p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Source File</h2>
+            <p class="section-copy">
+              Use the CSV master pricelist. Materials come from
+              <code>CATEGORY</code> and retail prices come from
+              <code>FABRIC WITH ACETATE SQFT</code>.
+            </p>
+          </div>
+        </div>
+
+        <div class="source-actions">
+          <label class="file-picker">
+            <span>Upload CSV</span>
+            <input id="csv-input" type="file" accept=".csv,text/csv" />
+          </label>
+          <button id="load-sample-btn" class="secondary-button" type="button">
+            Load Bundled Sample Pricelist
+          </button>
+        </div>
+
+        <p id="csv-status" class="status-text">
+          No source file loaded yet.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Material Setup</h2>
+            <p class="section-copy">
+              Pick the materials chosen by the client and set the asking price
+              for each one.
+            </p>
+          </div>
+          <button id="add-material-btn" class="primary-button" type="button">
+            Add Material
+          </button>
+        </div>
+
+        <div class="table-shell">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Retail Price</th>
+                <th>Asking Price</th>
+                <th>Pocket</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="material-setup-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Measurements</h2>
+            <p class="section-copy">
+              Width and height are in millimeters. Cost is computed from rounded
+              square footage multiplied by the selected material asking price.
+            </p>
+          </div>
+          <button
+            id="add-measurement-btn"
+            class="primary-button"
+            type="button"
+          >
+            Add Row
+          </button>
+        </div>
+
+        <div class="table-shell">
+          <table class="data-table measurements-table">
+            <thead>
+              <tr>
+                <th>Room / Section</th>
+                <th>Label</th>
+                <th>Width (mm)</th>
+                <th>Height (mm)</th>
+                <th>Material</th>
+                <th>Cost</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="measurement-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel summary-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Summary</h2>
+            <p class="section-copy">
+              Review the totals and optionally apply a discount.
+            </p>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <label class="summary-card summary-input-card">
+            <span>Discount</span>
+            <input
+              id="discount-input"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+            />
+          </label>
+
+          <article class="summary-card">
+            <span>Subtotal</span>
+            <strong id="subtotal-value">PHP 0.00</strong>
+          </article>
+
+          <article class="summary-card accent-card">
+            <span>Final Total</span>
+            <strong id="final-total-value">PHP 0.00</strong>
+          </article>
+
+          <article class="summary-card">
+            <span>50% Downpayment</span>
+            <strong id="downpayment-value">PHP 0.00</strong>
+          </article>
+
+          <article class="summary-card">
+            <span>50% Remaining Balance</span>
+            <strong id="remaining-value">PHP 0.00</strong>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <template id="empty-state-template">
+      <tr>
+        <td colspan="7" class="empty-state-cell">
+          Nothing here yet.
+        </td>
+      </tr>
+    </template>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
