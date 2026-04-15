@@ -1,6 +1,6 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const STORAGE_KEY = "luxeshade-quote-builder-v1";
+const STORAGE_KEY = "luxeshade-quote-builder-v2";
 const SAMPLE_PRICELIST_PATH = "./data/pricelist.csv";
 const MINIMUM_SQUARE_FEET = 15;
 const SUPABASE_URL = "https://pdadkkpizdsdiavziimh.supabase.co";
@@ -14,6 +14,11 @@ const currencyFormatter = new Intl.NumberFormat("en-PH", {
   currency: "PHP",
 });
 
+const dateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 const refs = {
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
@@ -25,6 +30,17 @@ const refs = {
   csvInput: document.querySelector("#csv-input"),
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
+  quoteClientName: document.querySelector("#quote-client-name"),
+  quoteProjectName: document.querySelector("#quote-project-name"),
+  quoteReference: document.querySelector("#quote-reference"),
+  quoteNotes: document.querySelector("#quote-notes"),
+  newQuoteBtn: document.querySelector("#new-quote-btn"),
+  saveQuoteBtn: document.querySelector("#save-quote-btn"),
+  refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
+  currentQuoteLabel: document.querySelector("#current-quote-label"),
+  quoteStatus: document.querySelector("#quote-status"),
+  savedQuotesCount: document.querySelector("#saved-quotes-count"),
+  savedQuotesList: document.querySelector("#saved-quotes-list"),
   materialBody: document.querySelector("#material-setup-body"),
   measurementBody: document.querySelector("#measurement-body"),
   addMaterialBtn: document.querySelector("#add-material-btn"),
@@ -37,6 +53,8 @@ const runtime = {
   session: null,
   authBusy: false,
   sourceBusy: false,
+  quoteBusy: false,
+  quoteList: [],
 };
 
 bootstrap();
@@ -56,6 +74,30 @@ async function bootstrap() {
   refs.syncSupabaseBtn.addEventListener("click", () =>
     loadMaterialsFromSupabase({ showAlertOnFailure: true }),
   );
+  refs.newQuoteBtn.addEventListener("click", handleNewQuote);
+  refs.saveQuoteBtn.addEventListener("click", handleSaveQuote);
+  refs.refreshQuotesBtn.addEventListener("click", () =>
+    refreshSavedQuotes({ showAlertOnFailure: true }),
+  );
+  refs.quoteClientName.addEventListener("input", (event) => {
+    state.quoteMeta.clientName = event.target.value;
+    saveState();
+    renderQuoteStatus();
+  });
+  refs.quoteProjectName.addEventListener("input", (event) => {
+    state.quoteMeta.projectName = event.target.value;
+    saveState();
+    renderQuoteStatus();
+  });
+  refs.quoteReference.addEventListener("input", (event) => {
+    state.quoteMeta.quoteReference = event.target.value;
+    saveState();
+    renderQuoteStatus();
+  });
+  refs.quoteNotes.addEventListener("input", (event) => {
+    state.quoteMeta.notes = event.target.value;
+    saveState();
+  });
 
   ensureStarterRows();
   render();
@@ -73,7 +115,7 @@ async function initializeAuth() {
   if (error) {
     console.error(error);
     setAuthStatus("Could not check Supabase session.", true);
-    renderSourceStatus();
+    render();
     return;
   }
 
@@ -81,23 +123,36 @@ async function initializeAuth() {
 
   supabase.auth.onAuthStateChange(async (_event, sessionState) => {
     applySession(sessionState);
-    if (sessionState && !isSupabaseSourceLoaded()) {
+
+    if (!sessionState) {
+      return;
+    }
+
+    if (!isSupabaseSourceLoaded()) {
       await loadMaterialsFromSupabase({ showAlertOnFailure: false });
     }
+
+    await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
   });
 
   if (session) {
-    await loadMaterialsFromSupabase({ showAlertOnFailure: false });
+    if (!isSupabaseSourceLoaded()) {
+      await loadMaterialsFromSupabase({ showAlertOnFailure: false });
+    }
+    await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
   }
 }
 
 function applySession(session) {
   runtime.session = session;
+
   if (!session) {
+    runtime.quoteList = [];
     setAuthStatus("Not signed in yet.");
+    setQuoteStatus("Sign in to save and reopen quotes from Supabase.");
   }
-  renderAuth();
-  renderSourceStatus();
+
+  render();
 }
 
 function ensureStarterRows() {
@@ -140,6 +195,18 @@ function createMeasurementRow() {
   };
 }
 
+function getDefaultQuoteMeta() {
+  return {
+    id: "",
+    clientName: "",
+    projectName: "",
+    quoteReference: "",
+    notes: "",
+    createdAt: "",
+    updatedAt: "",
+  };
+}
+
 function loadState() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -153,6 +220,10 @@ function loadState() {
       sourceMaterials: Array.isArray(parsed.sourceMaterials)
         ? parsed.sourceMaterials
         : [],
+      quoteMeta: {
+        ...getDefaultQuoteMeta(),
+        ...(parsed.quoteMeta || {}),
+      },
       selectedMaterials: Array.isArray(parsed.selectedMaterials)
         ? parsed.selectedMaterials
         : [],
@@ -171,6 +242,7 @@ function getDefaultState() {
   return {
     sourceLabel: "",
     sourceMaterials: [],
+    quoteMeta: getDefaultQuoteMeta(),
     selectedMaterials: [],
     measurementRows: [],
     discount: "",
@@ -233,7 +305,7 @@ async function loadMaterialsFromSupabase({ showAlertOnFailure }) {
 
   const { data, error } = await supabase
     .from("material_catalog")
-    .select("division, category, retail_price")
+    .select("id, division, category, retail_price")
     .order("division", { ascending: true })
     .order("category", { ascending: true });
 
@@ -250,6 +322,7 @@ async function loadMaterialsFromSupabase({ showAlertOnFailure }) {
   }
 
   state.sourceMaterials = data.map((row) => ({
+    catalogId: row.id,
     key: `${row.division || ""}::${row.category}`,
     category: row.category,
     division: row.division || "",
@@ -260,6 +333,50 @@ async function loadMaterialsFromSupabase({ showAlertOnFailure }) {
   saveState();
   render();
   setAuthStatus(`Signed in and synced ${data.length} materials from Supabase.`);
+}
+
+async function refreshSavedQuotes({
+  showAlertOnFailure = false,
+  silent = false,
+} = {}) {
+  if (!runtime.session) {
+    runtime.quoteList = [];
+    renderQuoteWorkspace();
+    return;
+  }
+
+  runtime.quoteBusy = true;
+  renderQuoteWorkspace();
+  if (!silent) {
+    setQuoteStatus("Loading saved quotes...");
+  }
+
+  const { data, error } = await supabase
+    .from("quotes")
+    .select("id, client_name, project_name, quote_reference, created_at, updated_at")
+    .order("updated_at", { ascending: false });
+
+  runtime.quoteBusy = false;
+
+  if (error) {
+    console.error(error);
+    setQuoteStatus(
+      error.message || "Could not load saved quotes. Run the quote security migration first.",
+      true,
+    );
+    renderQuoteWorkspace();
+    if (showAlertOnFailure) {
+      window.alert("Saved quotes could not be loaded from Supabase.");
+    }
+    return;
+  }
+
+  runtime.quoteList = data || [];
+  renderQuoteWorkspace();
+
+  if (!silent) {
+    setQuoteStatus(`Loaded ${runtime.quoteList.length} saved quote(s).`);
+  }
 }
 
 async function handleCsvUpload(event) {
@@ -336,6 +453,7 @@ function hydrateSourceMaterials(csvText, sourceLabel) {
       }
 
       return {
+        catalogId: null,
         key: `${activeDivision}::${category}`,
         category,
         division: activeDivision,
@@ -358,7 +476,10 @@ function sanitizeSelectionsAfterSourceLoad() {
       return row;
     }
 
-    return createMaterialSetupRow();
+    return {
+      ...row,
+      sourceKey: "",
+    };
   });
 
   sanitizeMeasurementMaterialSelections();
@@ -367,7 +488,7 @@ function sanitizeSelectionsAfterSourceLoad() {
 function sanitizeMeasurementMaterialSelections() {
   const validMaterialIds = new Set(
     state.selectedMaterials
-      .filter((material) => material.sourceKey)
+      .filter((material) => material.category)
       .map((material) => material.id),
   );
 
@@ -401,9 +522,300 @@ function handleAddMeasurement() {
   renderSummary();
 }
 
+function handleNewQuote() {
+  if (
+    hasMeaningfulDraftChanges() &&
+    !window.confirm("Start a new quote and clear the current draft?")
+  ) {
+    return;
+  }
+
+  resetQuoteDraft();
+  saveState();
+  render();
+  setQuoteStatus("New quote draft started.");
+}
+
+async function handleSaveQuote() {
+  if (!runtime.session) {
+    setQuoteStatus("Sign in first before saving quotes.", true);
+    return;
+  }
+
+  const validation = validateQuoteForSave();
+  if (!validation.ok) {
+    setQuoteStatus(validation.message, true);
+    window.alert(validation.message);
+    return;
+  }
+
+  runtime.quoteBusy = true;
+  renderQuoteWorkspace();
+  setQuoteStatus(state.quoteMeta.id ? "Updating quote..." : "Saving quote...");
+
+  const quotePayload = {
+    owner_user_id: runtime.session.user.id,
+    client_name: state.quoteMeta.clientName.trim(),
+    project_name: sanitizeOptionalText(state.quoteMeta.projectName),
+    quote_reference: sanitizeOptionalText(state.quoteMeta.quoteReference),
+    notes: sanitizeOptionalText(state.quoteMeta.notes),
+    discount: parseCurrencyLikeNumber(state.discount) || 0,
+  };
+
+  const quoteQuery = state.quoteMeta.id
+    ? supabase
+        .from("quotes")
+        .update(quotePayload)
+        .eq("id", state.quoteMeta.id)
+        .select("id, client_name, project_name, quote_reference, notes, discount, created_at, updated_at")
+        .single()
+    : supabase
+        .from("quotes")
+        .insert(quotePayload)
+        .select("id, client_name, project_name, quote_reference, notes, discount, created_at, updated_at")
+        .single();
+
+  const { data: savedQuote, error: quoteError } = await quoteQuery;
+
+  if (quoteError) {
+    runtime.quoteBusy = false;
+    renderQuoteWorkspace();
+    console.error(quoteError);
+    setQuoteStatus(
+      quoteError.message || "Could not save the quote header. Run the quote security migration first.",
+      true,
+    );
+    return;
+  }
+
+  const { error: measurementDeleteError } = await supabase
+    .from("quote_measurements")
+    .delete()
+    .eq("quote_id", savedQuote.id);
+
+  if (measurementDeleteError) {
+    runtime.quoteBusy = false;
+    renderQuoteWorkspace();
+    console.error(measurementDeleteError);
+    setQuoteStatus(measurementDeleteError.message || "Could not replace saved measurements.", true);
+    return;
+  }
+
+  const { error: materialDeleteError } = await supabase
+    .from("quote_materials")
+    .delete()
+    .eq("quote_id", savedQuote.id);
+
+  if (materialDeleteError) {
+    runtime.quoteBusy = false;
+    renderQuoteWorkspace();
+    console.error(materialDeleteError);
+    setQuoteStatus(materialDeleteError.message || "Could not replace saved materials.", true);
+    return;
+  }
+
+  const materialDrafts = getMaterialDraftsForSave();
+  const measurementDrafts = getMeasurementDraftsForSave();
+  const materialIdMap = new Map();
+
+  if (materialDrafts.length > 0) {
+    const { data: savedMaterials, error: materialInsertError } = await supabase
+      .from("quote_materials")
+      .insert(
+        materialDrafts.map((item, index) => ({
+          quote_id: savedQuote.id,
+          material_catalog_id: item.catalogId,
+          division: item.division || null,
+          category: item.category,
+          retail_price: item.retailPrice,
+          asking_price: item.askingPrice,
+          sort_order: index,
+        })),
+      )
+      .select("id, category");
+
+    if (materialInsertError) {
+      runtime.quoteBusy = false;
+      renderQuoteWorkspace();
+      console.error(materialInsertError);
+      setQuoteStatus(materialInsertError.message || "Could not save quote materials.", true);
+      return;
+    }
+
+    materialDrafts.forEach((draft) => {
+      const savedMaterial = savedMaterials.find((item) => item.category === draft.category);
+      if (savedMaterial) {
+        materialIdMap.set(draft.localMaterialId, savedMaterial.id);
+      }
+    });
+  }
+
+  if (measurementDrafts.length > 0) {
+    const { error: measurementInsertError } = await supabase
+      .from("quote_measurements")
+      .insert(
+        measurementDrafts.map((item, index) => ({
+          quote_id: savedQuote.id,
+          quote_material_id: materialIdMap.get(item.localMaterialId) || null,
+          room_section: sanitizeOptionalText(item.room),
+          label: item.label,
+          width_mm: item.width,
+          height_mm: item.height,
+          material_label: item.materialLabel,
+          asking_price: item.askingPrice,
+          sort_order: index,
+        })),
+      );
+
+    if (measurementInsertError) {
+      runtime.quoteBusy = false;
+      renderQuoteWorkspace();
+      console.error(measurementInsertError);
+      setQuoteStatus(measurementInsertError.message || "Could not save quote measurements.", true);
+      return;
+    }
+  }
+
+  state.quoteMeta = {
+    id: savedQuote.id,
+    clientName: savedQuote.client_name || "",
+    projectName: savedQuote.project_name || "",
+    quoteReference: savedQuote.quote_reference || "",
+    notes: savedQuote.notes || "",
+    createdAt: savedQuote.created_at || "",
+    updatedAt: savedQuote.updated_at || "",
+  };
+  state.discount = savedQuote.discount ? String(savedQuote.discount) : "";
+  saveState();
+
+  runtime.quoteBusy = false;
+  await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
+  render();
+  setQuoteStatus("Quote saved to Supabase.");
+}
+
+async function loadQuoteById(quoteId) {
+  if (!runtime.session) {
+    setQuoteStatus("Sign in first before loading saved quotes.", true);
+    return;
+  }
+
+  runtime.quoteBusy = true;
+  renderQuoteWorkspace();
+  setQuoteStatus("Loading quote...");
+
+  const [quoteResult, materialsResult, measurementsResult] = await Promise.all([
+    supabase
+      .from("quotes")
+      .select("id, client_name, project_name, quote_reference, notes, discount, created_at, updated_at")
+      .eq("id", quoteId)
+      .single(),
+    supabase
+      .from("quote_materials")
+      .select("id, material_catalog_id, division, category, retail_price, asking_price, sort_order")
+      .eq("quote_id", quoteId)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("quote_measurements")
+      .select("id, quote_material_id, room_section, label, width_mm, height_mm, material_label, asking_price, sort_order")
+      .eq("quote_id", quoteId)
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  runtime.quoteBusy = false;
+
+  if (quoteResult.error || materialsResult.error || measurementsResult.error) {
+    console.error(quoteResult.error || materialsResult.error || measurementsResult.error);
+    setQuoteStatus("Could not load the selected quote.", true);
+    renderQuoteWorkspace();
+    return;
+  }
+
+  const localIdMap = new Map();
+
+  state.quoteMeta = {
+    id: quoteResult.data.id,
+    clientName: quoteResult.data.client_name || "",
+    projectName: quoteResult.data.project_name || "",
+    quoteReference: quoteResult.data.quote_reference || "",
+    notes: quoteResult.data.notes || "",
+    createdAt: quoteResult.data.created_at || "",
+    updatedAt: quoteResult.data.updated_at || "",
+  };
+
+  state.selectedMaterials =
+    materialsResult.data.map((row) => {
+      const localId = createId("material");
+      localIdMap.set(row.id, localId);
+      return {
+        id: localId,
+        sourceKey: findSourceKey(row.material_catalog_id, row.division, row.category),
+        category: row.category,
+        division: row.division || "",
+        retailPrice: row.retail_price === null ? "" : String(row.retail_price),
+        askingPrice: row.asking_price === null ? "" : String(row.asking_price),
+      };
+    }) || [];
+
+  state.measurementRows =
+    measurementsResult.data.map((row) => ({
+      id: createId("measurement"),
+      room: row.room_section || "",
+      label: row.label || "",
+      width: row.width_mm === null ? "" : String(row.width_mm),
+      height: row.height_mm === null ? "" : String(row.height_mm),
+      materialId: localIdMap.get(row.quote_material_id) || "",
+    })) || [];
+
+  state.discount = quoteResult.data.discount ? String(quoteResult.data.discount) : "";
+  ensureStarterRows();
+  saveState();
+  render();
+  setQuoteStatus(`Loaded quote for ${state.quoteMeta.clientName || "client"}.`);
+}
+
+async function deleteQuoteById(quoteId) {
+  if (!runtime.session) {
+    setQuoteStatus("Sign in first before deleting saved quotes.", true);
+    return;
+  }
+
+  const quote = runtime.quoteList.find((item) => item.id === quoteId);
+  const quoteName = quote?.client_name || "this quote";
+
+  if (!window.confirm(`Delete ${quoteName}? This cannot be undone.`)) {
+    return;
+  }
+
+  runtime.quoteBusy = true;
+  renderQuoteWorkspace();
+  setQuoteStatus("Deleting quote...");
+
+  const { error } = await supabase.from("quotes").delete().eq("id", quoteId);
+
+  runtime.quoteBusy = false;
+
+  if (error) {
+    console.error(error);
+    setQuoteStatus(error.message || "Could not delete the quote.", true);
+    renderQuoteWorkspace();
+    return;
+  }
+
+  if (state.quoteMeta.id === quoteId) {
+    resetQuoteDraft();
+  }
+
+  await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
+  saveState();
+  render();
+  setQuoteStatus("Quote deleted.");
+}
+
 function render() {
   renderAuth();
   renderSourceStatus();
+  renderQuoteWorkspace();
   renderMaterials();
   renderMeasurements();
   renderSummary();
@@ -431,8 +843,102 @@ function renderSourceStatus() {
       : "No material source loaded yet.";
 
   refs.syncSupabaseBtn.disabled = !runtime.session || runtime.sourceBusy;
-  refs.addMaterialBtn.disabled = count === 0;
-  refs.addMeasurementBtn.disabled = getConfiguredMaterials().length === 0;
+  refs.addMaterialBtn.disabled = count === 0 || runtime.quoteBusy;
+  refs.addMeasurementBtn.disabled =
+    getConfiguredMaterials().length === 0 || runtime.quoteBusy;
+}
+
+function renderQuoteWorkspace() {
+  refs.quoteClientName.value = state.quoteMeta.clientName;
+  refs.quoteProjectName.value = state.quoteMeta.projectName;
+  refs.quoteReference.value = state.quoteMeta.quoteReference;
+  refs.quoteNotes.value = state.quoteMeta.notes;
+
+  const signedIn = Boolean(runtime.session);
+  refs.quoteClientName.disabled = runtime.quoteBusy;
+  refs.quoteProjectName.disabled = runtime.quoteBusy;
+  refs.quoteReference.disabled = runtime.quoteBusy;
+  refs.quoteNotes.disabled = runtime.quoteBusy;
+  refs.newQuoteBtn.disabled = runtime.quoteBusy;
+  refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
+  refs.refreshQuotesBtn.disabled = !signedIn || runtime.quoteBusy;
+
+  renderQuoteStatus();
+  renderSavedQuotesList();
+}
+
+function renderQuoteStatus() {
+  refs.currentQuoteLabel.textContent = getCurrentQuoteLabel();
+
+  if (!refs.quoteStatus.classList.contains("is-error")) {
+    if (state.quoteMeta.id) {
+      refs.quoteStatus.textContent = state.quoteMeta.updatedAt
+        ? `Editing a saved quote. Last updated ${formatDateTime(state.quoteMeta.updatedAt)}.`
+        : "Editing a saved quote.";
+    } else {
+      refs.quoteStatus.textContent =
+        "Start a new quote for a client, then save it once the measurements are ready.";
+    }
+  }
+}
+
+function renderSavedQuotesList() {
+  refs.savedQuotesCount.textContent = `${runtime.quoteList.length} quote${runtime.quoteList.length === 1 ? "" : "s"}`;
+  refs.savedQuotesList.innerHTML = "";
+
+  if (!runtime.session) {
+    refs.savedQuotesList.append(
+      buildEmptyBlock("Sign in to load and manage saved quotes."),
+    );
+    return;
+  }
+
+  if (runtime.quoteList.length === 0) {
+    refs.savedQuotesList.append(buildEmptyBlock("No saved quotes yet."));
+    return;
+  }
+
+  runtime.quoteList.forEach((quote) => {
+    const card = document.createElement("article");
+    card.className = "saved-quote-card";
+    if (quote.id === state.quoteMeta.id) {
+      card.classList.add("is-active");
+    }
+
+    const meta = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = quote.client_name || "Unnamed client";
+    const subtitle = document.createElement("p");
+    subtitle.textContent = buildQuoteCardSubtitle(quote);
+    const updated = document.createElement("p");
+    updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
+    meta.append(title, subtitle, updated);
+
+    const actions = document.createElement("div");
+    actions.className = "saved-quote-actions";
+
+    const loadButton = document.createElement("button");
+    loadButton.type = "button";
+    loadButton.className = "secondary-button";
+    loadButton.textContent = quote.id === state.quoteMeta.id ? "Loaded" : "Open";
+    loadButton.disabled = runtime.quoteBusy || quote.id === state.quoteMeta.id;
+    loadButton.addEventListener("click", () => {
+      loadQuoteById(quote.id);
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "ghost-danger-button";
+    deleteButton.textContent = "Delete";
+    deleteButton.disabled = runtime.quoteBusy;
+    deleteButton.addEventListener("click", () => {
+      deleteQuoteById(quote.id);
+    });
+
+    actions.append(loadButton, deleteButton);
+    card.append(meta, actions);
+    refs.savedQuotesList.append(card);
+  });
 }
 
 function renderMaterials() {
@@ -468,6 +974,7 @@ function renderMaterials() {
       select.append(option);
     });
 
+    select.disabled = runtime.quoteBusy;
     select.addEventListener("change", (event) => {
       const nextKey = event.target.value;
       const material = state.sourceMaterials.find((item) => item.key === nextKey);
@@ -499,14 +1006,13 @@ function renderMaterials() {
     askingInput.min = "0";
     askingInput.step = "0.01";
     askingInput.placeholder = "0.00";
+    askingInput.disabled = !row.category || runtime.quoteBusy;
 
     const pocketCell = document.createElement("td");
     pocketCell.className = "money-cell";
-    const pocket = getPocketValue(row);
-    pocketCell.textContent = pocket === null ? "PHP 0.00" : formatCurrency(pocket);
+    pocketCell.textContent = formatCurrency(getPocketValue(row) ?? 0);
 
     askingInput.value = row.askingPrice;
-    askingInput.disabled = !row.sourceKey;
     askingInput.addEventListener("input", (event) => {
       row.askingPrice = normalizeInputNumber(event.target.value);
       pocketCell.textContent = formatCurrency(getPocketValue(row) ?? 0);
@@ -523,10 +1029,12 @@ function renderMaterials() {
     removeButton.type = "button";
     removeButton.className = "ghost-danger-button";
     removeButton.textContent = "Remove";
+    removeButton.disabled = runtime.quoteBusy;
     removeButton.addEventListener("click", () => {
       const isUsed = state.measurementRows.some(
         (measurement) => measurement.materialId === row.id,
       );
+
       if (
         isUsed &&
         !window.confirm(
@@ -566,7 +1074,8 @@ function renderMeasurements() {
   }
 
   const configuredMaterials = getConfiguredMaterials();
-  refs.addMeasurementBtn.disabled = configuredMaterials.length === 0;
+  refs.addMeasurementBtn.disabled =
+    configuredMaterials.length === 0 || runtime.quoteBusy;
 
   state.measurementRows.forEach((row) => {
     const tr = document.createElement("tr");
@@ -576,6 +1085,7 @@ function renderMeasurements() {
       buildTextInput({
         value: row.room,
         placeholder: "Living Room",
+        disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.room = value;
           saveState();
@@ -588,6 +1098,7 @@ function renderMeasurements() {
       buildTextInput({
         value: row.label,
         placeholder: "W1",
+        disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.label = value;
           saveState();
@@ -600,6 +1111,7 @@ function renderMeasurements() {
       buildNumberInput({
         value: row.width,
         placeholder: "0",
+        disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.width = value;
           saveState();
@@ -614,6 +1126,7 @@ function renderMeasurements() {
       buildNumberInput({
         value: row.height,
         placeholder: "0",
+        disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.height = value;
           saveState();
@@ -634,7 +1147,7 @@ function renderMeasurements() {
       option.selected = material.id === row.materialId;
       select.append(option);
     });
-    select.disabled = configuredMaterials.length === 0;
+    select.disabled = configuredMaterials.length === 0 || runtime.quoteBusy;
     select.addEventListener("change", (event) => {
       row.materialId = event.target.value;
       saveState();
@@ -667,6 +1180,7 @@ function renderMeasurements() {
     removeButton.type = "button";
     removeButton.className = "ghost-danger-button";
     removeButton.textContent = "Remove";
+    removeButton.disabled = runtime.quoteBusy;
     removeButton.addEventListener("click", () => {
       state.measurementRows = state.measurementRows.filter(
         (measurement) => measurement.id !== row.id,
@@ -697,6 +1211,7 @@ function renderMeasurements() {
 
 function renderSummary() {
   refs.discountInput.value = state.discount;
+  refs.discountInput.disabled = runtime.quoteBusy;
 
   const subtotal = getSubtotal();
   const discount = parseCurrencyLikeNumber(state.discount) || 0;
@@ -711,9 +1226,10 @@ function renderSummary() {
 }
 
 function getConfiguredMaterials() {
-  return state.selectedMaterials.filter(
-    (row) => row.sourceKey && parseCurrencyLikeNumber(row.askingPrice) !== null,
-  );
+  return state.selectedMaterials.filter((row) => {
+    const askingPrice = parseCurrencyLikeNumber(row.askingPrice);
+    return Boolean(row.category) && askingPrice !== null;
+  });
 }
 
 function getPocketValue(materialRow) {
@@ -767,25 +1283,220 @@ function getSubtotal() {
   }, 0);
 }
 
+function validateQuoteForSave() {
+  if (!state.quoteMeta.clientName.trim()) {
+    return { ok: false, message: "Client Name is required before saving a quote." };
+  }
+
+  const materialValidation = getMaterialDraftsForSave(true);
+  if (!materialValidation.ok) {
+    return materialValidation;
+  }
+
+  const measurementValidation = getMeasurementDraftsForSave(true);
+  if (!measurementValidation.ok) {
+    return measurementValidation;
+  }
+
+  return { ok: true };
+}
+
+function getMaterialDraftsForSave(validateOnly = false) {
+  const drafts = [];
+
+  for (const row of state.selectedMaterials) {
+    const hasAnyValue =
+      Boolean(row.sourceKey) ||
+      Boolean(row.category) ||
+      Boolean(row.division) ||
+      row.retailPrice !== "" ||
+      row.askingPrice !== "";
+
+    if (!hasAnyValue) {
+      continue;
+    }
+
+    const retailPrice = parseCurrencyLikeNumber(row.retailPrice);
+    const askingPrice = parseCurrencyLikeNumber(row.askingPrice);
+
+    if (!row.category || retailPrice === null || askingPrice === null) {
+      return {
+        ok: false,
+        message:
+          "Every material row must have a material, retail price, and asking price before saving.",
+      };
+    }
+
+    if (!validateOnly) {
+      const sourceMaterial = state.sourceMaterials.find(
+        (material) => material.key === row.sourceKey,
+      );
+
+      drafts.push({
+        localMaterialId: row.id,
+        catalogId: sourceMaterial?.catalogId || null,
+        division: row.division || sourceMaterial?.division || "",
+        category: row.category,
+        retailPrice,
+        askingPrice,
+      });
+    }
+  }
+
+  return validateOnly ? { ok: true } : drafts;
+}
+
+function getMeasurementDraftsForSave(validateOnly = false) {
+  const drafts = [];
+
+  for (const row of state.measurementRows) {
+    const hasAnyValue =
+      Boolean(row.room) ||
+      Boolean(row.label) ||
+      row.width !== "" ||
+      row.height !== "" ||
+      Boolean(row.materialId);
+
+    if (!hasAnyValue) {
+      continue;
+    }
+
+    const width = parseCurrencyLikeNumber(row.width);
+    const height = parseCurrencyLikeNumber(row.height);
+    const selectedMaterial = state.selectedMaterials.find(
+      (material) => material.id === row.materialId,
+    );
+    const askingPrice = parseCurrencyLikeNumber(selectedMaterial?.askingPrice);
+
+    if (!row.label || width === null || height === null || !selectedMaterial || askingPrice === null) {
+      return {
+        ok: false,
+        message:
+          "Every measurement row must have a label, width, height, and configured material before saving.",
+      };
+    }
+
+    if (!validateOnly) {
+      drafts.push({
+        localMaterialId: selectedMaterial.id,
+        room: row.room,
+        label: row.label.trim(),
+        width,
+        height,
+        materialLabel: selectedMaterial.category,
+        askingPrice,
+      });
+    }
+  }
+
+  return validateOnly ? { ok: true } : drafts;
+}
+
+function findSourceKey(catalogId, division, category) {
+  const byCatalogId = state.sourceMaterials.find(
+    (item) => item.catalogId && item.catalogId === catalogId,
+  );
+  if (byCatalogId) {
+    return byCatalogId.key;
+  }
+
+  const byLabels = state.sourceMaterials.find(
+    (item) => item.category === category && (item.division || "") === (division || ""),
+  );
+
+  return byLabels?.key || "";
+}
+
+function resetQuoteDraft() {
+  state.quoteMeta = getDefaultQuoteMeta();
+  state.discount = "";
+  state.selectedMaterials = [createMaterialSetupRow()];
+  state.measurementRows = [createMeasurementRow()];
+}
+
+function hasMeaningfulDraftChanges() {
+  return Boolean(
+    state.quoteMeta.clientName ||
+      state.quoteMeta.projectName ||
+      state.quoteMeta.quoteReference ||
+      state.quoteMeta.notes ||
+      state.discount ||
+      state.selectedMaterials.some((row) => row.category || row.askingPrice !== "") ||
+      state.measurementRows.some(
+        (row) => row.room || row.label || row.width !== "" || row.height !== "" || row.materialId,
+      ),
+  );
+}
+
+function getCurrentQuoteLabel() {
+  if (state.quoteMeta.clientName.trim()) {
+    return state.quoteMeta.id
+      ? `${state.quoteMeta.clientName} (saved)`
+      : `${state.quoteMeta.clientName} (draft)`;
+  }
+
+  return state.quoteMeta.id ? "Saved quote" : "Unsaved draft";
+}
+
+function buildQuoteCardSubtitle(quote) {
+  const parts = [];
+  if (quote.project_name) {
+    parts.push(quote.project_name);
+  }
+  if (quote.quote_reference) {
+    parts.push(`Ref: ${quote.quote_reference}`);
+  }
+
+  return parts.length > 0 ? parts.join(" • ") : "No project or reference yet.";
+}
+
 function setAuthStatus(message, isError = false) {
   refs.authStatus.textContent = message;
   refs.authStatus.classList.toggle("is-error", isError);
+}
+
+function setQuoteStatus(message, isError = false) {
+  refs.quoteStatus.textContent = message;
+  refs.quoteStatus.classList.toggle("is-error", isError);
 }
 
 function isSupabaseSourceLoaded() {
   return state.sourceLabel === "Supabase material_catalog";
 }
 
-function buildTextInput({ value, placeholder, onInput }) {
+function formatDateTime(value) {
+  if (!value) {
+    return "recently";
+  }
+
+  try {
+    return dateTimeFormatter.format(new Date(value));
+  } catch (_error) {
+    return value;
+  }
+}
+
+function sanitizeOptionalText(value) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function buildTextInput({ value, placeholder, disabled = false, onInput }) {
   const input = document.createElement("input");
   input.type = "text";
   input.value = value;
   input.placeholder = placeholder;
+  input.disabled = disabled;
   input.addEventListener("input", (event) => onInput(event.target.value));
   return input;
 }
 
-function buildNumberInput({ value, placeholder, onInput }) {
+function buildNumberInput({
+  value,
+  placeholder,
+  disabled = false,
+  onInput,
+}) {
   const input = document.createElement("input");
   input.type = "number";
   input.min = "0";
@@ -793,10 +1504,18 @@ function buildNumberInput({ value, placeholder, onInput }) {
   input.inputMode = "decimal";
   input.value = value;
   input.placeholder = placeholder;
+  input.disabled = disabled;
   input.addEventListener("input", (event) =>
     onInput(normalizeInputNumber(event.target.value)),
   );
   return input;
+}
+
+function buildEmptyBlock(copy) {
+  const block = document.createElement("div");
+  block.className = "empty-state-cell";
+  block.textContent = copy;
+  return block;
 }
 
 function normalizeInputNumber(value) {

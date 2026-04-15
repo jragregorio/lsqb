@@ -115,6 +115,129 @@ code {
   margin-bottom: 0.8rem;
 }
 
+.quote-toolbar {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.quote-toolbar-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.quote-badge {
+  min-width: 240px;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: #fff8f2;
+}
+
+.quote-badge span,
+.quote-meta-grid label span,
+.saved-quotes-count {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+}
+
+.quote-badge strong {
+  font-size: 1.1rem;
+}
+
+.quote-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.quote-meta-grid label {
+  display: block;
+  padding: 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: #fff8f2;
+}
+
+.quote-meta-grid input,
+.quote-meta-grid textarea {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #ddcec1;
+  border-radius: 0.8rem;
+  background: #fffdfb;
+  resize: vertical;
+}
+
+.quote-notes-field {
+  grid-column: 1 / -1;
+}
+
+.saved-quotes-shell {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.saved-quotes-heading {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+
+.saved-quotes-heading h3 {
+  margin: 0;
+}
+
+.saved-quotes-count {
+  margin: 0;
+}
+
+.saved-quotes-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.saved-quote-card {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: #fff8f2;
+}
+
+.saved-quote-card.is-active {
+  border-color: #d5b695;
+  background: #f6ebdf;
+}
+
+.saved-quote-card strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.saved-quote-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.saved-quote-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .auth-shell {
   display: flex;
   flex-direction: column;
@@ -356,6 +479,18 @@ code {
     align-items: stretch;
   }
 
+  .quote-toolbar {
+    flex-direction: column;
+  }
+
+  .quote-toolbar-actions {
+    flex-direction: column;
+  }
+
+  .quote-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
   .auth-grid {
     grid-template-columns: 1fr;
   }
@@ -369,5 +504,14 @@ code {
   .secondary-button,
   .file-picker {
     width: 100%;
+  }
+
+  .saved-quote-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .saved-quote-actions {
+    flex-direction: column;
   }
 }

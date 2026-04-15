@@ -99,6 +99,88 @@
       <section class="panel">
         <div class="panel-heading">
           <div>
+            <h2>Quote Workspace</h2>
+            <p class="section-copy">
+              Create a new quote, save it for a client, and reopen it later from
+              the saved quotes list.
+            </p>
+          </div>
+        </div>
+
+        <div class="quote-toolbar">
+          <div class="quote-toolbar-actions">
+            <button id="new-quote-btn" class="secondary-button" type="button">
+              New Quote
+            </button>
+            <button id="save-quote-btn" class="primary-button" type="button">
+              Save Quote
+            </button>
+            <button id="refresh-quotes-btn" class="secondary-button" type="button">
+              Refresh Saved Quotes
+            </button>
+          </div>
+
+          <article class="quote-badge">
+            <span>Current Quote</span>
+            <strong id="current-quote-label">Unsaved draft</strong>
+          </article>
+        </div>
+
+        <div class="quote-meta-grid">
+          <label>
+            <span>Client Name</span>
+            <input
+              id="quote-client-name"
+              type="text"
+              autocomplete="name"
+              placeholder="Client name"
+            />
+          </label>
+
+          <label>
+            <span>Project Name</span>
+            <input
+              id="quote-project-name"
+              type="text"
+              placeholder="Area or project"
+            />
+          </label>
+
+          <label>
+            <span>Quote Reference</span>
+            <input
+              id="quote-reference"
+              type="text"
+              placeholder="Optional reference"
+            />
+          </label>
+
+          <label class="quote-notes-field">
+            <span>Notes</span>
+            <textarea
+              id="quote-notes"
+              rows="3"
+              placeholder="Optional internal notes"
+            ></textarea>
+          </label>
+        </div>
+
+        <p id="quote-status" class="status-text">
+          Start a new quote for a client, then save it once the measurements are ready.
+        </p>
+
+        <div class="saved-quotes-shell">
+          <div class="saved-quotes-heading">
+            <h3>Saved Quotes</h3>
+            <span id="saved-quotes-count" class="saved-quotes-count">0 quotes</span>
+          </div>
+          <div id="saved-quotes-list" class="saved-quotes-list"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
             <h2>Material Setup</h2>
             <p class="section-copy">
               Pick the materials chosen by the client and set the asking price
