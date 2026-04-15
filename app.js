@@ -255,18 +255,11 @@ function loadState() {
       sourceMaterials: Array.isArray(parsed.sourceMaterials)
         ? parsed.sourceMaterials
         : [],
-      quoteMeta: {
-        ...getDefaultQuoteMeta(),
-        ...(parsed.quoteMeta || {}),
-      },
-      selectedMaterials: Array.isArray(parsed.selectedMaterials)
-        ? parsed.selectedMaterials
-        : [],
-      measurementRows: Array.isArray(parsed.measurementRows)
-        ? parsed.measurementRows
-        : [],
-      discountType: parsed.discountType === "percent" ? "percent" : "amount",
-      discountValue: parsed.discountValue ?? parsed.discount ?? "",
+      quoteMeta: getDefaultQuoteMeta(),
+      selectedMaterials: [],
+      measurementRows: [],
+      discountType: "amount",
+      discountValue: "",
     };
   } catch (error) {
     console.error("Failed to restore app state", error);
@@ -932,9 +925,12 @@ function renderQuoteStatus() {
       refs.quoteStatus.textContent = state.quoteMeta.updatedAt
         ? `Editing a saved quote. Last updated ${formatDateTime(state.quoteMeta.updatedAt)}.`
         : "Editing a saved quote.";
+    } else if (hasMeaningfulDraftChanges()) {
+      refs.quoteStatus.textContent =
+        "Working on a new draft. Save it when the client quote is ready.";
     } else {
       refs.quoteStatus.textContent =
-        "Start a new quote for a client, then save it once the measurements are ready.";
+        "No quote loaded yet. Select a saved quote or start a new one.";
     }
   }
 }
@@ -1551,7 +1547,11 @@ function getCurrentQuoteLabel() {
       : `${state.quoteMeta.clientName} (draft)`;
   }
 
-  return state.quoteMeta.id ? "Saved quote" : "Unsaved draft";
+  if (state.quoteMeta.id) {
+    return "Saved quote";
+  }
+
+  return hasMeaningfulDraftChanges() ? "Unsaved draft" : "No quote selected";
 }
 
 function buildQuoteCardSubtitle(quote) {
