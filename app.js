@@ -47,6 +47,8 @@ const refs = {
   addMeasurementBtn: document.querySelector("#add-measurement-btn"),
   discountType: document.querySelector("#discount-type"),
   discountValue: document.querySelector("#discount-value"),
+  floatingFinalTotal: document.querySelector("#floating-final-total"),
+  floatingTotalMeta: document.querySelector("#floating-total-meta"),
 };
 
 const state = loadState();
@@ -361,7 +363,7 @@ async function refreshSavedQuotes({
 
   const { data, error } = await supabase
     .from("quotes")
-    .select("id, client_name, project_name, quote_reference, created_at, updated_at")
+    .select("id, client_name, project_name, quote_reference, final_total_amount, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
   runtime.quoteBusy = false;
@@ -560,6 +562,7 @@ async function handleSaveQuote() {
   runtime.quoteBusy = true;
   renderQuoteWorkspace();
   setQuoteStatus(state.quoteMeta.id ? "Updating quote..." : "Saving quote...");
+  const summaryTotals = getSummaryTotals();
 
   const quotePayload = {
     owner_user_id: runtime.session.user.id,
@@ -567,9 +570,12 @@ async function handleSaveQuote() {
     project_name: sanitizeOptionalText(state.quoteMeta.projectName),
     quote_reference: sanitizeOptionalText(state.quoteMeta.quoteReference),
     notes: sanitizeOptionalText(state.quoteMeta.notes),
-    discount: getAppliedDiscountAmount(),
+    discount: summaryTotals.discountAmount,
     discount_type: state.discountType,
     discount_value: parseCurrencyLikeNumber(state.discountValue) || 0,
+    subtotal_amount: summaryTotals.subtotal,
+    applied_discount_amount: summaryTotals.discountAmount,
+    final_total_amount: summaryTotals.finalTotal,
   };
 
   const quoteQuery = state.quoteMeta.id
@@ -577,12 +583,12 @@ async function handleSaveQuote() {
         .from("quotes")
         .update(quotePayload)
         .eq("id", state.quoteMeta.id)
-        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, created_at, updated_at")
+        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, subtotal_amount, applied_discount_amount, final_total_amount, created_at, updated_at")
         .single()
     : supabase
         .from("quotes")
         .insert(quotePayload)
-        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, created_at, updated_at")
+        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, subtotal_amount, applied_discount_amount, final_total_amount, created_at, updated_at")
         .single();
 
   const { data: savedQuote, error: quoteError } = await quoteQuery;
@@ -723,7 +729,7 @@ async function loadQuoteById(quoteId) {
   const [quoteResult, materialsResult, measurementsResult] = await Promise.all([
     supabase
       .from("quotes")
-      .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, created_at, updated_at")
+      .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, subtotal_amount, applied_discount_amount, final_total_amount, created_at, updated_at")
       .eq("id", quoteId)
       .single(),
     supabase
@@ -934,9 +940,12 @@ function renderSavedQuotesList() {
     title.textContent = quote.client_name || "Unnamed client";
     const subtitle = document.createElement("p");
     subtitle.textContent = buildQuoteCardSubtitle(quote);
+    const total = document.createElement("p");
+    total.className = "saved-quote-total";
+    total.textContent = `Final Total: ${formatCurrency(quote.final_total_amount || 0)}`;
     const updated = document.createElement("p");
     updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
-    meta.append(title, subtitle, updated);
+    meta.append(title, subtitle, total, updated);
 
     const actions = document.createElement("div");
     actions.className = "saved-quote-actions";
@@ -1243,10 +1252,7 @@ function renderSummary() {
   refs.discountValue.step = state.discountType === "percent" ? "0.01" : "0.01";
   refs.discountValue.max = state.discountType === "percent" ? "100" : "";
 
-  const subtotal = getSubtotal();
-  const discountAmount = getAppliedDiscountAmount(subtotal);
-  const finalTotal = Math.max(0, subtotal - discountAmount);
-  const half = finalTotal / 2;
+  const { subtotal, discountAmount, finalTotal, half } = getSummaryTotals();
 
   document.querySelector("#subtotal-value").textContent = formatCurrency(subtotal);
   document.querySelector("#applied-discount-value").textContent =
@@ -1255,6 +1261,8 @@ function renderSummary() {
     formatCurrency(finalTotal);
   document.querySelector("#downpayment-value").textContent = formatCurrency(half);
   document.querySelector("#remaining-value").textContent = formatCurrency(half);
+  refs.floatingFinalTotal.textContent = formatCurrency(finalTotal);
+  refs.floatingTotalMeta.textContent = `Discount ${formatCurrency(discountAmount)} • 50% DP ${formatCurrency(half)}`;
 }
 
 function getConfiguredMaterials() {
@@ -1313,6 +1321,20 @@ function getSubtotal() {
     const cost = getMeasurementCost(row);
     return total + (cost ?? 0);
   }, 0);
+}
+
+function getSummaryTotals() {
+  const subtotal = getSubtotal();
+  const discountAmount = getAppliedDiscountAmount(subtotal);
+  const finalTotal = Math.max(0, subtotal - discountAmount);
+  const half = finalTotal / 2;
+
+  return {
+    subtotal,
+    discountAmount,
+    finalTotal,
+    half,
+  };
 }
 
 function getAppliedDiscountAmount(subtotal = getSubtotal()) {

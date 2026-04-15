@@ -28,6 +28,9 @@ create table if not exists public.quotes (
   discount numeric(12, 2) not null default 0 check (discount >= 0),
   discount_type text not null default 'amount' check (discount_type in ('amount', 'percent')),
   discount_value numeric(12, 2) not null default 0 check (discount_value >= 0),
+  subtotal_amount numeric(12, 2) not null default 0 check (subtotal_amount >= 0),
+  applied_discount_amount numeric(12, 2) not null default 0 check (applied_discount_amount >= 0),
+  final_total_amount numeric(12, 2) not null default 0 check (final_total_amount >= 0),
   notes text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
