@@ -128,7 +128,7 @@ function initializeFloatingTotalVisibility() {
 
   const observer = new IntersectionObserver(
     ([entry]) => {
-      refs.floatingTotalCard.classList.toggle("is-hidden", entry.isIntersecting);
+      updateFloatingTotalVisibility(entry.isIntersecting);
     },
     {
       threshold: 0.15,
@@ -137,6 +137,15 @@ function initializeFloatingTotalVisibility() {
 
   observer.observe(refs.summaryPanel);
   runtime.floatingObserverInitialized = true;
+}
+
+function updateFloatingTotalVisibility(summaryInView = false) {
+  if (!refs.floatingTotalCard) {
+    return;
+  }
+
+  const shouldHide = summaryInView || !hasMeaningfulDraftChanges();
+  refs.floatingTotalCard.classList.toggle("is-hidden", shouldHide);
 }
 
 async function initializeAuth() {
@@ -1286,6 +1295,7 @@ function renderSummary() {
   document.querySelector("#remaining-value").textContent = formatCurrency(half);
   refs.floatingFinalTotal.textContent = formatCurrency(finalTotal);
   refs.floatingTotalMeta.textContent = `Discount ${formatCurrency(discountAmount)} • 50% DP ${formatCurrency(half)}`;
+  updateFloatingTotalVisibility();
 }
 
 function getConfiguredMaterials() {
