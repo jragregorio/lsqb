@@ -47,6 +47,8 @@ const refs = {
   addMeasurementBtn: document.querySelector("#add-measurement-btn"),
   discountType: document.querySelector("#discount-type"),
   discountValue: document.querySelector("#discount-value"),
+  summaryPanel: document.querySelector(".summary-panel"),
+  floatingTotalCard: document.querySelector(".floating-total-card"),
   floatingFinalTotal: document.querySelector("#floating-final-total"),
   floatingTotalMeta: document.querySelector("#floating-total-meta"),
 };
@@ -58,6 +60,7 @@ const runtime = {
   sourceBusy: false,
   quoteBusy: false,
   quoteList: [],
+  floatingObserverInitialized: false,
 };
 
 bootstrap();
@@ -109,7 +112,31 @@ async function bootstrap() {
 
   ensureStarterRows();
   render();
+  initializeFloatingTotalVisibility();
   await initializeAuth();
+}
+
+function initializeFloatingTotalVisibility() {
+  if (
+    runtime.floatingObserverInitialized ||
+    !refs.summaryPanel ||
+    !refs.floatingTotalCard ||
+    typeof IntersectionObserver === "undefined"
+  ) {
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      refs.floatingTotalCard.classList.toggle("is-hidden", entry.isIntersecting);
+    },
+    {
+      threshold: 0.15,
+    },
+  );
+
+  observer.observe(refs.summaryPanel);
+  runtime.floatingObserverInitialized = true;
 }
 
 async function initializeAuth() {
