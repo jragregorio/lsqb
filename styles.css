@@ -37,6 +37,13 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 code {
   padding: 0.15rem 0.35rem;
   border-radius: 0.35rem;
@@ -64,6 +71,10 @@ code {
 .status-text {
   margin: 0;
   color: var(--muted);
+}
+
+.status-text.is-error {
+  color: var(--danger);
 }
 
 .eyebrow {
@@ -102,6 +113,54 @@ code {
   gap: 0.8rem;
   flex-wrap: wrap;
   margin-bottom: 0.8rem;
+}
+
+.auth-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 0.8rem;
+  align-items: end;
+}
+
+.auth-card,
+.auth-session {
+  padding: 0.9rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1rem;
+  background: #fff8f2;
+}
+
+.auth-card span,
+.session-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--muted);
+}
+
+.auth-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+.auth-session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.session-label {
+  margin: 0 0 0.25rem;
+}
+
+.hidden {
+  display: none;
 }
 
 .file-picker,
@@ -293,6 +352,15 @@ code {
   }
 
   .panel-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-session {
     flex-direction: column;
     align-items: stretch;
   }

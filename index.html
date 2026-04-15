@@ -19,8 +19,8 @@
           <p class="eyebrow">JRAG</p>
           <h1>LuxeShade Quote Builder v1.0.0</h1>
           <p class="page-copy">
-            Import the source price list, set client-specific asking prices, then
-            encode measurements to generate a quote.
+            Sign in, load the material catalog, set client-specific asking prices,
+            then encode measurements to generate a quote.
           </p>
         </div>
       </header>
@@ -28,16 +28,60 @@
       <section class="panel">
         <div class="panel-heading">
           <div>
-            <h2>Source File</h2>
+            <h2>Supabase Access</h2>
             <p class="section-copy">
-              Use the CSV master pricelist. Materials come from
-              <code>CATEGORY</code> and retail prices come from
-              <code>FABRIC WITH ACETATE SQFT</code>.
+              Sign in with your approved user account to load the live material
+              catalog from Supabase.
+            </p>
+          </div>
+        </div>
+
+        <div class="auth-shell">
+          <div id="auth-form" class="auth-grid">
+            <div class="auth-card">
+              <span>GitHub Sign-In</span>
+              <p class="auth-copy">
+                Continue with GitHub to access the live Supabase material
+                catalog and future saved quotes.
+              </p>
+            </div>
+
+            <button id="sign-in-btn" class="primary-button" type="button">
+              Continue with GitHub
+            </button>
+          </div>
+
+          <div id="auth-session" class="auth-session hidden">
+            <div>
+              <p class="session-label">Signed in as</p>
+              <strong id="auth-user-email">-</strong>
+            </div>
+            <button id="sign-out-btn" class="secondary-button" type="button">
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        <p id="auth-status" class="status-text">
+          Not signed in yet.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Material Source</h2>
+            <p class="section-copy">
+              Supabase is the primary source. CSV upload remains available as a
+              fallback for offline testing or emergency recovery.
             </p>
           </div>
         </div>
 
         <div class="source-actions">
+          <button id="sync-supabase-btn" class="primary-button" type="button">
+            Load From Supabase
+          </button>
           <label class="file-picker">
             <span>Upload CSV</span>
             <input id="csv-input" type="file" accept=".csv,text/csv" />

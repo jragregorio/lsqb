@@ -1,6 +1,13 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
 const STORAGE_KEY = "luxeshade-quote-builder-v1";
 const SAMPLE_PRICELIST_PATH = "./data/pricelist.csv";
 const MINIMUM_SQUARE_FEET = 15;
+const SUPABASE_URL = "https://pdadkkpizdsdiavziimh.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkYWRra3BpemRzZGlhdnppaW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTgwMDksImV4cCI6MjA5MTgzNDAwOX0.ycNCa_FPKV8z_XWlSxttWyK46cviIwRok6oyJCFePFo";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const currencyFormatter = new Intl.NumberFormat("en-PH", {
   style: "currency",
@@ -8,6 +15,13 @@ const currencyFormatter = new Intl.NumberFormat("en-PH", {
 });
 
 const refs = {
+  authForm: document.querySelector("#auth-form"),
+  authSession: document.querySelector("#auth-session"),
+  authStatus: document.querySelector("#auth-status"),
+  authUserEmail: document.querySelector("#auth-user-email"),
+  signInBtn: document.querySelector("#sign-in-btn"),
+  signOutBtn: document.querySelector("#sign-out-btn"),
+  syncSupabaseBtn: document.querySelector("#sync-supabase-btn"),
   csvInput: document.querySelector("#csv-input"),
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
@@ -19,10 +33,15 @@ const refs = {
 };
 
 const state = loadState();
+const runtime = {
+  session: null,
+  authBusy: false,
+  sourceBusy: false,
+};
 
 bootstrap();
 
-function bootstrap() {
+async function bootstrap() {
   refs.csvInput.addEventListener("change", handleCsvUpload);
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
@@ -32,9 +51,53 @@ function bootstrap() {
     saveState();
     renderSummary();
   });
+  refs.signInBtn.addEventListener("click", handleSignIn);
+  refs.signOutBtn.addEventListener("click", handleSignOut);
+  refs.syncSupabaseBtn.addEventListener("click", () =>
+    loadMaterialsFromSupabase({ showAlertOnFailure: true }),
+  );
 
   ensureStarterRows();
   render();
+  await initializeAuth();
+}
+
+async function initializeAuth() {
+  setAuthStatus("Checking existing session...");
+
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error(error);
+    setAuthStatus("Could not check Supabase session.", true);
+    renderSourceStatus();
+    return;
+  }
+
+  applySession(session);
+
+  supabase.auth.onAuthStateChange(async (_event, sessionState) => {
+    applySession(sessionState);
+    if (sessionState && !isSupabaseSourceLoaded()) {
+      await loadMaterialsFromSupabase({ showAlertOnFailure: false });
+    }
+  });
+
+  if (session) {
+    await loadMaterialsFromSupabase({ showAlertOnFailure: false });
+  }
+}
+
+function applySession(session) {
+  runtime.session = session;
+  if (!session) {
+    setAuthStatus("Not signed in yet.");
+  }
+  renderAuth();
+  renderSourceStatus();
 }
 
 function ensureStarterRows() {
@@ -118,6 +181,87 @@ function saveState() {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+async function handleSignIn() {
+  runtime.authBusy = true;
+  renderAuth();
+  setAuthStatus("Redirecting to GitHub sign-in...");
+
+  const redirectTo = window.location.href.split("#")[0];
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "github",
+    options: {
+      redirectTo,
+    },
+  });
+
+  runtime.authBusy = false;
+  renderAuth();
+
+  if (error) {
+    console.error(error);
+    setAuthStatus(error.message || "GitHub sign in failed.", true);
+  }
+}
+
+async function handleSignOut() {
+  runtime.authBusy = true;
+  renderAuth();
+
+  const { error } = await supabase.auth.signOut();
+
+  runtime.authBusy = false;
+  renderAuth();
+
+  if (error) {
+    console.error(error);
+    setAuthStatus(error.message || "Sign out failed.", true);
+    return;
+  }
+
+  setAuthStatus("Signed out. Supabase sync is disabled until you sign in.");
+}
+
+async function loadMaterialsFromSupabase({ showAlertOnFailure }) {
+  if (!runtime.session) {
+    setAuthStatus("Sign in first before loading from Supabase.", true);
+    return;
+  }
+
+  runtime.sourceBusy = true;
+  renderSourceStatus();
+  setAuthStatus("Loading material catalog from Supabase...");
+
+  const { data, error } = await supabase
+    .from("material_catalog")
+    .select("division, category, retail_price")
+    .order("division", { ascending: true })
+    .order("category", { ascending: true });
+
+  runtime.sourceBusy = false;
+
+  if (error) {
+    console.error(error);
+    setAuthStatus(error.message || "Could not load material catalog.", true);
+    renderSourceStatus();
+    if (showAlertOnFailure) {
+      window.alert("Supabase materials could not be loaded. Check the auth user.");
+    }
+    return;
+  }
+
+  state.sourceMaterials = data.map((row) => ({
+    key: `${row.division || ""}::${row.category}`,
+    category: row.category,
+    division: row.division || "",
+    retailPrice: Number(row.retail_price),
+  }));
+  state.sourceLabel = "Supabase material_catalog";
+  sanitizeSelectionsAfterSourceLoad();
+  saveState();
+  render();
+  setAuthStatus(`Signed in and synced ${data.length} materials from Supabase.`);
+}
+
 async function handleCsvUpload(event) {
   const [file] = event.target.files || [];
   if (!file) {
@@ -175,20 +319,26 @@ function hydrateSourceMaterials(csvText, sourceLabel) {
     throw new Error("CSV is missing one or more required columns.");
   }
 
+  let activeDivision = "";
+
   state.sourceMaterials = dataRows
     .map((row) => {
       const category = (row[categoryIndex] || "").trim();
-      const division = (row[divisionIndex] || "").trim();
+      const divisionCell = (row[divisionIndex] || "").trim();
       const retailPrice = parseCurrencyLikeNumber(row[retailIndex]);
+
+      if (divisionCell) {
+        activeDivision = divisionCell;
+      }
 
       if (!category || retailPrice === null) {
         return null;
       }
 
       return {
-        key: `${division}::${category}`,
+        key: `${activeDivision}::${category}`,
         category,
-        division,
+        division: activeDivision,
         retailPrice,
       };
     })
@@ -229,7 +379,7 @@ function sanitizeMeasurementMaterialSelections() {
 
 function handleAddMaterial() {
   if (state.sourceMaterials.length === 0) {
-    window.alert("Load the source CSV first before adding materials.");
+    window.alert("Load materials from Supabase or CSV first before adding rows.");
     return;
   }
 
@@ -252,10 +402,25 @@ function handleAddMeasurement() {
 }
 
 function render() {
+  renderAuth();
   renderSourceStatus();
   renderMaterials();
   renderMeasurements();
   renderSummary();
+}
+
+function renderAuth() {
+  const signedIn = Boolean(runtime.session);
+
+  refs.authForm.classList.toggle("hidden", signedIn);
+  refs.authSession.classList.toggle("hidden", !signedIn);
+  refs.authUserEmail.textContent = runtime.session?.user?.email || "-";
+
+  refs.signInBtn.disabled = runtime.authBusy;
+  refs.signOutBtn.disabled = runtime.authBusy;
+  refs.signInBtn.textContent = runtime.authBusy
+    ? "Redirecting..."
+    : "Continue with GitHub";
 }
 
 function renderSourceStatus() {
@@ -263,8 +428,9 @@ function renderSourceStatus() {
   refs.csvStatus.textContent =
     count > 0
       ? `${state.sourceLabel} loaded with ${count} material options.`
-      : "No source file loaded yet.";
+      : "No material source loaded yet.";
 
+  refs.syncSupabaseBtn.disabled = !runtime.session || runtime.sourceBusy;
   refs.addMaterialBtn.disabled = count === 0;
   refs.addMeasurementBtn.disabled = getConfiguredMaterials().length === 0;
 }
@@ -333,6 +499,7 @@ function renderMaterials() {
     askingInput.min = "0";
     askingInput.step = "0.01";
     askingInput.placeholder = "0.00";
+
     const pocketCell = document.createElement("td");
     pocketCell.className = "money-cell";
     const pocket = getPocketValue(row);
@@ -598,6 +765,15 @@ function getSubtotal() {
     const cost = getMeasurementCost(row);
     return total + (cost ?? 0);
   }, 0);
+}
+
+function setAuthStatus(message, isError = false) {
+  refs.authStatus.textContent = message;
+  refs.authStatus.classList.toggle("is-error", isError);
+}
+
+function isSupabaseSourceLoaded() {
+  return state.sourceLabel === "Supabase material_catalog";
 }
 
 function buildTextInput({ value, placeholder, onInput }) {
