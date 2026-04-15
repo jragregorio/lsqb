@@ -346,6 +346,15 @@ code {
   border-radius: 1rem;
 }
 
+.table-actions {
+  margin-top: 0.9rem;
+  display: flex;
+}
+
+.table-actions-right {
+  justify-content: flex-end;
+}
+
 .data-table {
   width: 100%;
   min-width: 860px;
