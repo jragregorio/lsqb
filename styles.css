@@ -459,7 +459,8 @@ code {
   font-size: 1.35rem;
 }
 
-.summary-input-card input {
+.summary-input-card input,
+.summary-input-card select {
   margin-top: auto;
   min-height: 2.9rem;
   padding: 0.7rem 0.8rem;

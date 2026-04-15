@@ -45,7 +45,8 @@ const refs = {
   measurementBody: document.querySelector("#measurement-body"),
   addMaterialBtn: document.querySelector("#add-material-btn"),
   addMeasurementBtn: document.querySelector("#add-measurement-btn"),
-  discountInput: document.querySelector("#discount-input"),
+  discountType: document.querySelector("#discount-type"),
+  discountValue: document.querySelector("#discount-value"),
 };
 
 const state = loadState();
@@ -64,8 +65,13 @@ async function bootstrap() {
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
   refs.addMeasurementBtn.addEventListener("click", handleAddMeasurement);
-  refs.discountInput.addEventListener("input", (event) => {
-    state.discount = normalizeInputNumber(event.target.value);
+  refs.discountType.addEventListener("change", (event) => {
+    state.discountType = event.target.value === "percent" ? "percent" : "amount";
+    saveState();
+    renderSummary();
+  });
+  refs.discountValue.addEventListener("input", (event) => {
+    state.discountValue = normalizeInputNumber(event.target.value);
     saveState();
     renderSummary();
   });
@@ -230,7 +236,8 @@ function loadState() {
       measurementRows: Array.isArray(parsed.measurementRows)
         ? parsed.measurementRows
         : [],
-      discount: parsed.discount ?? "",
+      discountType: parsed.discountType === "percent" ? "percent" : "amount",
+      discountValue: parsed.discountValue ?? parsed.discount ?? "",
     };
   } catch (error) {
     console.error("Failed to restore app state", error);
@@ -245,7 +252,8 @@ function getDefaultState() {
     quoteMeta: getDefaultQuoteMeta(),
     selectedMaterials: [],
     measurementRows: [],
-    discount: "",
+    discountType: "amount",
+    discountValue: "",
   };
 }
 
@@ -559,7 +567,9 @@ async function handleSaveQuote() {
     project_name: sanitizeOptionalText(state.quoteMeta.projectName),
     quote_reference: sanitizeOptionalText(state.quoteMeta.quoteReference),
     notes: sanitizeOptionalText(state.quoteMeta.notes),
-    discount: parseCurrencyLikeNumber(state.discount) || 0,
+    discount: getAppliedDiscountAmount(),
+    discount_type: state.discountType,
+    discount_value: parseCurrencyLikeNumber(state.discountValue) || 0,
   };
 
   const quoteQuery = state.quoteMeta.id
@@ -567,12 +577,12 @@ async function handleSaveQuote() {
         .from("quotes")
         .update(quotePayload)
         .eq("id", state.quoteMeta.id)
-        .select("id, client_name, project_name, quote_reference, notes, discount, created_at, updated_at")
+        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, created_at, updated_at")
         .single()
     : supabase
         .from("quotes")
         .insert(quotePayload)
-        .select("id, client_name, project_name, quote_reference, notes, discount, created_at, updated_at")
+        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, created_at, updated_at")
         .single();
 
   const { data: savedQuote, error: quoteError } = await quoteQuery;
@@ -685,7 +695,13 @@ async function handleSaveQuote() {
     createdAt: savedQuote.created_at || "",
     updatedAt: savedQuote.updated_at || "",
   };
-  state.discount = savedQuote.discount ? String(savedQuote.discount) : "";
+  state.discountType = savedQuote.discount_type === "percent" ? "percent" : "amount";
+  state.discountValue =
+    savedQuote.discount_value !== null && savedQuote.discount_value !== undefined
+      ? String(savedQuote.discount_value)
+      : savedQuote.discount
+        ? String(savedQuote.discount)
+        : "";
   saveState();
 
   runtime.quoteBusy = false;
@@ -707,7 +723,7 @@ async function loadQuoteById(quoteId) {
   const [quoteResult, materialsResult, measurementsResult] = await Promise.all([
     supabase
       .from("quotes")
-      .select("id, client_name, project_name, quote_reference, notes, discount, created_at, updated_at")
+      .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, created_at, updated_at")
       .eq("id", quoteId)
       .single(),
     supabase
@@ -767,7 +783,15 @@ async function loadQuoteById(quoteId) {
       materialId: localIdMap.get(row.quote_material_id) || "",
     })) || [];
 
-  state.discount = quoteResult.data.discount ? String(quoteResult.data.discount) : "";
+  state.discountType =
+    quoteResult.data.discount_type === "percent" ? "percent" : "amount";
+  state.discountValue =
+    quoteResult.data.discount_value !== null &&
+    quoteResult.data.discount_value !== undefined
+      ? String(quoteResult.data.discount_value)
+      : quoteResult.data.discount
+        ? String(quoteResult.data.discount)
+        : "";
   ensureStarterRows();
   saveState();
   render();
@@ -1210,15 +1234,23 @@ function renderMeasurements() {
 }
 
 function renderSummary() {
-  refs.discountInput.value = state.discount;
-  refs.discountInput.disabled = runtime.quoteBusy;
+  refs.discountType.value = state.discountType;
+  refs.discountValue.value = state.discountValue;
+  refs.discountType.disabled = runtime.quoteBusy;
+  refs.discountValue.disabled = runtime.quoteBusy;
+  refs.discountValue.placeholder =
+    state.discountType === "percent" ? "0-100" : "0.00";
+  refs.discountValue.step = state.discountType === "percent" ? "0.01" : "0.01";
+  refs.discountValue.max = state.discountType === "percent" ? "100" : "";
 
   const subtotal = getSubtotal();
-  const discount = parseCurrencyLikeNumber(state.discount) || 0;
-  const finalTotal = Math.max(0, subtotal - discount);
+  const discountAmount = getAppliedDiscountAmount(subtotal);
+  const finalTotal = Math.max(0, subtotal - discountAmount);
   const half = finalTotal / 2;
 
   document.querySelector("#subtotal-value").textContent = formatCurrency(subtotal);
+  document.querySelector("#applied-discount-value").textContent =
+    formatCurrency(discountAmount);
   document.querySelector("#final-total-value").textContent =
     formatCurrency(finalTotal);
   document.querySelector("#downpayment-value").textContent = formatCurrency(half);
@@ -1283,9 +1315,43 @@ function getSubtotal() {
   }, 0);
 }
 
+function getAppliedDiscountAmount(subtotal = getSubtotal()) {
+  const rawDiscountValue = parseCurrencyLikeNumber(state.discountValue) || 0;
+
+  if (rawDiscountValue <= 0 || subtotal <= 0) {
+    return 0;
+  }
+
+  if (state.discountType === "percent") {
+    const boundedPercent = Math.min(Math.max(rawDiscountValue, 0), 100);
+    return subtotal * (boundedPercent / 100);
+  }
+
+  return Math.min(Math.max(rawDiscountValue, 0), subtotal);
+}
+
 function validateQuoteForSave() {
   if (!state.quoteMeta.clientName.trim()) {
     return { ok: false, message: "Client Name is required before saving a quote." };
+  }
+
+  const discountValue = parseCurrencyLikeNumber(state.discountValue) || 0;
+  if (discountValue < 0) {
+    return { ok: false, message: "Discount cannot be negative." };
+  }
+
+  if (state.discountType === "percent" && discountValue > 100) {
+    return {
+      ok: false,
+      message: "Percent discount must be between 0 and 100.",
+    };
+  }
+
+  if (state.discountType === "amount" && discountValue > getSubtotal()) {
+    return {
+      ok: false,
+      message: "Amount discount cannot exceed the subtotal.",
+    };
   }
 
   const materialValidation = getMaterialDraftsForSave(true);
@@ -1409,7 +1475,8 @@ function findSourceKey(catalogId, division, category) {
 
 function resetQuoteDraft() {
   state.quoteMeta = getDefaultQuoteMeta();
-  state.discount = "";
+  state.discountType = "amount";
+  state.discountValue = "";
   state.selectedMaterials = [createMaterialSetupRow()];
   state.measurementRows = [createMeasurementRow()];
 }
@@ -1420,7 +1487,7 @@ function hasMeaningfulDraftChanges() {
       state.quoteMeta.projectName ||
       state.quoteMeta.quoteReference ||
       state.quoteMeta.notes ||
-      state.discount ||
+      state.discountValue ||
       state.selectedMaterials.some((row) => row.category || row.askingPrice !== "") ||
       state.measurementRows.some(
         (row) => row.room || row.label || row.width !== "" || row.height !== "" || row.materialId,

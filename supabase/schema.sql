@@ -26,6 +26,8 @@ create table if not exists public.quotes (
   project_name text,
   quote_reference text,
   discount numeric(12, 2) not null default 0 check (discount >= 0),
+  discount_type text not null default 'amount' check (discount_type in ('amount', 'percent')),
+  discount_value numeric(12, 2) not null default 0 check (discount_value >= 0),
   notes text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
