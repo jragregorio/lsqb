@@ -1102,16 +1102,21 @@ function scrollSavedQuoteIntoView(quoteId) {
   }
 
   const scrollPadding = 12;
-  const cardTop = card.offsetTop;
-  const cardBottom = cardTop + card.offsetHeight;
+  const containerRect = container.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const cardTop = cardRect.top - containerRect.top + container.scrollTop;
+  const cardBottom = cardRect.bottom - containerRect.top + container.scrollTop;
+  const cardHeight = cardBottom - cardTop;
   const viewTop = container.scrollTop;
   const viewBottom = viewTop + container.clientHeight;
   const availableHeight = Math.max(container.clientHeight - scrollPadding * 2, 0);
 
   let nextScrollTop = viewTop;
 
-  if (card.offsetHeight >= availableHeight) {
-    nextScrollTop = Math.max(cardTop - scrollPadding, 0);
+  if (cardHeight > availableHeight) {
+    if (cardTop - scrollPadding < viewTop || cardBottom + scrollPadding > viewBottom) {
+      nextScrollTop = Math.max(cardTop - scrollPadding, 0);
+    }
   } else if (cardTop - scrollPadding < viewTop) {
     nextScrollTop = Math.max(cardTop - scrollPadding, 0);
   } else if (cardBottom + scrollPadding > viewBottom) {
