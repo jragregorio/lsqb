@@ -207,10 +207,10 @@ code {
 }
 
 .saved-quote-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(180px, 220px) auto;
   gap: 1rem;
   align-items: center;
-  justify-content: space-between;
   padding: 1rem;
   border: 1px solid var(--panel-border);
   border-radius: 1rem;
@@ -222,9 +222,14 @@ code {
   background: #f6ebdf;
 }
 
+.saved-quote-identity {
+  min-width: 0;
+}
+
 .saved-quote-card strong {
   display: block;
   margin-bottom: 0.25rem;
+  font-size: 1rem;
 }
 
 .saved-quote-card p {
@@ -232,10 +237,20 @@ code {
   color: var(--muted);
 }
 
+.saved-quote-stats {
+  text-align: right;
+}
+
 .saved-quote-total {
-  margin-top: 0.45rem;
+  margin: 0;
   font-weight: 700;
   color: #4a392d;
+  font-size: 1.05rem;
+}
+
+.saved-quote-updated {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
 }
 
 .saved-quote-actions {
@@ -567,8 +582,12 @@ code {
   }
 
   .saved-quote-card {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .saved-quote-stats {
+    text-align: left;
   }
 
   .saved-quote-actions {

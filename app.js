@@ -967,17 +967,23 @@ function renderSavedQuotesList() {
       card.classList.add("is-active");
     }
 
-    const meta = document.createElement("div");
+    const identity = document.createElement("div");
+    identity.className = "saved-quote-identity";
     const title = document.createElement("strong");
     title.textContent = quote.client_name || "Unnamed client";
     const subtitle = document.createElement("p");
     subtitle.textContent = buildQuoteCardSubtitle(quote);
+    identity.append(title, subtitle);
+
+    const stats = document.createElement("div");
+    stats.className = "saved-quote-stats";
     const total = document.createElement("p");
     total.className = "saved-quote-total";
-    total.textContent = `Final Total: ${formatCurrency(quote.final_total_amount || 0)}`;
+    total.textContent = formatCurrency(quote.final_total_amount || 0);
     const updated = document.createElement("p");
+    updated.className = "saved-quote-updated";
     updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
-    meta.append(title, subtitle, total, updated);
+    stats.append(total, updated);
 
     const actions = document.createElement("div");
     actions.className = "saved-quote-actions";
@@ -1001,7 +1007,7 @@ function renderSavedQuotesList() {
     });
 
     actions.append(loadButton, deleteButton);
-    card.append(meta, actions);
+    card.append(identity, stats, actions);
     refs.savedQuotesList.append(card);
   });
 }
