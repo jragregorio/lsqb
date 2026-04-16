@@ -981,6 +981,7 @@ function renderSavedQuotesList() {
     const isExpanded = quote.id === runtime.expandedQuoteId;
     const card = document.createElement("article");
     card.className = "saved-quote-card";
+    card.dataset.quoteId = quote.id;
     if (quote.id === state.quoteMeta.id) {
       card.classList.add("is-active");
     }
@@ -997,8 +998,12 @@ function renderSavedQuotesList() {
       isExpanded ? "true" : "false",
     );
     header.addEventListener("click", () => {
-      runtime.expandedQuoteId = runtime.expandedQuoteId === quote.id ? "" : quote.id;
+      const willExpand = runtime.expandedQuoteId !== quote.id;
+      runtime.expandedQuoteId = willExpand ? quote.id : "";
       renderSavedQuotesList();
+      if (willExpand) {
+        queueSavedQuoteScrollIntoView(quote.id);
+      }
     });
 
     const title = document.createElement("strong");
@@ -1070,6 +1075,58 @@ function renderSavedQuotesList() {
     card.append(header, details);
     refs.savedQuotesList.append(card);
   });
+}
+
+function queueSavedQuoteScrollIntoView(quoteId) {
+  if (!quoteId || !refs.savedQuotesList) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scrollSavedQuoteIntoView(quoteId);
+    });
+  });
+}
+
+function scrollSavedQuoteIntoView(quoteId) {
+  if (!quoteId || !refs.savedQuotesList) {
+    return;
+  }
+
+  const container = refs.savedQuotesList;
+  const card = container.querySelector(`[data-quote-id="${quoteId}"]`);
+
+  if (!card) {
+    return;
+  }
+
+  const scrollPadding = 12;
+  const cardTop = card.offsetTop;
+  const cardBottom = cardTop + card.offsetHeight;
+  const viewTop = container.scrollTop;
+  const viewBottom = viewTop + container.clientHeight;
+  const availableHeight = Math.max(container.clientHeight - scrollPadding * 2, 0);
+
+  let nextScrollTop = viewTop;
+
+  if (card.offsetHeight >= availableHeight) {
+    nextScrollTop = Math.max(cardTop - scrollPadding, 0);
+  } else if (cardTop - scrollPadding < viewTop) {
+    nextScrollTop = Math.max(cardTop - scrollPadding, 0);
+  } else if (cardBottom + scrollPadding > viewBottom) {
+    nextScrollTop = Math.max(
+      cardBottom - container.clientHeight + scrollPadding,
+      0,
+    );
+  }
+
+  if (Math.abs(nextScrollTop - viewTop) > 1) {
+    container.scrollTo({
+      top: nextScrollTop,
+      behavior: "smooth",
+    });
+  }
 }
 
 function renderMaterials() {
