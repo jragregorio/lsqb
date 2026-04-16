@@ -60,6 +60,8 @@ const refs = {
 };
 
 const state = loadState();
+const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 100;
+
 const runtime = {
   session: null,
   authBusy: false,
@@ -86,6 +88,7 @@ async function bootstrap() {
     setAdminDrawerOpen(false);
   });
   document.addEventListener("keydown", handleGlobalKeydown);
+  window.addEventListener("scroll", handleWindowScroll, { passive: true });
   refs.csvInput.addEventListener("change", handleCsvUpload);
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
@@ -159,6 +162,10 @@ function handleGlobalKeydown(event) {
   if (event.key === "Escape" && runtime.adminDrawerOpen) {
     setAdminDrawerOpen(false);
   }
+}
+
+function handleWindowScroll() {
+  renderActiveQuoteBar();
 }
 
 function setAdminDrawerOpen(isOpen) {
@@ -984,7 +991,9 @@ function renderActiveQuoteBar() {
   }
 
   const hasLoadedQuote = Boolean(state.quoteMeta.id);
-  refs.activeQuoteBar.classList.toggle("hidden", !hasLoadedQuote);
+  const shouldShow =
+    hasLoadedQuote && window.scrollY > ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y;
+  refs.activeQuoteBar.classList.toggle("hidden", !shouldShow);
   refs.activeQuoteTitle.textContent = hasLoadedQuote
     ? buildActiveQuoteTitle()
     : "-";
