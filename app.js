@@ -20,6 +20,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
 });
 
 const refs = {
+  savedQuotesMenuBtn: document.querySelector("#saved-quotes-menu-btn"),
+  savedQuotesDrawer: document.querySelector("#saved-quotes-drawer"),
+  savedQuotesDrawerBackdrop: document.querySelector("#saved-quotes-drawer-backdrop"),
+  savedQuotesDrawerCloseBtn: document.querySelector("#saved-quotes-drawer-close-btn"),
   adminMenuBtn: document.querySelector("#admin-menu-btn"),
   adminDrawer: document.querySelector("#admin-tools-drawer"),
   adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
@@ -73,6 +77,7 @@ const runtime = {
   quoteList: [],
   floatingObserverInitialized: false,
   expandedQuoteId: "",
+  savedQuotesDrawerOpen: false,
   adminDrawerOpen: false,
   loadedQuoteFingerprint: "",
   quoteWorkspaceActive: false,
@@ -81,6 +86,15 @@ const runtime = {
 bootstrap();
 
 async function bootstrap() {
+  refs.savedQuotesMenuBtn?.addEventListener("click", () => {
+    setSavedQuotesDrawerOpen(!runtime.savedQuotesDrawerOpen);
+  });
+  refs.savedQuotesDrawerCloseBtn?.addEventListener("click", () => {
+    setSavedQuotesDrawerOpen(false);
+  });
+  refs.savedQuotesDrawerBackdrop?.addEventListener("click", () => {
+    setSavedQuotesDrawerOpen(false);
+  });
   refs.adminMenuBtn?.addEventListener("click", () => {
     setAdminDrawerOpen(!runtime.adminDrawerOpen);
   });
@@ -162,7 +176,15 @@ function initializeFloatingTotalVisibility() {
 }
 
 function handleGlobalKeydown(event) {
-  if (event.key === "Escape" && runtime.adminDrawerOpen) {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (runtime.savedQuotesDrawerOpen) {
+    setSavedQuotesDrawerOpen(false);
+  }
+
+  if (runtime.adminDrawerOpen) {
     setAdminDrawerOpen(false);
   }
 }
@@ -171,8 +193,49 @@ function handleWindowScroll() {
   renderActiveQuoteBar();
 }
 
+function setSavedQuotesDrawerOpen(isOpen) {
+  runtime.savedQuotesDrawerOpen = Boolean(isOpen);
+  if (runtime.savedQuotesDrawerOpen) {
+    runtime.adminDrawerOpen = false;
+  }
+  renderSavedQuotesDrawer();
+  renderAdminDrawer();
+}
+
+function renderSavedQuotesDrawer() {
+  if (
+    !refs.savedQuotesDrawer ||
+    !refs.savedQuotesDrawerBackdrop ||
+    !refs.savedQuotesMenuBtn
+  ) {
+    return;
+  }
+
+  refs.savedQuotesMenuBtn.setAttribute(
+    "aria-expanded",
+    runtime.savedQuotesDrawerOpen ? "true" : "false",
+  );
+  refs.savedQuotesDrawer.setAttribute(
+    "aria-hidden",
+    runtime.savedQuotesDrawerOpen ? "false" : "true",
+  );
+  refs.savedQuotesDrawer.classList.toggle("is-open", runtime.savedQuotesDrawerOpen);
+  refs.savedQuotesDrawerBackdrop.classList.toggle(
+    "hidden",
+    !runtime.savedQuotesDrawerOpen,
+  );
+  document.body.classList.toggle(
+    "admin-drawer-open",
+    runtime.adminDrawerOpen || runtime.savedQuotesDrawerOpen,
+  );
+}
+
 function setAdminDrawerOpen(isOpen) {
   runtime.adminDrawerOpen = Boolean(isOpen);
+  if (runtime.adminDrawerOpen) {
+    runtime.savedQuotesDrawerOpen = false;
+  }
+  renderSavedQuotesDrawer();
   renderAdminDrawer();
 }
 
@@ -191,7 +254,10 @@ function renderAdminDrawer() {
   );
   refs.adminDrawer.classList.toggle("is-open", runtime.adminDrawerOpen);
   refs.adminDrawerBackdrop.classList.toggle("hidden", !runtime.adminDrawerOpen);
-  document.body.classList.toggle("admin-drawer-open", runtime.adminDrawerOpen);
+  document.body.classList.toggle(
+    "admin-drawer-open",
+    runtime.adminDrawerOpen || runtime.savedQuotesDrawerOpen,
+  );
 }
 
 function updateFloatingTotalVisibility(summaryInView = false) {
@@ -669,6 +735,7 @@ function handleNewQuote() {
     return;
   }
 
+  setSavedQuotesDrawerOpen(false);
   runtime.quoteWorkspaceActive = true;
   resetQuoteDraft();
   saveState();
@@ -933,6 +1000,7 @@ async function loadQuoteById(quoteId) {
   runtime.expandedQuoteId = quoteId;
   runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
   runtime.quoteWorkspaceActive = true;
+  setSavedQuotesDrawerOpen(false);
   saveState();
   render();
   setQuoteStatus(`Loaded quote for ${state.quoteMeta.clientName || "client"}.`);
@@ -983,6 +1051,7 @@ async function deleteQuoteById(quoteId) {
 
 function render() {
   renderActiveQuoteBar();
+  renderSavedQuotesDrawer();
   renderAdminDrawer();
   renderAuth();
   renderSourceStatus();

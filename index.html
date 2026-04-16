@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LuxeShade Quote Builder v2.9.6</title>
+    <title>LuxeShade Quote Builder v3.0.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,28 +15,44 @@
   <body>
     <main class="app-shell">
       <header class="page-header">
+        <div class="page-header-toolbar">
+          <button
+            id="saved-quotes-menu-btn"
+            class="secondary-button header-menu-button"
+            type="button"
+            aria-expanded="false"
+            aria-controls="saved-quotes-drawer"
+          >
+            <span class="header-menu-icon" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+            <span>Saved Quotes</span>
+          </button>
+          <button
+            id="admin-menu-btn"
+            class="secondary-button header-menu-button"
+            type="button"
+            aria-expanded="false"
+            aria-controls="admin-tools-drawer"
+          >
+            <span class="header-menu-icon" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+            <span>Admin Tools</span>
+          </button>
+        </div>
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>LuxeShade Quote Builder v2.9.6</h1>
+          <h1>LuxeShade Quote Builder v3.0.0</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
           </p>
         </div>
-        <button
-          id="admin-menu-btn"
-          class="secondary-button header-menu-button"
-          type="button"
-          aria-expanded="false"
-          aria-controls="admin-tools-drawer"
-        >
-          <span class="header-menu-icon" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-          </span>
-          <span>Admin Tools</span>
-        </button>
       </header>
 
       <section id="active-quote-bar" class="active-quote-bar hidden">
@@ -50,6 +66,37 @@
           </button>
         </div>
       </section>
+
+      <div id="saved-quotes-drawer-backdrop" class="drawer-backdrop hidden"></div>
+      <aside id="saved-quotes-drawer" class="saved-quotes-drawer" aria-hidden="true">
+        <div class="saved-quotes-drawer-shell">
+          <div class="saved-quotes-drawer-header">
+            <div>
+              <p class="eyebrow">Quotes</p>
+              <h2>Saved Quotes</h2>
+            </div>
+            <button
+              id="saved-quotes-drawer-close-btn"
+              class="secondary-button saved-quotes-drawer-close"
+              type="button"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="saved-quotes-drawer-actions">
+            <span id="saved-quotes-count" class="saved-quotes-count">0 quotes</span>
+            <button id="refresh-quotes-btn" class="secondary-button" type="button">
+              Refresh Saved Quotes
+            </button>
+          </div>
+
+          <div
+            id="saved-quotes-list"
+            class="saved-quotes-list saved-quotes-drawer-list"
+          ></div>
+        </div>
+      </aside>
 
       <div id="admin-drawer-backdrop" class="drawer-backdrop hidden"></div>
       <aside id="admin-tools-drawer" class="admin-drawer" aria-hidden="true">
@@ -165,9 +212,6 @@
             <button id="save-quote-btn" class="primary-button" type="button">
               Save Quote
             </button>
-            <button id="refresh-quotes-btn" class="secondary-button" type="button">
-              Refresh Saved Quotes
-            </button>
           </div>
 
           <article class="quote-badge">
@@ -210,13 +254,6 @@
           No quote loaded yet. Select a saved quote or start a new one.
         </p>
 
-        <div class="saved-quotes-shell">
-          <div class="saved-quotes-heading">
-            <h3>Saved Quotes</h3>
-            <span id="saved-quotes-count" class="saved-quotes-count">0 quotes</span>
-          </div>
-          <div id="saved-quotes-list" class="saved-quotes-list"></div>
-        </div>
       </section>
 
       <section id="material-setup-panel" class="panel">
