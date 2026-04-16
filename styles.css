@@ -27,6 +27,10 @@ body {
     #f5f0ea;
 }
 
+body.admin-drawer-open {
+  overflow: hidden;
+}
+
 button,
 input,
 select {
@@ -58,12 +62,36 @@ code {
 }
 
 .page-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 1.5rem;
 }
 
 .page-header h1 {
   margin: 0 0 0.5rem;
   font-size: clamp(2rem, 3.5vw, 2.8rem);
+}
+
+.header-menu-button {
+  flex-shrink: 0;
+  gap: 0.7rem;
+  min-width: 156px;
+}
+
+.header-menu-icon {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.header-menu-icon span {
+  display: block;
+  width: 1rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .page-copy,
@@ -106,6 +134,72 @@ code {
 .panel-heading h2 {
   margin: 0 0 0.35rem;
   font-size: 1.15rem;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 28;
+  background: rgba(47, 42, 38, 0.2);
+  backdrop-filter: blur(3px);
+}
+
+.admin-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: min(460px, calc(100vw - 1rem));
+  padding: 0.75rem 0.75rem 0.75rem 0;
+  transform: translateX(100%);
+  transition: transform 180ms ease;
+  pointer-events: none;
+}
+
+.admin-drawer.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.admin-drawer-shell {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 1.25rem 0 0 1.25rem;
+  background: #fcf7f2;
+  box-shadow: 0 24px 48px rgba(84, 58, 37, 0.16);
+}
+
+.admin-drawer-header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.admin-drawer-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.admin-drawer-copy {
+  margin: 0.4rem 0 1rem;
+  color: var(--muted);
+}
+
+.admin-drawer-close {
+  flex-shrink: 0;
+}
+
+.admin-panel {
+  margin-bottom: 1rem;
+  box-shadow: none;
+}
+
+.admin-panel:last-child {
+  margin-bottom: 0;
 }
 
 .source-actions {
@@ -587,6 +681,11 @@ code {
     padding-top: 1rem;
   }
 
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .panel {
     padding: 1rem;
   }
@@ -612,6 +711,15 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .admin-drawer {
+    width: 100vw;
+    padding: 0;
+  }
+
+  .admin-drawer-shell {
+    border-radius: 0;
+  }
+
   .auth-session {
     flex-direction: column;
     align-items: stretch;
@@ -620,6 +728,11 @@ code {
   .primary-button,
   .secondary-button,
   .file-picker {
+    width: 100%;
+  }
+
+  .header-menu-button,
+  .admin-drawer-close {
     width: 100%;
   }
 

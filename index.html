@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LuxeShade Quote Builder v2.7.1</title>
+    <title>LuxeShade Quote Builder v2.8.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -17,84 +17,122 @@
       <header class="page-header">
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>LuxeShade Quote Builder v2.7.1</h1>
+          <h1>LuxeShade Quote Builder v2.8.0</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
           </p>
         </div>
+        <button
+          id="admin-menu-btn"
+          class="secondary-button header-menu-button"
+          type="button"
+          aria-expanded="false"
+          aria-controls="admin-tools-drawer"
+        >
+          <span class="header-menu-icon" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+          <span>Admin Tools</span>
+        </button>
       </header>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <h2>Supabase Access</h2>
-            <p class="section-copy">
-              Sign in with your approved user account to load the live material
-              catalog from Supabase.
-            </p>
-          </div>
-        </div>
-
-        <div class="auth-shell">
-          <div id="auth-form" class="auth-grid">
-            <div class="auth-card">
-              <span>GitHub Sign-In</span>
-              <p class="auth-copy">
-                Continue with GitHub to access the live Supabase material
-                catalog and future saved quotes.
-              </p>
-            </div>
-
-            <button id="sign-in-btn" class="primary-button" type="button">
-              Continue with GitHub
-            </button>
-          </div>
-
-          <div id="auth-session" class="auth-session hidden">
+      <div id="admin-drawer-backdrop" class="drawer-backdrop hidden"></div>
+      <aside id="admin-tools-drawer" class="admin-drawer" aria-hidden="true">
+        <div class="admin-drawer-shell">
+          <div class="admin-drawer-header">
             <div>
-              <p class="session-label">Signed in as</p>
-              <strong id="auth-user-email">-</strong>
+              <p class="eyebrow">Setup</p>
+              <h2>Admin Tools</h2>
             </div>
-            <button id="sign-out-btn" class="secondary-button" type="button">
-              Sign Out
+            <button
+              id="admin-drawer-close-btn"
+              class="secondary-button admin-drawer-close"
+              type="button"
+            >
+              Close
             </button>
           </div>
-        </div>
 
-        <p id="auth-status" class="status-text">
-          Not signed in yet.
-        </p>
-      </section>
+          <p class="admin-drawer-copy">
+            For setup, sync, and maintenance only. The main quote workflow stays
+            on the dashboard.
+          </p>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <div>
-            <h2>Material Source</h2>
-            <p class="section-copy">
-              Supabase is the primary source. CSV upload remains available as a
-              fallback for offline testing or emergency recovery.
+          <section class="panel admin-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Supabase Access</h2>
+                <p class="section-copy">
+                  Sign in with your approved user account to load the live
+                  material catalog from Supabase.
+                </p>
+              </div>
+            </div>
+
+            <div class="auth-shell">
+              <div id="auth-form" class="auth-grid">
+                <div class="auth-card">
+                  <span>GitHub Sign-In</span>
+                  <p class="auth-copy">
+                    Continue with GitHub to access the live Supabase material
+                    catalog and future saved quotes.
+                  </p>
+                </div>
+
+                <button id="sign-in-btn" class="primary-button" type="button">
+                  Continue with GitHub
+                </button>
+              </div>
+
+              <div id="auth-session" class="auth-session hidden">
+                <div>
+                  <p class="session-label">Signed in as</p>
+                  <strong id="auth-user-email">-</strong>
+                </div>
+                <button id="sign-out-btn" class="secondary-button" type="button">
+                  Sign Out
+                </button>
+              </div>
+            </div>
+
+            <p id="auth-status" class="status-text">
+              Not signed in yet.
             </p>
-          </div>
-        </div>
+          </section>
 
-        <div class="source-actions">
-          <button id="sync-supabase-btn" class="primary-button" type="button">
-            Load From Supabase
-          </button>
-          <label class="file-picker">
-            <span>Upload CSV</span>
-            <input id="csv-input" type="file" accept=".csv,text/csv" />
-          </label>
-          <button id="load-sample-btn" class="secondary-button" type="button">
-            Load Bundled Sample Pricelist
-          </button>
-        </div>
+          <section class="panel admin-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Material Source</h2>
+                <p class="section-copy">
+                  Supabase is the primary source. CSV upload remains available as a
+                  fallback for offline testing or emergency recovery.
+                </p>
+              </div>
+            </div>
 
-        <p id="csv-status" class="status-text">
-          No source file loaded yet.
-        </p>
-      </section>
+            <div class="source-actions">
+              <button id="sync-supabase-btn" class="primary-button" type="button">
+                Load From Supabase
+              </button>
+              <label class="file-picker">
+                <span>Upload CSV</span>
+                <input id="csv-input" type="file" accept=".csv,text/csv" />
+              </label>
+              <button id="load-sample-btn" class="secondary-button" type="button">
+                Load Bundled Sample Pricelist
+              </button>
+            </div>
+
+            <p id="csv-status" class="status-text">
+              No source file loaded yet.
+            </p>
+          </section>
+        </div>
+      </aside>
 
       <section class="panel">
         <div class="panel-heading">

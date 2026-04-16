@@ -20,6 +20,10 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
 });
 
 const refs = {
+  adminMenuBtn: document.querySelector("#admin-menu-btn"),
+  adminDrawer: document.querySelector("#admin-tools-drawer"),
+  adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
+  adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
   authStatus: document.querySelector("#auth-status"),
@@ -63,11 +67,22 @@ const runtime = {
   quoteList: [],
   floatingObserverInitialized: false,
   expandedQuoteId: "",
+  adminDrawerOpen: false,
 };
 
 bootstrap();
 
 async function bootstrap() {
+  refs.adminMenuBtn?.addEventListener("click", () => {
+    setAdminDrawerOpen(!runtime.adminDrawerOpen);
+  });
+  refs.adminDrawerCloseBtn?.addEventListener("click", () => {
+    setAdminDrawerOpen(false);
+  });
+  refs.adminDrawerBackdrop?.addEventListener("click", () => {
+    setAdminDrawerOpen(false);
+  });
+  document.addEventListener("keydown", handleGlobalKeydown);
   refs.csvInput.addEventListener("change", handleCsvUpload);
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
@@ -139,6 +154,35 @@ function initializeFloatingTotalVisibility() {
 
   observer.observe(refs.summaryPanel);
   runtime.floatingObserverInitialized = true;
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key === "Escape" && runtime.adminDrawerOpen) {
+    setAdminDrawerOpen(false);
+  }
+}
+
+function setAdminDrawerOpen(isOpen) {
+  runtime.adminDrawerOpen = Boolean(isOpen);
+  renderAdminDrawer();
+}
+
+function renderAdminDrawer() {
+  if (!refs.adminDrawer || !refs.adminDrawerBackdrop || !refs.adminMenuBtn) {
+    return;
+  }
+
+  refs.adminMenuBtn.setAttribute(
+    "aria-expanded",
+    runtime.adminDrawerOpen ? "true" : "false",
+  );
+  refs.adminDrawer.setAttribute(
+    "aria-hidden",
+    runtime.adminDrawerOpen ? "false" : "true",
+  );
+  refs.adminDrawer.classList.toggle("is-open", runtime.adminDrawerOpen);
+  refs.adminDrawerBackdrop.classList.toggle("hidden", !runtime.adminDrawerOpen);
+  document.body.classList.toggle("admin-drawer-open", runtime.adminDrawerOpen);
 }
 
 function updateFloatingTotalVisibility(summaryInView = false) {
@@ -905,6 +949,7 @@ async function deleteQuoteById(quoteId) {
 }
 
 function render() {
+  renderAdminDrawer();
   renderAuth();
   renderSourceStatus();
   renderQuoteWorkspace();
