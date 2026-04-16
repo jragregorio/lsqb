@@ -24,6 +24,9 @@ const refs = {
   adminDrawer: document.querySelector("#admin-tools-drawer"),
   adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
+  activeQuoteBar: document.querySelector("#active-quote-bar"),
+  activeQuoteTitle: document.querySelector("#active-quote-title"),
+  unloadQuoteBtn: document.querySelector("#unload-quote-btn"),
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
   authStatus: document.querySelector("#auth-status"),
@@ -67,6 +70,7 @@ const runtime = {
   floatingObserverInitialized: false,
   expandedQuoteId: "",
   adminDrawerOpen: false,
+  loadedQuoteFingerprint: "",
 };
 
 bootstrap();
@@ -102,6 +106,7 @@ async function bootstrap() {
     loadMaterialsFromSupabase({ showAlertOnFailure: true }),
   );
   refs.newQuoteBtn.addEventListener("click", handleNewQuote);
+  refs.unloadQuoteBtn?.addEventListener("click", handleUnloadQuote);
   refs.saveQuoteBtn.addEventListener("click", handleSaveQuote);
   refs.refreshQuotesBtn.addEventListener("click", () =>
     refreshSavedQuotes({ showAlertOnFailure: true }),
@@ -186,6 +191,24 @@ function updateFloatingTotalVisibility(summaryInView = false) {
 
   const shouldHide = summaryInView || !hasMeaningfulDraftChanges();
   refs.floatingTotalCard.classList.toggle("is-hidden", shouldHide);
+}
+
+function handleUnloadQuote() {
+  if (!state.quoteMeta.id) {
+    return;
+  }
+
+  if (
+    hasLoadedQuoteUnsavedChanges() &&
+    !window.confirm("Unload this quote and discard the unsaved changes?")
+  ) {
+    return;
+  }
+
+  resetQuoteDraft();
+  saveState();
+  render();
+  setQuoteStatus("Quote unloaded. Select a saved quote or start a new one.");
 }
 
 async function initializeAuth() {
@@ -803,6 +826,7 @@ async function handleSaveQuote() {
       : savedQuote.discount
         ? String(savedQuote.discount)
         : "";
+  runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
   saveState();
 
   runtime.quoteBusy = false;
@@ -895,6 +919,7 @@ async function loadQuoteById(quoteId) {
         : "";
   ensureStarterRows();
   runtime.expandedQuoteId = quoteId;
+  runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
   saveState();
   render();
   setQuoteStatus(`Loaded quote for ${state.quoteMeta.clientName || "client"}.`);
@@ -943,6 +968,7 @@ async function deleteQuoteById(quoteId) {
 }
 
 function render() {
+  renderActiveQuoteBar();
   renderAdminDrawer();
   renderAuth();
   renderSourceStatus();
@@ -950,6 +976,19 @@ function render() {
   renderMaterials();
   renderMeasurements();
   renderSummary();
+}
+
+function renderActiveQuoteBar() {
+  if (!refs.activeQuoteBar || !refs.activeQuoteTitle || !refs.unloadQuoteBtn) {
+    return;
+  }
+
+  const hasLoadedQuote = Boolean(state.quoteMeta.id);
+  refs.activeQuoteBar.classList.toggle("hidden", !hasLoadedQuote);
+  refs.activeQuoteTitle.textContent = hasLoadedQuote
+    ? buildActiveQuoteTitle()
+    : "-";
+  refs.unloadQuoteBtn.disabled = runtime.quoteBusy;
 }
 
 function renderAuth() {
@@ -1715,6 +1754,7 @@ function resetQuoteDraft() {
   state.discountValue = "";
   state.selectedMaterials = [createMaterialSetupRow()];
   state.measurementRows = [createMeasurementRow()];
+  runtime.loadedQuoteFingerprint = "";
 }
 
 function hasMeaningfulDraftChanges() {
@@ -1728,6 +1768,51 @@ function hasMeaningfulDraftChanges() {
         (row) => row.room || row.label || row.width !== "" || row.height !== "" || row.materialId,
       ),
   );
+}
+
+function hasLoadedQuoteUnsavedChanges() {
+  if (!state.quoteMeta.id || !runtime.loadedQuoteFingerprint) {
+    return false;
+  }
+
+  return buildCurrentQuoteFingerprint() !== runtime.loadedQuoteFingerprint;
+}
+
+function buildCurrentQuoteFingerprint() {
+  return JSON.stringify({
+    quoteId: state.quoteMeta.id || "",
+    clientName: state.quoteMeta.clientName.trim(),
+    projectName: state.quoteMeta.projectName.trim(),
+    notes: state.quoteMeta.notes.trim(),
+    discountType: state.discountType,
+    discountValue: state.discountValue,
+    selectedMaterials: state.selectedMaterials.map((row) => ({
+      sourceKey: row.sourceKey || "",
+      category: row.category || "",
+      division: row.division || "",
+      retailPrice: row.retailPrice === "" ? "" : String(row.retailPrice),
+      askingPrice: row.askingPrice === "" ? "" : String(row.askingPrice),
+    })),
+    measurementRows: state.measurementRows.map((row) => ({
+      room: row.room || "",
+      label: row.label || "",
+      width: row.width === "" ? "" : String(row.width),
+      height: row.height === "" ? "" : String(row.height),
+      materialId: row.materialId || "",
+    })),
+  });
+}
+
+function buildActiveQuoteTitle() {
+  const parts = [];
+  if (state.quoteMeta.clientName.trim()) {
+    parts.push(state.quoteMeta.clientName.trim());
+  }
+  if (state.quoteMeta.projectName.trim()) {
+    parts.push(state.quoteMeta.projectName.trim());
+  }
+
+  return parts.join(" • ") || "Saved quote";
 }
 
 function getCurrentQuoteLabel() {

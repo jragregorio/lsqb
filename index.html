@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LuxeShade Quote Builder v2.8.2</title>
+    <title>LuxeShade Quote Builder v2.9.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -17,7 +17,7 @@
       <header class="page-header">
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>LuxeShade Quote Builder v2.8.2</h1>
+          <h1>LuxeShade Quote Builder v2.9.0</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
@@ -38,6 +38,16 @@
           <span>Admin Tools</span>
         </button>
       </header>
+
+      <section id="active-quote-bar" class="active-quote-bar hidden">
+        <div class="active-quote-bar-copy">
+          <span class="active-quote-bar-label">Viewing Quote</span>
+          <strong id="active-quote-title">-</strong>
+        </div>
+        <button id="unload-quote-btn" class="secondary-button" type="button">
+          Unload
+        </button>
+      </section>
 
       <div id="admin-drawer-backdrop" class="drawer-backdrop hidden"></div>
       <aside id="admin-tools-drawer" class="admin-drawer" aria-hidden="true">
