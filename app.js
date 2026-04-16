@@ -61,6 +61,7 @@ const runtime = {
   quoteBusy: false,
   quoteList: [],
   floatingObserverInitialized: false,
+  expandedQuoteId: "",
 };
 
 bootstrap();
@@ -192,6 +193,7 @@ function applySession(session) {
 
   if (!session) {
     runtime.quoteList = [];
+    runtime.expandedQuoteId = "";
     setAuthStatus("Not signed in yet.");
     setQuoteStatus("Sign in to save and reopen quotes from Supabase.");
   }
@@ -411,6 +413,12 @@ async function refreshSavedQuotes({
   }
 
   runtime.quoteList = data || [];
+  if (
+    runtime.expandedQuoteId &&
+    !runtime.quoteList.some((quote) => quote.id === runtime.expandedQuoteId)
+  ) {
+    runtime.expandedQuoteId = state.quoteMeta.id || "";
+  }
   renderQuoteWorkspace();
 
   if (!silent) {
@@ -828,6 +836,7 @@ async function loadQuoteById(quoteId) {
         ? String(quoteResult.data.discount)
         : "";
   ensureStarterRows();
+  runtime.expandedQuoteId = quoteId;
   saveState();
   render();
   setQuoteStatus(`Loaded quote for ${state.quoteMeta.clientName || "client"}.`);
@@ -863,6 +872,10 @@ async function deleteQuoteById(quoteId) {
 
   if (state.quoteMeta.id === quoteId) {
     resetQuoteDraft();
+  }
+
+  if (runtime.expandedQuoteId === quoteId) {
+    runtime.expandedQuoteId = state.quoteMeta.id || "";
   }
 
   await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
@@ -960,12 +973,32 @@ function renderSavedQuotesList() {
     return;
   }
 
+  if (!runtime.expandedQuoteId && state.quoteMeta.id) {
+    runtime.expandedQuoteId = state.quoteMeta.id;
+  }
+
   runtime.quoteList.forEach((quote) => {
     const card = document.createElement("article");
     card.className = "saved-quote-card";
     if (quote.id === state.quoteMeta.id) {
       card.classList.add("is-active");
     }
+    if (quote.id === runtime.expandedQuoteId) {
+      card.classList.add("is-expanded");
+    }
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "saved-quote-header";
+    header.disabled = runtime.quoteBusy;
+    header.setAttribute(
+      "aria-expanded",
+      quote.id === runtime.expandedQuoteId ? "true" : "false",
+    );
+    header.addEventListener("click", () => {
+      runtime.expandedQuoteId = runtime.expandedQuoteId === quote.id ? "" : quote.id;
+      renderSavedQuotesList();
+    });
 
     const identity = document.createElement("div");
     identity.className = "saved-quote-identity";
@@ -980,10 +1013,14 @@ function renderSavedQuotesList() {
     const total = document.createElement("p");
     total.className = "saved-quote-total";
     total.textContent = formatCurrency(quote.final_total_amount || 0);
-    const updated = document.createElement("p");
-    updated.className = "saved-quote-updated";
-    updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
-    stats.append(total, updated);
+    const totalLabel = document.createElement("span");
+    totalLabel.className = "saved-quote-total-label";
+    totalLabel.textContent = "Final Total";
+    stats.append(totalLabel, total);
+
+    const chevron = document.createElement("span");
+    chevron.className = "saved-quote-chevron";
+    chevron.textContent = quote.id === runtime.expandedQuoteId ? "Collapse" : "Expand";
 
     const actions = document.createElement("div");
     actions.className = "saved-quote-actions";
@@ -1007,7 +1044,24 @@ function renderSavedQuotesList() {
     });
 
     actions.append(loadButton, deleteButton);
-    card.append(identity, stats, actions);
+    header.append(identity, stats, chevron);
+
+    const details = document.createElement("div");
+    details.className = "saved-quote-details";
+    details.hidden = quote.id !== runtime.expandedQuoteId;
+
+    const updated = document.createElement("p");
+    updated.className = "saved-quote-updated";
+    updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
+
+    const reference = document.createElement("p");
+    reference.className = "saved-quote-reference";
+    reference.textContent = quote.quote_reference
+      ? `Reference: ${quote.quote_reference}`
+      : "No reference yet.";
+
+    details.append(updated, reference, actions);
+    card.append(header, details);
     refs.savedQuotesList.append(card);
   });
 }
