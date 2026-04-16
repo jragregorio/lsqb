@@ -257,6 +257,10 @@ code {
   border-top: 1px solid #eadfd4;
 }
 
+.saved-quote-details[hidden] {
+  display: none;
+}
+
 .saved-quote-meta {
   display: grid;
   gap: 0.4rem;
