@@ -353,6 +353,12 @@ function applySession(session) {
     runtime.expandedQuoteId = "";
     setAuthStatus("Not signed in yet.");
     setQuoteStatus("Sign in to save and reopen quotes from Supabase.");
+  } else if (isSupabaseSourceLoaded() && state.sourceMaterials.length > 0) {
+    setAuthStatus(
+      `Signed in and synced ${state.sourceMaterials.length} materials from Supabase.`,
+    );
+  } else {
+    setAuthStatus("Signed in. Admin tools are ready.");
   }
 
   render();
