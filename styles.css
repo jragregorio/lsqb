@@ -269,10 +269,6 @@ code {
   resize: vertical;
 }
 
-.quote-notes-field {
-  grid-column: 1 / -1;
-}
-
 .saved-quotes-shell {
   margin-top: 1rem;
   padding-top: 1rem;
