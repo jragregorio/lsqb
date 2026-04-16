@@ -978,12 +978,13 @@ function renderSavedQuotesList() {
   }
 
   runtime.quoteList.forEach((quote) => {
+    const isExpanded = quote.id === runtime.expandedQuoteId;
     const card = document.createElement("article");
     card.className = "saved-quote-card";
     if (quote.id === state.quoteMeta.id) {
       card.classList.add("is-active");
     }
-    if (quote.id === runtime.expandedQuoteId) {
+    if (isExpanded) {
       card.classList.add("is-expanded");
     }
 
@@ -993,34 +994,23 @@ function renderSavedQuotesList() {
     header.disabled = runtime.quoteBusy;
     header.setAttribute(
       "aria-expanded",
-      quote.id === runtime.expandedQuoteId ? "true" : "false",
+      isExpanded ? "true" : "false",
     );
     header.addEventListener("click", () => {
       runtime.expandedQuoteId = runtime.expandedQuoteId === quote.id ? "" : quote.id;
       renderSavedQuotesList();
     });
 
-    const identity = document.createElement("div");
-    identity.className = "saved-quote-identity";
     const title = document.createElement("strong");
-    title.textContent = quote.client_name || "Unnamed client";
-    const subtitle = document.createElement("p");
-    subtitle.textContent = buildQuoteCardSubtitle(quote);
-    identity.append(title, subtitle);
-
-    const stats = document.createElement("div");
-    stats.className = "saved-quote-stats";
-    const total = document.createElement("p");
-    total.className = "saved-quote-total";
-    total.textContent = formatCurrency(quote.final_total_amount || 0);
-    const totalLabel = document.createElement("span");
-    totalLabel.className = "saved-quote-total-label";
-    totalLabel.textContent = "Final Total";
-    stats.append(totalLabel, total);
+    title.className = "saved-quote-title";
+    title.textContent =
+      sanitizeOptionalText(quote.project_name) ||
+      sanitizeOptionalText(quote.client_name) ||
+      "Untitled quote";
 
     const chevron = document.createElement("span");
     chevron.className = "saved-quote-chevron";
-    chevron.textContent = quote.id === runtime.expandedQuoteId ? "Collapse" : "Expand";
+    chevron.textContent = isExpanded ? "Hide" : "Show";
 
     const actions = document.createElement("div");
     actions.className = "saved-quote-actions";
@@ -1044,23 +1034,39 @@ function renderSavedQuotesList() {
     });
 
     actions.append(loadButton, deleteButton);
-    header.append(identity, stats, chevron);
+    header.append(title, chevron);
 
     const details = document.createElement("div");
     details.className = "saved-quote-details";
-    details.hidden = quote.id !== runtime.expandedQuoteId;
+    details.hidden = !isExpanded;
+
+    const meta = document.createElement("div");
+    meta.className = "saved-quote-meta";
+
+    const client = document.createElement("p");
+    client.className = "saved-quote-detail-line";
+    client.textContent = `Client: ${sanitizeOptionalText(quote.client_name) || "Unnamed client"}`;
+
+    const project = document.createElement("p");
+    project.className = "saved-quote-detail-line";
+    project.textContent = `Project Address: ${sanitizeOptionalText(quote.project_name) || "No project yet."}`;
+
+    const total = document.createElement("p");
+    total.className = "saved-quote-detail-line saved-quote-detail-total";
+    total.textContent = `Final Total: ${formatCurrency(quote.final_total_amount || 0)}`;
 
     const updated = document.createElement("p");
-    updated.className = "saved-quote-updated";
+    updated.className = "saved-quote-detail-line";
     updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
 
     const reference = document.createElement("p");
-    reference.className = "saved-quote-reference";
+    reference.className = "saved-quote-detail-line";
     reference.textContent = quote.quote_reference
       ? `Reference: ${quote.quote_reference}`
       : "No reference yet.";
 
-    details.append(updated, reference, actions);
+    meta.append(client, project, total, updated, reference);
+    details.append(meta, actions);
     card.append(header, details);
     refs.savedQuotesList.append(card);
   });
