@@ -76,19 +76,18 @@ code {
 
 .active-quote-bar {
   position: sticky;
-  top: 0.75rem;
+  top: 0;
   z-index: 18;
   display: flex;
   gap: 1rem;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.25rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid #d7bd9f;
-  border-radius: 1rem;
-  background: rgba(248, 238, 227, 0.96);
-  box-shadow: 0 14px 28px rgba(84, 58, 37, 0.12);
-  backdrop-filter: blur(8px);
+  padding: 0.95rem 1.1rem;
+  border: 1px solid #e7dbcf;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
 }
 
 .active-quote-bar-copy {
@@ -717,7 +716,7 @@ code {
   }
 
   .active-quote-bar {
-    top: 0.5rem;
+    top: 0;
     flex-direction: column;
     align-items: stretch;
   }
