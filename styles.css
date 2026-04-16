@@ -470,6 +470,7 @@ code {
 .saved-quote-details {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 1rem;
   padding: 0.85rem 1rem 1rem;
   border-top: 1px solid #eadfd4;
@@ -496,6 +497,8 @@ code {
 
 .saved-quote-actions {
   display: flex;
+  align-self: start;
+  align-items: flex-start;
   gap: 0.6rem;
   flex-wrap: wrap;
 }
