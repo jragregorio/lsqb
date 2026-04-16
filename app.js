@@ -167,18 +167,16 @@ async function initializeAuth() {
 
   applySession(session);
 
-  supabase.auth.onAuthStateChange(async (_event, sessionState) => {
+  supabase.auth.onAuthStateChange((event, sessionState) => {
     applySession(sessionState);
 
     if (!sessionState) {
       return;
     }
 
-    if (!isSupabaseSourceLoaded()) {
-      await loadMaterialsFromSupabase({ showAlertOnFailure: false });
-    }
-
-    await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
+    window.setTimeout(() => {
+      void handleAuthSessionChange(event, sessionState);
+    }, 0);
   });
 
   if (session) {
@@ -189,10 +187,30 @@ async function initializeAuth() {
   }
 }
 
+async function handleAuthSessionChange(event, sessionState) {
+  if (!sessionState) {
+    return;
+  }
+
+  if (event === "SIGNED_OUT") {
+    return;
+  }
+
+  if (!isSupabaseSourceLoaded()) {
+    await loadMaterialsFromSupabase({ showAlertOnFailure: false });
+  }
+
+  await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
+}
+
 function applySession(session) {
   runtime.session = session;
 
   if (!session) {
+    runtime.authBusy = false;
+    runtime.sourceBusy = false;
+    runtime.quoteBusy = false;
+    runtime.quoteListBusy = false;
     runtime.quoteList = [];
     runtime.expandedQuoteId = "";
     setAuthStatus("Not signed in yet.");
