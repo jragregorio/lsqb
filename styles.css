@@ -204,6 +204,25 @@ code {
 .saved-quotes-list {
   display: grid;
   gap: 0.75rem;
+  max-height: 18.5rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  align-content: start;
+  scrollbar-gutter: stable;
+}
+
+.saved-quotes-list::-webkit-scrollbar {
+  width: 0.65rem;
+}
+
+.saved-quotes-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.saved-quotes-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #dbc3ab;
+  border: 2px solid #f8efe6;
 }
 
 .saved-quote-card {
