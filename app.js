@@ -47,6 +47,8 @@ const refs = {
   quoteStatus: document.querySelector("#quote-status"),
   savedQuotesCount: document.querySelector("#saved-quotes-count"),
   savedQuotesList: document.querySelector("#saved-quotes-list"),
+  materialPanel: document.querySelector("#material-setup-panel"),
+  measurementsPanel: document.querySelector("#measurements-panel"),
   materialBody: document.querySelector("#material-setup-body"),
   measurementBody: document.querySelector("#measurement-body"),
   addMaterialBtn: document.querySelector("#add-material-btn"),
@@ -73,6 +75,7 @@ const runtime = {
   expandedQuoteId: "",
   adminDrawerOpen: false,
   loadedQuoteFingerprint: "",
+  quoteWorkspaceActive: false,
 };
 
 bootstrap();
@@ -213,6 +216,7 @@ function handleUnloadQuote() {
   }
 
   resetQuoteDraft();
+  runtime.quoteWorkspaceActive = false;
   saveState();
   render();
   setQuoteStatus("Quote unloaded. Select a saved quote or start a new one.");
@@ -665,6 +669,7 @@ function handleNewQuote() {
     return;
   }
 
+  runtime.quoteWorkspaceActive = true;
   resetQuoteDraft();
   saveState();
   render();
@@ -927,6 +932,7 @@ async function loadQuoteById(quoteId) {
   ensureStarterRows();
   runtime.expandedQuoteId = quoteId;
   runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
+  runtime.quoteWorkspaceActive = true;
   saveState();
   render();
   setQuoteStatus(`Loaded quote for ${state.quoteMeta.clientName || "client"}.`);
@@ -962,6 +968,7 @@ async function deleteQuoteById(quoteId) {
 
   if (state.quoteMeta.id === quoteId) {
     resetQuoteDraft();
+    runtime.quoteWorkspaceActive = false;
   }
 
   if (runtime.expandedQuoteId === quoteId) {
@@ -980,6 +987,7 @@ function render() {
   renderAuth();
   renderSourceStatus();
   renderQuoteWorkspace();
+  renderQuoteDetailPanels();
   renderMaterials();
   renderMeasurements();
   renderSummary();
@@ -998,6 +1006,14 @@ function renderActiveQuoteBar() {
     ? buildActiveQuoteTitle()
     : "-";
   refs.unloadQuoteBtn.disabled = runtime.quoteBusy;
+}
+
+function renderQuoteDetailPanels() {
+  const shouldShow = isQuoteWorkspaceActive();
+
+  refs.materialPanel?.classList.toggle("hidden", !shouldShow);
+  refs.measurementsPanel?.classList.toggle("hidden", !shouldShow);
+  refs.summaryPanel?.classList.toggle("hidden", !shouldShow);
 }
 
 function renderAuth() {
@@ -1764,6 +1780,10 @@ function resetQuoteDraft() {
   state.selectedMaterials = [createMaterialSetupRow()];
   state.measurementRows = [createMeasurementRow()];
   runtime.loadedQuoteFingerprint = "";
+}
+
+function isQuoteWorkspaceActive() {
+  return runtime.quoteWorkspaceActive || Boolean(state.quoteMeta.id);
 }
 
 function hasMeaningfulDraftChanges() {
