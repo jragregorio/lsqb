@@ -36,7 +36,6 @@ const refs = {
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   quoteClientName: document.querySelector("#quote-client-name"),
   quoteProjectName: document.querySelector("#quote-project-name"),
-  quoteReference: document.querySelector("#quote-reference"),
   quoteNotes: document.querySelector("#quote-notes"),
   newQuoteBtn: document.querySelector("#new-quote-btn"),
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
@@ -114,11 +113,6 @@ async function bootstrap() {
   });
   refs.quoteProjectName.addEventListener("input", (event) => {
     state.quoteMeta.projectName = event.target.value;
-    saveState();
-    renderQuoteStatus();
-  });
-  refs.quoteReference.addEventListener("input", (event) => {
-    state.quoteMeta.quoteReference = event.target.value;
     saveState();
     renderQuoteStatus();
   });
@@ -988,13 +982,11 @@ function renderSourceStatus() {
 function renderQuoteWorkspace() {
   refs.quoteClientName.value = state.quoteMeta.clientName;
   refs.quoteProjectName.value = state.quoteMeta.projectName;
-  refs.quoteReference.value = state.quoteMeta.quoteReference;
   refs.quoteNotes.value = state.quoteMeta.notes;
 
   const signedIn = Boolean(runtime.session);
   refs.quoteClientName.disabled = runtime.quoteBusy;
   refs.quoteProjectName.disabled = runtime.quoteBusy;
-  refs.quoteReference.disabled = runtime.quoteBusy;
   refs.quoteNotes.disabled = runtime.quoteBusy;
   refs.newQuoteBtn.disabled = runtime.quoteBusy;
   refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
@@ -1131,13 +1123,7 @@ function renderSavedQuotesList() {
     updated.className = "saved-quote-detail-line";
     updated.textContent = `Updated ${formatDateTime(quote.updated_at || quote.created_at)}`;
 
-    const reference = document.createElement("p");
-    reference.className = "saved-quote-detail-line";
-    reference.textContent = quote.quote_reference
-      ? `Reference: ${quote.quote_reference}`
-      : "No reference yet.";
-
-    meta.append(client, project, total, updated, reference);
+    meta.append(client, project, total, updated);
     details.append(meta, actions);
     card.append(header, details);
     refs.savedQuotesList.append(card);
@@ -1735,7 +1721,6 @@ function hasMeaningfulDraftChanges() {
   return Boolean(
     state.quoteMeta.clientName ||
       state.quoteMeta.projectName ||
-      state.quoteMeta.quoteReference ||
       state.quoteMeta.notes ||
       state.discountValue ||
       state.selectedMaterials.some((row) => row.category || row.askingPrice !== "") ||
@@ -1764,11 +1749,8 @@ function buildQuoteCardSubtitle(quote) {
   if (quote.project_name) {
     parts.push(quote.project_name);
   }
-  if (quote.quote_reference) {
-    parts.push(`Ref: ${quote.quote_reference}`);
-  }
 
-  return parts.length > 0 ? parts.join(" • ") : "No project or reference yet.";
+  return parts.length > 0 ? parts.join(" • ") : "No project yet.";
 }
 
 function setAuthStatus(message, isError = false) {
