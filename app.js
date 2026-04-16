@@ -59,6 +59,7 @@ const runtime = {
   authBusy: false,
   sourceBusy: false,
   quoteBusy: false,
+  quoteListBusy: false,
   quoteList: [],
   floatingObserverInitialized: false,
   expandedQuoteId: "",
@@ -381,12 +382,13 @@ async function refreshSavedQuotes({
   silent = false,
 } = {}) {
   if (!runtime.session) {
+    runtime.quoteListBusy = false;
     runtime.quoteList = [];
     renderQuoteWorkspace();
     return;
   }
 
-  runtime.quoteBusy = true;
+  runtime.quoteListBusy = true;
   renderQuoteWorkspace();
   if (!silent) {
     setQuoteStatus("Loading saved quotes...");
@@ -397,7 +399,7 @@ async function refreshSavedQuotes({
     .select("id, client_name, project_name, quote_reference, final_total_amount, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
-  runtime.quoteBusy = false;
+  runtime.quoteListBusy = false;
 
   if (error) {
     console.error(error);
@@ -933,7 +935,8 @@ function renderQuoteWorkspace() {
   refs.quoteNotes.disabled = runtime.quoteBusy;
   refs.newQuoteBtn.disabled = runtime.quoteBusy;
   refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
-  refs.refreshQuotesBtn.disabled = !signedIn || runtime.quoteBusy;
+  refs.refreshQuotesBtn.disabled =
+    !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
 
   renderQuoteStatus();
   renderSavedQuotesList();
@@ -992,7 +995,7 @@ function renderSavedQuotesList() {
     const header = document.createElement("button");
     header.type = "button";
     header.className = "saved-quote-header";
-    header.disabled = runtime.quoteBusy;
+    header.disabled = runtime.quoteBusy || runtime.quoteListBusy;
     header.setAttribute(
       "aria-expanded",
       isExpanded ? "true" : "false",
@@ -1024,7 +1027,8 @@ function renderSavedQuotesList() {
     loadButton.type = "button";
     loadButton.className = "secondary-button";
     loadButton.textContent = quote.id === state.quoteMeta.id ? "Loaded" : "Open";
-    loadButton.disabled = runtime.quoteBusy || quote.id === state.quoteMeta.id;
+    loadButton.disabled =
+      runtime.quoteBusy || runtime.quoteListBusy || quote.id === state.quoteMeta.id;
     loadButton.addEventListener("click", () => {
       loadQuoteById(quote.id);
     });
@@ -1033,7 +1037,7 @@ function renderSavedQuotesList() {
     deleteButton.type = "button";
     deleteButton.className = "ghost-danger-button";
     deleteButton.textContent = "Delete";
-    deleteButton.disabled = runtime.quoteBusy;
+    deleteButton.disabled = runtime.quoteBusy || runtime.quoteListBusy;
     deleteButton.addEventListener("click", () => {
       deleteQuoteById(quote.id);
     });
