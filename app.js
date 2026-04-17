@@ -2236,12 +2236,9 @@ function buildContractPreviewData() {
         return null;
       }
 
-      const areaLabel = [row.room?.trim(), row.label?.trim()]
-        .filter(Boolean)
-        .join(" - ");
-
       return {
-        area: areaLabel,
+        room: row.room?.trim() || "",
+        label: row.label?.trim() || "",
         type: row.type?.trim() || "-",
         materialCode: row.materialCode?.trim() || "-",
         width: formatMeasurementDimension(row.width),
@@ -2293,18 +2290,34 @@ function buildContractDocumentHtml() {
             <div class="info-notes-value">${escapeHtml(contract.notes)}</div>
           </div>`
     : "";
+  let previousRoom = "";
   const lineItemsHtml = contract.lineItems
-    .map(
-      (item) => `
+    .map((item) => {
+      const roomRowHtml =
+        item.room && item.room !== previousRoom
+          ? `
+        <tr class="order-details-room-row">
+          <td>${escapeHtml(item.room)}</td>
+          <td></td>
+          <td></td>
+          <td class="align-right"></td>
+          <td class="align-right"></td>
+          <td class="align-right"></td>
+        </tr>`
+          : "";
+
+      previousRoom = item.room || "";
+
+      return `${roomRowHtml}
         <tr>
-          <td>${escapeHtml(item.area)}</td>
+          <td>${escapeHtml(item.label)}</td>
           <td>${escapeHtml(item.type)}</td>
           <td>${escapeHtml(item.materialCode)}</td>
           <td class="align-right">${escapeHtml(item.width)}</td>
           <td class="align-right">${escapeHtml(item.height)}</td>
           <td class="align-right">${escapeHtml(formatCurrency(item.srp))}</td>
-        </tr>`,
-    )
+        </tr>`;
+    })
     .join("");
 
   return `<!doctype html>
@@ -2545,6 +2558,10 @@ function buildContractDocumentHtml() {
       .order-details-table .align-right {
         text-align: center;
         vertical-align: middle;
+      }
+
+      .order-details-room-row td {
+        font-weight: 700;
       }
 
       .totals-table {
