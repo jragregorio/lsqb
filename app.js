@@ -3104,7 +3104,12 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
       { text: item.materialCode, alignment: "center", fontSize: 9 },
       { text: item.width, alignment: "center", fontSize: 9 },
       { text: item.height, alignment: "center", fontSize: 9 },
-      { text: formatCurrency(item.srp), alignment: "center", fontSize: 9 },
+      {
+        text: formatPdfPesoAmount(item.srp),
+        font: "Roboto",
+        alignment: "center",
+        fontSize: 9,
+      },
     ]);
   });
 
