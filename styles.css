@@ -111,6 +111,39 @@ code {
   min-width: 0;
 }
 
+.active-quote-bar-summary {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.active-quote-summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  text-align: right;
+}
+
+.active-quote-summary-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.active-quote-summary-value {
+  font-size: 0.98rem;
+  color: #4a392d;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.active-quote-summary-item.is-total .active-quote-summary-value {
+  font-size: 1.35rem;
+}
+
 .active-quote-bar-actions {
   display: flex;
   gap: 0.75rem;
@@ -774,50 +807,6 @@ code {
   border-color: #e0c6ab;
 }
 
-.floating-total-card {
-  position: fixed;
-  right: 1.25rem;
-  bottom: 1.25rem;
-  z-index: 20;
-  min-width: 240px;
-  max-width: min(320px, calc(100vw - 2rem));
-  padding: 0.9rem 1rem;
-  border: 1px solid #c89f77;
-  border-radius: 1rem;
-  background: rgba(243, 229, 215, 0.98);
-  box-shadow: 0 18px 42px rgba(84, 58, 37, 0.2);
-  backdrop-filter: blur(8px);
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease,
-    visibility 160ms ease;
-}
-
-.floating-total-card.is-hidden {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translateY(14px);
-}
-
-.floating-total-label {
-  display: block;
-  margin-bottom: 0.35rem;
-  color: var(--muted);
-}
-
-.floating-total-card strong {
-  display: block;
-  font-size: 1.45rem;
-  color: #4a392d;
-}
-
-.floating-total-meta {
-  margin: 0.35rem 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
 @media (max-width: 720px) {
   .app-shell {
     width: min(100vw - 1rem, 1440px);
@@ -843,6 +832,18 @@ code {
     flex-direction: column;
     align-items: stretch;
     padding: 0.75rem 0;
+  }
+
+  .active-quote-bar-summary {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .active-quote-summary-item {
+    align-items: flex-start;
+    text-align: left;
   }
 
   .panel {
@@ -934,12 +935,5 @@ code {
 
   .saved-quote-actions {
     flex-direction: column;
-  }
-
-  .floating-total-card {
-    right: 0.75rem;
-    left: 0.75rem;
-    bottom: 0.75rem;
-    max-width: none;
   }
 }

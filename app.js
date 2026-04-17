@@ -68,6 +68,10 @@ const refs = {
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
   activeQuoteBar: document.querySelector("#active-quote-bar"),
   activeQuoteTitle: document.querySelector("#active-quote-title"),
+  activeQuoteDpValue: document.querySelector("#active-quote-dp-value"),
+  activeQuoteDiscountLabel: document.querySelector("#active-quote-discount-label"),
+  activeQuoteDiscountValue: document.querySelector("#active-quote-discount-value"),
+  activeQuoteFinalTotal: document.querySelector("#active-quote-final-total"),
   activeQuoteSaveBtn: document.querySelector("#active-save-quote-btn"),
   unloadQuoteBtn: document.querySelector("#unload-quote-btn"),
   authForm: document.querySelector("#auth-form"),
@@ -104,9 +108,6 @@ const refs = {
   discountType: document.querySelector("#discount-type"),
   discountValue: document.querySelector("#discount-value"),
   summaryPanel: document.querySelector(".summary-panel"),
-  floatingTotalCard: document.querySelector(".floating-total-card"),
-  floatingFinalTotal: document.querySelector("#floating-final-total"),
-  floatingTotalMeta: document.querySelector("#floating-total-meta"),
 };
 
 const state = loadState();
@@ -120,7 +121,6 @@ const runtime = {
   quoteBusy: false,
   quoteListBusy: false,
   quoteList: [],
-  floatingObserverInitialized: false,
   expandedQuoteId: "",
   savedQuotesDrawerOpen: false,
   adminDrawerOpen: false,
@@ -216,31 +216,7 @@ async function bootstrap() {
 
   ensureStarterRows();
   render();
-  initializeFloatingTotalVisibility();
   await initializeAuth();
-}
-
-function initializeFloatingTotalVisibility() {
-  if (
-    runtime.floatingObserverInitialized ||
-    !refs.summaryPanel ||
-    !refs.floatingTotalCard ||
-    typeof IntersectionObserver === "undefined"
-  ) {
-    return;
-  }
-
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      updateFloatingTotalVisibility(entry.isIntersecting);
-    },
-    {
-      threshold: 0.15,
-    },
-  );
-
-  observer.observe(refs.summaryPanel);
-  runtime.floatingObserverInitialized = true;
 }
 
 function handleGlobalKeydown(event) {
@@ -326,15 +302,6 @@ function renderAdminDrawer() {
     "admin-drawer-open",
     runtime.adminDrawerOpen || runtime.savedQuotesDrawerOpen,
   );
-}
-
-function updateFloatingTotalVisibility(summaryInView = false) {
-  if (!refs.floatingTotalCard) {
-    return;
-  }
-
-  const shouldHide = summaryInView || !hasMeaningfulDraftChanges();
-  refs.floatingTotalCard.classList.toggle("is-hidden", shouldHide);
 }
 
 function handleUnloadQuote() {
@@ -1188,10 +1155,27 @@ function renderActiveQuoteBar() {
   const hasLoadedQuote = Boolean(state.quoteMeta.id);
   const shouldShow =
     hasLoadedQuote && window.scrollY > ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y;
+  const { discountAmount, finalTotal, half } = getSummaryTotals();
+  const discountInputValue = parseCurrencyLikeNumber(state.discountValue);
+  const discountLabel = state.discountType === "percent"
+    ? `${discountInputValue ?? 0}% Discount`
+    : `${formatCurrency(discountAmount)} Discount`;
   refs.activeQuoteBar.classList.toggle("hidden", !shouldShow);
   refs.activeQuoteTitle.textContent = hasLoadedQuote
     ? buildActiveQuoteTitle()
     : "-";
+  if (refs.activeQuoteDpValue) {
+    refs.activeQuoteDpValue.textContent = formatCurrency(half);
+  }
+  if (refs.activeQuoteDiscountValue) {
+    refs.activeQuoteDiscountValue.textContent = formatCurrency(discountAmount);
+  }
+  if (refs.activeQuoteDiscountLabel) {
+    refs.activeQuoteDiscountLabel.textContent = discountLabel;
+  }
+  if (refs.activeQuoteFinalTotal) {
+    refs.activeQuoteFinalTotal.textContent = formatCurrency(finalTotal);
+  }
   if (refs.activeQuoteSaveBtn) {
     refs.activeQuoteSaveBtn.disabled = !runtime.session || runtime.quoteBusy;
     refs.activeQuoteSaveBtn.textContent = runtime.quoteBusy ? "Saving..." : "Save Quote";
@@ -1772,9 +1756,7 @@ function renderSummary() {
     formatCurrency(finalTotal);
   document.querySelector("#downpayment-value").textContent = formatCurrency(half);
   document.querySelector("#remaining-value").textContent = formatCurrency(half);
-  refs.floatingFinalTotal.textContent = formatCurrency(finalTotal);
-  refs.floatingTotalMeta.textContent = `Discount ${formatCurrency(discountAmount)} • 50% DP ${formatCurrency(half)}`;
-  updateFloatingTotalVisibility();
+  renderActiveQuoteBar();
 }
 
 function getConfiguredMaterials() {

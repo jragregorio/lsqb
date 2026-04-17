@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LuxeShade Quote Builder v3.3.6</title>
+    <title>LuxeShade Quote Builder v3.3.7</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=3.3.6" />
+    <link rel="stylesheet" href="./styles.css?v=3.3.7" />
   </head>
   <body>
     <main class="app-shell">
@@ -50,7 +50,7 @@
         </div>
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>LuxeShade Quote Builder v3.3.6</h1>
+          <h1>LuxeShade Quote Builder v3.3.7</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
@@ -63,6 +63,26 @@
           <div class="active-quote-bar-copy">
             <span class="active-quote-bar-label">Viewing Quote</span>
             <strong id="active-quote-title">-</strong>
+          </div>
+          <div class="active-quote-bar-summary" aria-live="polite">
+            <div class="active-quote-summary-item">
+              <span class="active-quote-summary-label">50% DP</span>
+              <strong id="active-quote-dp-value" class="active-quote-summary-value">PHP 0.00</strong>
+            </div>
+            <div class="active-quote-summary-item">
+              <span id="active-quote-discount-label" class="active-quote-summary-label">
+                Discount
+              </span>
+              <strong id="active-quote-discount-value" class="active-quote-summary-value">
+                PHP 0.00
+              </strong>
+            </div>
+            <div class="active-quote-summary-item is-total">
+              <span class="active-quote-summary-label">Total</span>
+              <strong id="active-quote-final-total" class="active-quote-summary-value">
+                PHP 0.00
+              </strong>
+            </div>
           </div>
           <div class="active-quote-bar-actions">
             <button id="active-save-quote-btn" class="primary-button" type="button">
@@ -435,13 +455,6 @@
         </div>
       </section>
 
-      <aside class="floating-total-card" aria-live="polite">
-        <span class="floating-total-label">Live Total</span>
-        <strong id="floating-final-total">PHP 0.00</strong>
-        <p id="floating-total-meta" class="floating-total-meta">
-          Discount PHP 0.00 • 50% DP PHP 0.00
-        </p>
-      </aside>
     </main>
 
     <template id="empty-state-template">
@@ -452,6 +465,6 @@
       </tr>
     </template>
 
-    <script type="module" src="./app.js?v=3.3.6"></script>
+    <script type="module" src="./app.js?v=3.3.7"></script>
   </body>
 </html>
