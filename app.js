@@ -19,6 +19,30 @@ const dateTimeFormatter = new Intl.DateTimeFormat("en-PH", {
   timeStyle: "short",
 });
 
+const contractDateFormatter = new Intl.DateTimeFormat("en-PH", {
+  dateStyle: "long",
+});
+
+const QUOTE_SELECT_COLUMNS = [
+  "id",
+  "client_name",
+  "project_name",
+  "quote_date",
+  "project_architect",
+  "contact_number",
+  "email_address",
+  "quote_reference",
+  "notes",
+  "discount",
+  "discount_type",
+  "discount_value",
+  "subtotal_amount",
+  "applied_discount_amount",
+  "final_total_amount",
+  "created_at",
+  "updated_at",
+].join(", ");
+
 const refs = {
   savedQuotesMenuBtn: document.querySelector("#saved-quotes-menu-btn"),
   savedQuotesDrawer: document.querySelector("#saved-quotes-drawer"),
@@ -44,9 +68,14 @@ const refs = {
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   quoteClientName: document.querySelector("#quote-client-name"),
   quoteProjectName: document.querySelector("#quote-project-name"),
+  quoteDate: document.querySelector("#quote-date"),
+  quoteProjectArchitect: document.querySelector("#quote-project-architect"),
+  quoteContactNumber: document.querySelector("#quote-contact-number"),
+  quoteEmailAddress: document.querySelector("#quote-email-address"),
   quoteNotes: document.querySelector("#quote-notes"),
   newQuoteBtn: document.querySelector("#new-quote-btn"),
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
+  previewContractBtn: document.querySelector("#preview-contract-btn"),
   refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
   currentQuoteLabel: document.querySelector("#current-quote-label"),
   quoteStatus: document.querySelector("#quote-status"),
@@ -136,6 +165,7 @@ async function bootstrap() {
   refs.saveQuoteBtn.addEventListener("click", () => {
     void handleSaveQuote();
   });
+  refs.previewContractBtn?.addEventListener("click", handlePreviewContract);
   refs.refreshQuotesBtn.addEventListener("click", () =>
     refreshSavedQuotes({ showAlertOnFailure: true }),
   );
@@ -148,6 +178,22 @@ async function bootstrap() {
     state.quoteMeta.projectName = event.target.value;
     persistDraftChange();
     renderQuoteStatus();
+  });
+  refs.quoteDate?.addEventListener("input", (event) => {
+    state.quoteMeta.quoteDate = event.target.value;
+    persistDraftChange();
+  });
+  refs.quoteProjectArchitect?.addEventListener("input", (event) => {
+    state.quoteMeta.projectArchitect = event.target.value;
+    persistDraftChange();
+  });
+  refs.quoteContactNumber?.addEventListener("input", (event) => {
+    state.quoteMeta.contactNumber = event.target.value;
+    persistDraftChange();
+  });
+  refs.quoteEmailAddress?.addEventListener("input", (event) => {
+    state.quoteMeta.emailAddress = event.target.value;
+    persistDraftChange();
   });
   refs.quoteNotes.addEventListener("input", (event) => {
     state.quoteMeta.notes = event.target.value;
@@ -419,6 +465,10 @@ function getDefaultQuoteMeta() {
     id: "",
     clientName: "",
     projectName: "",
+    quoteDate: "",
+    projectArchitect: "",
+    contactNumber: "",
+    emailAddress: "",
     quoteReference: "",
     notes: "",
     createdAt: "",
@@ -805,6 +855,10 @@ async function handleSaveQuote(options = {}) {
     owner_user_id: runtime.session.user.id,
     client_name: state.quoteMeta.clientName.trim(),
     project_name: sanitizeOptionalText(state.quoteMeta.projectName),
+    quote_date: sanitizeOptionalDate(state.quoteMeta.quoteDate),
+    project_architect: sanitizeOptionalText(state.quoteMeta.projectArchitect),
+    contact_number: sanitizeOptionalText(state.quoteMeta.contactNumber),
+    email_address: sanitizeOptionalText(state.quoteMeta.emailAddress),
     quote_reference: sanitizeOptionalText(state.quoteMeta.quoteReference),
     notes: sanitizeOptionalText(state.quoteMeta.notes),
     discount: summaryTotals.discountAmount,
@@ -820,12 +874,12 @@ async function handleSaveQuote(options = {}) {
         .from("quotes")
         .update(quotePayload)
         .eq("id", state.quoteMeta.id)
-        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, subtotal_amount, applied_discount_amount, final_total_amount, created_at, updated_at")
+        .select(QUOTE_SELECT_COLUMNS)
         .single()
     : supabase
         .from("quotes")
         .insert(quotePayload)
-        .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, subtotal_amount, applied_discount_amount, final_total_amount, created_at, updated_at")
+        .select(QUOTE_SELECT_COLUMNS)
         .single();
 
   const { data: savedQuote, error: quoteError } = await quoteQuery;
@@ -933,6 +987,10 @@ async function handleSaveQuote(options = {}) {
     id: savedQuote.id,
     clientName: savedQuote.client_name || "",
     projectName: savedQuote.project_name || "",
+    quoteDate: savedQuote.quote_date || "",
+    projectArchitect: savedQuote.project_architect || "",
+    contactNumber: savedQuote.contact_number || "",
+    emailAddress: savedQuote.email_address || "",
     quoteReference: savedQuote.quote_reference || "",
     notes: savedQuote.notes || "",
     createdAt: savedQuote.created_at || "",
@@ -966,7 +1024,7 @@ async function loadQuoteById(quoteId) {
   const [quoteResult, materialsResult, measurementsResult] = await Promise.all([
     supabase
       .from("quotes")
-      .select("id, client_name, project_name, quote_reference, notes, discount, discount_type, discount_value, subtotal_amount, applied_discount_amount, final_total_amount, created_at, updated_at")
+      .select(QUOTE_SELECT_COLUMNS)
       .eq("id", quoteId)
       .single(),
     supabase
@@ -996,6 +1054,10 @@ async function loadQuoteById(quoteId) {
     id: quoteResult.data.id,
     clientName: quoteResult.data.client_name || "",
     projectName: quoteResult.data.project_name || "",
+    quoteDate: quoteResult.data.quote_date || "",
+    projectArchitect: quoteResult.data.project_architect || "",
+    contactNumber: quoteResult.data.contact_number || "",
+    emailAddress: quoteResult.data.email_address || "",
     quoteReference: quoteResult.data.quote_reference || "",
     notes: quoteResult.data.notes || "",
     createdAt: quoteResult.data.created_at || "",
@@ -1154,14 +1216,23 @@ function renderSourceStatus() {
 function renderQuoteWorkspace() {
   refs.quoteClientName.value = state.quoteMeta.clientName;
   refs.quoteProjectName.value = state.quoteMeta.projectName;
+  refs.quoteDate.value = state.quoteMeta.quoteDate;
+  refs.quoteProjectArchitect.value = state.quoteMeta.projectArchitect;
+  refs.quoteContactNumber.value = state.quoteMeta.contactNumber;
+  refs.quoteEmailAddress.value = state.quoteMeta.emailAddress;
   refs.quoteNotes.value = state.quoteMeta.notes;
 
   const signedIn = Boolean(runtime.session);
   refs.quoteClientName.disabled = runtime.quoteBusy;
   refs.quoteProjectName.disabled = runtime.quoteBusy;
+  refs.quoteDate.disabled = runtime.quoteBusy;
+  refs.quoteProjectArchitect.disabled = runtime.quoteBusy;
+  refs.quoteContactNumber.disabled = runtime.quoteBusy;
+  refs.quoteEmailAddress.disabled = runtime.quoteBusy;
   refs.quoteNotes.disabled = runtime.quoteBusy;
   refs.newQuoteBtn.disabled = runtime.quoteBusy;
   refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
+  refs.previewContractBtn.disabled = runtime.quoteBusy || !isQuoteWorkspaceActive();
   refs.refreshQuotesBtn.disabled =
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
 
@@ -1932,6 +2003,10 @@ function hasMeaningfulDraftChanges() {
   return Boolean(
     state.quoteMeta.clientName ||
       state.quoteMeta.projectName ||
+      state.quoteMeta.quoteDate ||
+      state.quoteMeta.projectArchitect ||
+      state.quoteMeta.contactNumber ||
+      state.quoteMeta.emailAddress ||
       state.quoteMeta.notes ||
       state.discountValue ||
       state.selectedMaterials.some((row) => row.category || row.askingPrice !== "") ||
@@ -1954,6 +2029,10 @@ function buildCurrentQuoteFingerprint() {
     quoteId: state.quoteMeta.id || "",
     clientName: state.quoteMeta.clientName.trim(),
     projectName: state.quoteMeta.projectName.trim(),
+    quoteDate: state.quoteMeta.quoteDate,
+    projectArchitect: state.quoteMeta.projectArchitect.trim(),
+    contactNumber: state.quoteMeta.contactNumber.trim(),
+    emailAddress: state.quoteMeta.emailAddress.trim(),
     notes: state.quoteMeta.notes.trim(),
     discountType: state.discountType,
     discountValue: state.discountValue,
@@ -2019,6 +2098,27 @@ function setQuoteStatus(message, isError = false) {
   refs.quoteStatus.classList.toggle("is-error", isError);
 }
 
+function handlePreviewContract() {
+  const validation = validateQuoteForSave();
+  if (!validation.ok) {
+    setQuoteStatus(validation.message, true);
+    window.alert(validation.message);
+    return;
+  }
+
+  const previewWindow = window.open("", "_blank");
+  if (!previewWindow) {
+    window.alert("Allow pop-ups for this site so the contract preview can open.");
+    return;
+  }
+
+  previewWindow.document.open();
+  previewWindow.document.write(buildContractDocumentHtml());
+  previewWindow.document.close();
+  previewWindow.focus();
+  setQuoteStatus("Client contract preview opened in a new tab.");
+}
+
 function isSupabaseSourceLoaded() {
   return state.sourceLabel === "Supabase material_catalog";
 }
@@ -2038,6 +2138,669 @@ function formatDateTime(value) {
 function sanitizeOptionalText(value) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function sanitizeOptionalDate(value) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function buildContractPreviewData() {
+  const lineItems = state.measurementRows
+    .map((row) => {
+      const cost = getMeasurementCost(row);
+      if (cost === null) {
+        return null;
+      }
+
+      const areaLabel = [row.room?.trim(), row.label?.trim()]
+        .filter(Boolean)
+        .join(" - ");
+
+      return {
+        area: areaLabel || "Measurement",
+        width: formatMeasurementDimension(row.width),
+        height: formatMeasurementDimension(row.height),
+        srp: cost,
+      };
+    })
+    .filter(Boolean);
+
+  const { subtotal, discountAmount, finalTotal, half } = getSummaryTotals();
+
+  return {
+    clientName: state.quoteMeta.clientName.trim() || "-",
+    clientAddress: state.quoteMeta.projectName.trim() || "-",
+    quoteDate: formatContractDate(state.quoteMeta.quoteDate),
+    projectArchitect: state.quoteMeta.projectArchitect.trim() || "-",
+    contactNumber: state.quoteMeta.contactNumber.trim() || "-",
+    emailAddress: state.quoteMeta.emailAddress.trim() || "-",
+    lineItems,
+    subtotal,
+    discountAmount,
+    finalTotal,
+    downpayment: half,
+    remainingBalance: half,
+  };
+}
+
+function buildLuxeShadeLogoMarkup(logoSrc, { watermark = false } = {}) {
+  const logoClass = watermark ? "logo-image logo-image-watermark" : "logo-image";
+  const altText = watermark ? "" : "LuxeShade logo";
+  return `<img class="${logoClass}" src="${escapeHtml(logoSrc)}" alt="${altText}" data-chroma-logo="true" />`;
+}
+
+function buildContractDocumentHtml() {
+  const contract = buildContractPreviewData();
+  const logoSrc = new URL("./assets/luxeshade-logo.png", window.location.href).href;
+  const pageWatermark = buildLuxeShadeLogoMarkup(logoSrc, { watermark: true });
+  const heroLogo = buildLuxeShadeLogoMarkup(logoSrc);
+  const lineItemsHtml = contract.lineItems
+    .map(
+      (item) => `
+        <tr>
+          <td>${escapeHtml(item.area)}</td>
+          <td class="align-right">${escapeHtml(item.width)}</td>
+          <td class="align-right">${escapeHtml(item.height)}</td>
+          <td class="align-right">${escapeHtml(formatCurrency(item.srp))}</td>
+        </tr>`,
+    )
+    .join("");
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LuxeShade Contract Preview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Tenor Sans", "Segoe UI", Roboto, sans-serif;
+        line-height: 1.45;
+        color: #2f2a26;
+        background: #efe8df;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 1.25rem;
+        background: #efe8df;
+      }
+
+      @page {
+        size: Letter;
+        margin: 0.6in;
+      }
+
+      .contract-toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+        margin: 0 auto 1rem;
+        width: min(960px, 100%);
+        padding: 0.9rem 1rem;
+        border: 1px solid #ddcec1;
+        border-radius: 1rem;
+        background: rgba(255, 250, 246, 0.96);
+        box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
+      }
+
+      .contract-toolbar-copy {
+        margin: 0;
+        color: #76685d;
+      }
+
+      .toolbar-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      .toolbar-actions button {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.72rem 1.2rem;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .print-button {
+        background: #b8895d;
+        color: #ffffff;
+      }
+
+      .close-button {
+        background: #f0e4d8;
+        color: #4a392d;
+      }
+
+      .contract-page {
+        position: relative;
+        width: min(8.5in, 100%);
+        min-height: 11in;
+        margin: 0 auto 1rem;
+        padding: 2.2rem;
+        border: 1px solid #ddcec1;
+        border-radius: 1.2rem;
+        background: #ffffff;
+        box-shadow: 0 18px 38px rgba(84, 58, 37, 0.08);
+        overflow: hidden;
+      }
+
+      .contract-page.page-break {
+        page-break-after: always;
+      }
+
+      .contract-page-content {
+        position: relative;
+        z-index: 1;
+        min-height: calc(11in - 4.4rem);
+      }
+
+      .page-watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .logo-image {
+        display: block;
+        width: 10rem;
+        height: auto;
+        margin: 0 auto;
+        opacity: 1;
+      }
+
+      .logo-image-watermark {
+        width: 20rem;
+        opacity: 0.22;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      .contract-title {
+        margin-bottom: 1.8rem;
+        text-align: center;
+      }
+
+      .contract-title h1 {
+        margin-bottom: 0.35rem;
+        font-size: 1.8rem;
+      }
+
+      .contract-title p {
+        color: #76685d;
+      }
+
+      .hero-logo {
+        margin-bottom: 1.1rem;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.8rem 1rem;
+        margin-bottom: 1.4rem;
+      }
+
+      .info-card {
+        padding: 0.85rem 0.95rem;
+        border: 1px solid #e6d8ca;
+        border-radius: 0.85rem;
+        background: #fffaf6;
+      }
+
+      .info-card span {
+        display: block;
+        margin-bottom: 0.35rem;
+        color: #76685d;
+        font-size: 0.9rem;
+      }
+
+      .info-card strong {
+        display: block;
+        font-size: 1rem;
+      }
+
+      .section-heading {
+        margin: 1.5rem 0 0.8rem;
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9e7149;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 0.72rem 0.75rem;
+        border: 1px solid #e6d8ca;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f5ece2;
+        text-align: left;
+      }
+
+      .align-right {
+        text-align: right;
+      }
+
+      .totals-table {
+        margin-top: 1rem;
+      }
+
+      .totals-table td:first-child {
+        width: 68%;
+        font-weight: 700;
+      }
+
+      .totals-table tr.is-accent td {
+        background: #f3e5d7;
+        font-weight: 700;
+      }
+
+      .terms-section {
+        margin-bottom: 1.3rem;
+      }
+
+      .terms-section h2,
+      .terms-section h3 {
+        margin-bottom: 0.45rem;
+      }
+
+      .terms-section ol,
+      .terms-section ul {
+        margin: 0.45rem 0 0 1.2rem;
+        padding: 0;
+      }
+
+      .terms-section li {
+        margin-bottom: 0.35rem;
+      }
+
+      .signature-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2rem;
+      }
+
+      .signature-line {
+        padding-top: 2.6rem;
+        border-top: 1px solid #2f2a26;
+      }
+
+      .section-four-page {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .section-four-spacer {
+        flex: 1;
+        min-height: 3.8in;
+      }
+
+      .page-footer {
+        margin-top: 2rem;
+        color: #76685d;
+        font-size: 0.88rem;
+        text-align: right;
+      }
+
+      @media print {
+        body {
+          padding: 0;
+          background: #ffffff;
+        }
+
+        .contract-toolbar {
+          display: none;
+        }
+
+        .contract-page {
+          width: 100%;
+          min-height: auto;
+          margin: 0;
+          padding: 0.6in;
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+
+        .contract-page-content {
+          min-height: auto;
+        }
+
+        .section-four-spacer {
+          min-height: 4.6in;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="contract-toolbar">
+      <p class="contract-toolbar-copy">Preview uses the current quote values. Choose Print and save as PDF when ready.</p>
+      <div class="toolbar-actions">
+        <button class="print-button" onclick="window.print()">Print / Save PDF</button>
+        <button class="close-button" onclick="window.close()">Close Preview</button>
+      </div>
+    </div>
+
+    <section class="contract-page page-break">
+      <div class="page-watermark">${pageWatermark}</div>
+      <div class="contract-page-content">
+        <div class="contract-title">
+          <div class="hero-logo">${heroLogo}</div>
+          <h1>Client Information</h1>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-card">
+            <span>Date</span>
+            <strong>${escapeHtml(contract.quoteDate)}</strong>
+          </div>
+          <div class="info-card">
+            <span>Client's Address</span>
+            <strong>${escapeHtml(contract.clientAddress)}</strong>
+          </div>
+          <div class="info-card">
+            <span>Client's Name</span>
+            <strong>${escapeHtml(contract.clientName)}</strong>
+          </div>
+          <div class="info-card">
+            <span>Project Architect</span>
+            <strong>${escapeHtml(contract.projectArchitect)}</strong>
+          </div>
+          <div class="info-card">
+            <span>Contact No.</span>
+            <strong>${escapeHtml(contract.contactNumber)}</strong>
+          </div>
+          <div class="info-card">
+            <span>Email Address</span>
+            <strong>${escapeHtml(contract.emailAddress)}</strong>
+          </div>
+        </div>
+
+        <h2 class="section-heading">Order Details</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th class="align-right">Width</th>
+              <th class="align-right">Height</th>
+              <th class="align-right">SRP</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineItemsHtml}
+          </tbody>
+        </table>
+
+        <table class="totals-table">
+          <tbody>
+            <tr>
+              <td>Sub Total</td>
+              <td class="align-right">${escapeHtml(formatCurrency(contract.subtotal))}</td>
+            </tr>
+            <tr>
+              <td>Discount</td>
+              <td class="align-right">${escapeHtml(formatCurrency(contract.discountAmount))}</td>
+            </tr>
+            <tr class="is-accent">
+              <td>Total</td>
+              <td class="align-right">${escapeHtml(formatCurrency(contract.finalTotal))}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="page-footer">Page 1 of 4</p>
+      </div>
+    </section>
+
+    <section class="contract-page page-break">
+      <div class="page-watermark">${pageWatermark}</div>
+      <div class="contract-page-content">
+        <div class="terms-section">
+          <h2>Terms of Contract</h2>
+          <h3>Section 1. Payment Schedule and Conditions</h3>
+          <ol>
+            <li>
+              <strong>Down Payment (50%)</strong>
+              <ul>
+                <li>Amount: ${escapeHtml(formatCurrency(contract.downpayment))}</li>
+                <li>Payable upon signing or approval of the contract.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Final Payment (50%)</strong>
+              <ul>
+                <li>Amount: ${escapeHtml(formatCurrency(contract.remainingBalance))}</li>
+                <li>Payable on the same day of installation or within 24 hours upon completion of work.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Payment Options</strong>
+              <ul>
+                <li>Online payment via BDO is accepted.</li>
+                <li>Account name: Ma. Elena Bernardo</li>
+                <li>Account number: 0110 1002 1573</li>
+                <li>Other payment methods such as checks or cash should be coordinated with the supplier as needed.</li>
+                <li>For check payments, clearance must be confirmed before work or deliveries commence.</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+
+        <div class="terms-section">
+          <h3>Section 2. Work and Delivery Lead Time</h3>
+          <ol>
+            <li>
+              <strong>Fabrication and Delivery</strong>
+              <ul>
+                <li>Typically 12 to 14 working days, if fabric is available, from the date of down payment or from the clearing date for check payments.</li>
+                <li>This lead time covers the production and preparation of materials.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Approximate Completion Time On-Site</strong>
+              <ul>
+                <li>Generally 1 to 3 working days for small projects and 3 to 7 working days for big projects, depending on scope.</li>
+                <li>Actual time may vary due to building administration requirements, power scheduling, access limitations, or unforeseen events.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Cooperation with Building or Project Management</strong>
+              <ul>
+                <li>The customer acknowledges that certain installation activities may require coordination with building management, such as permits, elevator scheduling, and access arrangements.</li>
+                <li>Delays caused by building administration rules, weather, power interruptions, or similar external factors are beyond the supplier's control.</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+
+        <p class="page-footer">Page 2 of 4</p>
+      </div>
+    </section>
+
+    <section class="contract-page page-break">
+      <div class="page-watermark">${pageWatermark}</div>
+      <div class="contract-page-content">
+        <div class="terms-section">
+          <h3>Section 3. Installation Work</h3>
+          <ol>
+            <li>
+              <strong>Coverage of Installation</strong>
+              <ul>
+                <li>The installation includes fabrication and assembly of the contracted items and proper placement in the customer's designated area.</li>
+                <li>The supplier will only be responsible for connecting and installing components directly related to the agreed work.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Exclusions</strong>
+              <ul>
+                <li>Electrical wiring, water lines, sanitary connections, or structural modifications not stated in the contract are excluded unless otherwise agreed in writing.</li>
+                <li>Plumbing or electrical work requiring specialized trades remains the responsibility of the customer or a separately engaged licensed professional.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Building Permits and Approvals</strong>
+              <ul>
+                <li>The supplier shall secure the necessary building permits and condo work permits required for installation.</li>
+                <li>Any associated permit fees may be charged to the customer if not included in the initial quotation.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>Liability</strong>
+              <ul>
+                <li>The supplier will not be held liable for damage or incidents caused by existing building conditions such as defective pipes, concealed wiring, or structural issues.</li>
+                <li>Damage resulting from negligence or mishandling by supplier personnel will be addressed in accordance with applicable local laws or as otherwise agreed by both parties.</li>
+                <li>Fragile or delicate items should be removed or secured by the customer before installation to avoid damage.</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+
+        <p class="page-footer">Page 3 of 4</p>
+      </div>
+    </section>
+
+    <section class="contract-page section-four-page">
+      <div class="page-watermark">${pageWatermark}</div>
+      <div class="contract-page-content section-four-page">
+        <div class="terms-section">
+          <h3>Section 4. Customer Cancellation of Order</h3>
+          <ol>
+            <li>
+              <strong>No Refund Policy</strong>
+              <ul>
+                <li>Once a down payment has been made, it is strictly non-refundable under any circumstances after contract signing.</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+
+        <div class="section-four-spacer"></div>
+
+        <div>
+          <p><strong>Dated:</strong> ${escapeHtml(contract.quoteDate)}</p>
+
+          <div class="signature-grid">
+            <div class="signature-line">Company Representative</div>
+            <div class="signature-line">Client Signature</div>
+          </div>
+
+          <p class="page-footer">Page 4 of 4</p>
+        </div>
+      </div>
+    </section>
+    <script>
+      (() => {
+        const cleanupLogo = (img) => {
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          if (!context) {
+            return;
+          }
+
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          context.drawImage(img, 0, 0);
+
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const { data } = imageData;
+
+          for (let index = 0; index < data.length; index += 4) {
+            const red = data[index];
+            const green = data[index + 1];
+            const blue = data[index + 2];
+            const alpha = data[index + 3];
+            const brightness = (red + green + blue) / 3;
+
+            if (alpha === 0) {
+              continue;
+            }
+
+            if (brightness > 245) {
+              data[index + 3] = 0;
+              continue;
+            }
+
+            data[index + 3] = 255;
+          }
+
+          context.putImageData(imageData, 0, 0);
+          img.src = canvas.toDataURL("image/png");
+        };
+
+        document.querySelectorAll("img[data-chroma-logo='true']").forEach((img) => {
+          if (img.complete) {
+            cleanupLogo(img);
+          } else {
+            img.addEventListener("load", () => cleanupLogo(img), { once: true });
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>`;
+}
+
+function formatContractDate(value) {
+  const fallbackDate = new Date();
+
+  if (!value) {
+    return contractDateFormatter.format(fallbackDate);
+  }
+
+  const parsedDate = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return contractDateFormatter.format(fallbackDate);
+  }
+
+  return contractDateFormatter.format(parsedDate);
+}
+
+function formatMeasurementDimension(value) {
+  const parsedValue = parseCurrencyLikeNumber(value);
+  if (parsedValue === null) {
+    return "-";
+  }
+
+  return Number.isInteger(parsedValue)
+    ? `${parsedValue.toLocaleString("en-PH")} mm`
+    : `${parsedValue.toLocaleString("en-PH", { maximumFractionDigits: 2 })} mm`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function buildTextInput({ value, placeholder, disabled = false, onInput }) {

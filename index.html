@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LuxeShade Quote Builder v3.1.0</title>
+    <title>LuxeShade Quote Builder v3.2.0</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -47,7 +47,7 @@
         </div>
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>LuxeShade Quote Builder v3.1.0</h1>
+          <h1>LuxeShade Quote Builder v3.2.0</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
@@ -217,6 +217,9 @@
             <button id="save-quote-btn" class="primary-button" type="button">
               Save Quote
             </button>
+            <button id="preview-contract-btn" class="secondary-button" type="button">
+              Preview Contract
+            </button>
           </div>
 
           <article class="quote-badge">
@@ -252,6 +255,42 @@
               rows="1"
               placeholder="Optional internal notes"
             ></textarea>
+          </label>
+        </div>
+
+        <div class="quote-meta-grid">
+          <label>
+            <span>Quote Date</span>
+            <input id="quote-date" type="date" />
+          </label>
+
+          <label>
+            <span>Project Architect</span>
+            <input
+              id="quote-project-architect"
+              type="text"
+              placeholder="Architect name"
+            />
+          </label>
+
+          <label>
+            <span>Contact No.</span>
+            <input
+              id="quote-contact-number"
+              type="text"
+              inputmode="tel"
+              placeholder="09xx xxx xxxx"
+            />
+          </label>
+
+          <label>
+            <span>Email Address</span>
+            <input
+              id="quote-email-address"
+              type="email"
+              inputmode="email"
+              placeholder="client@email.com"
+            />
           </label>
         </div>
 

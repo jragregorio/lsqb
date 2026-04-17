@@ -16,6 +16,18 @@ add column if not exists applied_discount_amount numeric(12, 2);
 alter table public.quotes
 add column if not exists final_total_amount numeric(12, 2);
 
+alter table public.quotes
+add column if not exists quote_date date;
+
+alter table public.quotes
+add column if not exists project_architect text;
+
+alter table public.quotes
+add column if not exists contact_number text;
+
+alter table public.quotes
+add column if not exists email_address text;
+
 update public.quotes
 set
   discount_type = coalesce(discount_type, 'amount'),
