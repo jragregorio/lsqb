@@ -2438,6 +2438,24 @@ function buildContractPdfDefinition(contract, assets) {
     paddingTop: () => 0,
     paddingBottom: () => 6,
   };
+  const termsHeadingLayout = {
+    hLineWidth: (rowIndex, node) => (rowIndex === node.table.body.length ? 1.1 : 0),
+    vLineWidth: () => 0,
+    hLineColor: () => accentColor,
+    paddingLeft: () => 0,
+    paddingRight: () => 0,
+    paddingTop: () => 0,
+    paddingBottom: () => 6,
+  };
+  const termsSectionLayout = {
+    hLineWidth: (rowIndex, node) => (rowIndex === node.table.body.length ? 0.9 : 0),
+    vLineWidth: () => 0,
+    hLineColor: () => accentColor,
+    paddingLeft: () => 10,
+    paddingRight: () => 10,
+    paddingTop: () => 5,
+    paddingBottom: () => 5,
+  };
 
   const buildField = (label, value) => ({
     table: {
@@ -2451,20 +2469,97 @@ function buildContractPdfDefinition(contract, assets) {
     margin: [0, 0, 0, 10],
   });
 
-  const buildTermsList = (entries) => ({
-    ol: entries.map((entry) => ({
-      margin: [0, 0, 0, 8],
-      stack: [
-        { text: entry.title, bold: true },
-        {
-          ul: entry.items.map((item) => ({
-            text: item,
-            margin: [0, 2, 0, 0],
-          })),
-          margin: [0, 4, 0, 0],
+  const buildTermsEntries = (entries) =>
+    entries.flatMap((entry, index) => [
+      {
+        text: `${index + 1}. ${entry.title}`,
+        bold: true,
+        margin: [0, index === 0 ? 0 : 6, 0, 4],
+      },
+      ...entry.items.map((item) => ({
+        text: `○ ${item}`,
+        margin: [14, 0, 0, 3],
+      })),
+    ]);
+
+  const buildTermsSection = (title, entries, { topMargin = 0 } = {}) => ({
+    stack: [
+      {
+        text: title.toUpperCase(),
+        bold: true,
+        fontSize: 10,
+        characterSpacing: 0.5,
+        margin: [0, topMargin, 0, 8],
+      },
+      ...buildTermsEntries(entries),
+    ],
+    margin: [0, 0, 0, 8],
+  });
+
+  const buildStyledTermsDocumentHeading = (title) => ({
+    table: {
+      widths: ["*"],
+      body: [[{
+        text: title.toUpperCase(),
+        bold: true,
+        fontSize: 13,
+        characterSpacing: 0.35,
+        color: textColor,
+      }]],
+    },
+    layout: termsHeadingLayout,
+    margin: [0, 0, 0, 10],
+  });
+
+  const buildStyledTermsEntries = (entries) =>
+    entries.flatMap((entry, index) => [
+      {
+        columns: [
+          {
+            width: 16,
+            text: `${index + 1}.`,
+            bold: true,
+            fontSize: 10.6,
+            color: accentColor,
+          },
+          {
+            width: "*",
+            text: entry.title,
+            bold: true,
+            fontSize: 10.7,
+            color: textColor,
+            lineHeight: 1.12,
+          },
+        ],
+        columnGap: 4,
+        margin: [0, index === 0 ? 0 : 8, 0, 4],
+      },
+      ...entry.items.map((item) => ({
+        text: item,
+        margin: [20, 0, 0, 4],
+      })),
+    ]);
+
+  const buildStyledTermsSection = (title, entries, { topMargin = 0 } = {}) => ({
+    stack: [
+      {
+        table: {
+          widths: ["*"],
+          body: [[{
+            text: title.toUpperCase(),
+            bold: true,
+            fontSize: 11,
+            characterSpacing: 0.2,
+            color: textColor,
+            fillColor: lightFill,
+          }]],
         },
-      ],
-    })),
+        layout: termsSectionLayout,
+        margin: [0, topMargin, 0, 10],
+      },
+      ...buildStyledTermsEntries(entries),
+    ],
+    margin: [0, 0, 0, 10],
   });
 
   return {
@@ -2565,7 +2660,9 @@ function buildContractPdfDefinition(contract, assets) {
               dontBreakRows: true,
               keepWithHeaderRows: 1,
               widths: orderTableWidths,
-              body: buildContractPdfOrderTableBody(contract.lineItems, lightFill),
+              body: buildContractPdfOrderTableBody(contract.lineItems, {
+                headerFill: lightFill,
+              }),
             },
             layout: orderTableLayout,
           },
@@ -2584,8 +2681,8 @@ function buildContractPdfDefinition(contract, assets) {
                       { text: formatCurrency(contract.discountAmount), alignment: "right" },
                     ],
                     [
-                      { text: "Total", bold: true, fillColor: accentFill },
-                      { text: formatCurrency(contract.finalTotal), bold: true, alignment: "right", fillColor: accentFill },
+                      { text: "Total", bold: true, fontSize: 14, fillColor: accentFill },
+                      { text: formatCurrency(contract.finalTotal), bold: true, fontSize: 14, alignment: "right", fillColor: accentFill },
                     ],
                   ],
                 },
@@ -2600,18 +2697,8 @@ function buildContractPdfDefinition(contract, assets) {
       },
       {
         stack: [
-          {
-            text: "Terms of Contract",
-            fontSize: 11,
-            bold: true,
-            margin: [0, 0, 0, 10],
-          },
-          {
-            text: "Section 1. Payment Schedule and Conditions",
-            bold: true,
-            margin: [0, 0, 0, 8],
-          },
-          buildTermsList([
+          buildStyledTermsDocumentHeading("Terms of Contract"),
+          buildStyledTermsSection("Section 1. Payment Schedule and Conditions", [
             {
               title: "Down Payment (50%)",
               items: [
@@ -2637,12 +2724,7 @@ function buildContractPdfDefinition(contract, assets) {
               ],
             },
           ]),
-          {
-            text: "Section 2. Work and Delivery Lead Time",
-            bold: true,
-            margin: [0, 12, 0, 8],
-          },
-          buildTermsList([
+          buildStyledTermsSection("Section 2. Work and Delivery Lead Time", [
             {
               title: "Fabrication and Delivery",
               items: [
@@ -2664,18 +2746,13 @@ function buildContractPdfDefinition(contract, assets) {
                 "Delays caused by building administration rules, weather, power interruptions, or similar external factors are beyond the supplier's control.",
               ],
             },
-          ]),
+          ], { topMargin: 8 }),
         ],
         pageBreak: "after",
       },
       {
         stack: [
-          {
-            text: "Section 3. Installation Work",
-            bold: true,
-            margin: [0, 0, 0, 8],
-          },
-          buildTermsList([
+          buildStyledTermsSection("Section 3. Installation Work", [
             {
               title: "Coverage of Installation",
               items: [
@@ -2711,12 +2788,7 @@ function buildContractPdfDefinition(contract, assets) {
       },
       {
         stack: [
-          {
-            text: "Section 4. Customer Cancellation of Order",
-            bold: true,
-            margin: [0, 0, 0, 8],
-          },
-          buildTermsList([
+          buildStyledTermsSection("Section 4. Customer Cancellation of Order", [
             {
               title: "No Refund Policy",
               items: [
@@ -2762,26 +2834,47 @@ function buildContractPdfDefinition(contract, assets) {
   };
 }
 
-function buildContractPdfOrderTableBody(lineItems, headerFill) {
+function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
+  const buildHeaderCell = (text) => ({
+    text,
+    font: "Roboto",
+    bold: true,
+    fillColor: headerFill,
+    alignment: "center",
+    fontSize: 9.4,
+    color: "#000000",
+    characterSpacing: 0.2,
+  });
+
   const body = [[
-    { text: "Area", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
-    { text: "Type", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
-    { text: "Material Code", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
-    { text: "Width", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
-    { text: "Height", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
-    { text: "SRP", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+    buildHeaderCell("Area"),
+    buildHeaderCell("Type"),
+    buildHeaderCell("Material Code"),
+    buildHeaderCell("Width"),
+    buildHeaderCell("Height"),
+    buildHeaderCell("SRP"),
   ]];
 
   let previousRoom = "";
   lineItems.forEach((item) => {
     if (item.room && item.room !== previousRoom) {
       body.push([
-        { text: item.room, bold: true, alignment: "center", fontSize: 9 },
-        { text: "" },
-        { text: "" },
-        { text: "" },
-        { text: "" },
-        { text: "" },
+        {
+          text: item.room,
+          colSpan: 6,
+          font: "Roboto",
+          bold: true,
+          color: "#000000",
+          alignment: "left",
+          fontSize: 10,
+          characterSpacing: 0.15,
+          margin: [6, 1, 0, 1],
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
       ]);
     }
 
