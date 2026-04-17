@@ -2833,15 +2833,30 @@ function buildContractPdfDefinition(contract, assets) {
                   body: [
                     [
                       { text: "Sub Total", bold: true },
-                      { text: formatCurrency(contract.subtotal), alignment: "right" },
+                      {
+                        text: formatPdfPesoAmount(contract.subtotal),
+                        font: "Roboto",
+                        alignment: "right",
+                      },
                     ],
                     [
                       { text: "Discount", bold: true },
-                      { text: formatCurrency(contract.discountAmount), alignment: "right" },
+                      {
+                        text: formatPdfPesoAmount(contract.discountAmount),
+                        font: "Roboto",
+                        alignment: "right",
+                      },
                     ],
                     [
                       { text: "Total", bold: true, fontSize: 14, fillColor: accentFill },
-                      { text: formatCurrency(contract.finalTotal), bold: true, fontSize: 14, alignment: "right", fillColor: accentFill },
+                      {
+                        text: formatPdfPesoAmount(contract.finalTotal),
+                        font: "Roboto",
+                        bold: true,
+                        fontSize: 14,
+                        alignment: "right",
+                        fillColor: accentFill,
+                      },
                     ],
                   ],
                 },
@@ -3051,11 +3066,11 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
   });
 
   const body = [[
-    buildHeaderCell("Area"),
-    buildHeaderCell("Type"),
-    buildHeaderCell("Material Code"),
-    buildHeaderCell("Width"),
-    buildHeaderCell("Height"),
+    buildHeaderCell("AREA"),
+    buildHeaderCell("TYPE"),
+    buildHeaderCell("MATERIAL CODE"),
+    buildHeaderCell("WIDTH"),
+    buildHeaderCell("HEIGHT"),
     buildHeaderCell("SRP"),
   ]];
 
@@ -3199,6 +3214,7 @@ function formatCurrency(value) {
   return currencyFormatter.format(value || 0);
 }
 
+/** Peso sign (U+20B1) + formatted amount. Use with font: "Roboto" in pdfmake when default font is TenorSans — Tenor Sans may not embed ₱. */
 function formatPdfPesoAmount(value) {
   const numericValue = Number(value);
   const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
