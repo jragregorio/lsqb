@@ -60,6 +60,8 @@ create table if not exists public.quote_measurements (
   quote_id uuid not null references public.quotes(id) on delete cascade,
   quote_material_id uuid references public.quote_materials(id) on delete set null,
   room_section text,
+  measurement_type text,
+  material_code text,
   label text not null,
   width_mm numeric(12, 2) not null check (width_mm > 0),
   height_mm numeric(12, 2) not null check (height_mm > 0),

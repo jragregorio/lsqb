@@ -23,6 +23,20 @@ const contractDateFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "long",
 });
 
+const MEASUREMENT_TYPE_OPTIONS = [
+  "Sheer Curtain",
+  "Blackout Curtain",
+  "Semi-Blackout Curtain",
+  "Soft B/O Curtain",
+  "Combi Blinds",
+  "Roller Blinds",
+  "Wood Blinds",
+  "Silhouette Blinds",
+  "Vertical Blinds",
+  "Sunscreen",
+  "Roman Blinds",
+];
+
 const QUOTE_SELECT_COLUMNS = [
   "id",
   "client_name",
@@ -453,6 +467,8 @@ function createMeasurementRow() {
   return {
     id: createId("measurement"),
     room: "",
+    type: "",
+    materialCode: "",
     label: "",
     width: "",
     height: "",
@@ -965,6 +981,8 @@ async function handleSaveQuote(options = {}) {
           quote_id: savedQuote.id,
           quote_material_id: materialIdMap.get(item.localMaterialId) || null,
           room_section: sanitizeOptionalText(item.room),
+          measurement_type: sanitizeOptionalText(item.type),
+          material_code: sanitizeOptionalText(item.materialCode),
           label: item.label,
           width_mm: item.width,
           height_mm: item.height,
@@ -1034,7 +1052,7 @@ async function loadQuoteById(quoteId) {
       .order("sort_order", { ascending: true }),
     supabase
       .from("quote_measurements")
-      .select("id, quote_material_id, room_section, label, width_mm, height_mm, material_label, asking_price, sort_order")
+      .select("id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, sort_order")
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true }),
   ]);
@@ -1082,6 +1100,8 @@ async function loadQuoteById(quoteId) {
     measurementsResult.data.map((row) => ({
       id: createId("measurement"),
       room: row.room_section || "",
+      type: row.measurement_type || "",
+      materialCode: row.material_code || "",
       label: row.label || "",
       width: row.width_mm === null ? "" : String(row.width_mm),
       height: row.height_mm === null ? "" : String(row.height_mm),
@@ -1561,7 +1581,7 @@ function renderMeasurements() {
 
   if (state.measurementRows.length === 0) {
     refs.measurementBody.append(
-      createEmptyStateRow(7, "Add a measurement row to begin."),
+      createEmptyStateRow(9, "Add a measurement row to begin."),
     );
     return;
   }
@@ -1581,6 +1601,34 @@ function renderMeasurements() {
         disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.room = value;
+          persistDraftChange();
+        },
+      }),
+    );
+
+    const typeCell = document.createElement("td");
+    const typeSelect = document.createElement("select");
+    typeSelect.append(new Option("Select type", ""));
+    MEASUREMENT_TYPE_OPTIONS.forEach((optionLabel) => {
+      const option = new Option(optionLabel, optionLabel);
+      option.selected = optionLabel === row.type;
+      typeSelect.append(option);
+    });
+    typeSelect.disabled = runtime.quoteBusy;
+    typeSelect.addEventListener("change", (event) => {
+      row.type = event.target.value;
+      persistDraftChange();
+    });
+    typeCell.append(typeSelect);
+
+    const materialCodeCell = document.createElement("td");
+    materialCodeCell.append(
+      buildTextInput({
+        value: row.materialCode,
+        placeholder: "Material code",
+        disabled: runtime.quoteBusy,
+        onInput: (value) => {
+          row.materialCode = value;
           persistDraftChange();
         },
       }),
@@ -1692,6 +1740,8 @@ function renderMeasurements() {
     tr.append(
       roomCell,
       labelCell,
+      typeCell,
+      materialCodeCell,
       widthCell,
       heightCell,
       materialCell,
@@ -1901,6 +1951,8 @@ function getMeasurementDraftsForSave(validateOnly = false) {
   for (const row of state.measurementRows) {
     const hasAnyValue =
       Boolean(row.room) ||
+      Boolean(row.type) ||
+      Boolean(row.materialCode) ||
       Boolean(row.label) ||
       row.width !== "" ||
       row.height !== "" ||
@@ -1929,6 +1981,8 @@ function getMeasurementDraftsForSave(validateOnly = false) {
       drafts.push({
         localMaterialId: selectedMaterial.id,
         room: row.room,
+        type: row.type,
+        materialCode: row.materialCode,
         label: row.label.trim(),
         width,
         height,
@@ -2014,7 +2068,14 @@ function hasMeaningfulDraftChanges() {
       state.discountValue ||
       state.selectedMaterials.some((row) => row.category || row.askingPrice !== "") ||
       state.measurementRows.some(
-        (row) => row.room || row.label || row.width !== "" || row.height !== "" || row.materialId,
+        (row) =>
+          row.room ||
+          row.type ||
+          row.materialCode ||
+          row.label ||
+          row.width !== "" ||
+          row.height !== "" ||
+          row.materialId,
       ),
   );
 }
@@ -2048,6 +2109,8 @@ function buildCurrentQuoteFingerprint() {
     })),
     measurementRows: state.measurementRows.map((row) => ({
       room: row.room || "",
+      type: row.type || "",
+      materialCode: row.materialCode || "",
       label: row.label || "",
       width: row.width === "" ? "" : String(row.width),
       height: row.height === "" ? "" : String(row.height),
@@ -2162,6 +2225,8 @@ function buildContractPreviewData() {
 
       return {
         area: areaLabel || "Measurement",
+        type: row.type?.trim() || "-",
+        materialCode: row.materialCode?.trim() || "-",
         width: formatMeasurementDimension(row.width),
         height: formatMeasurementDimension(row.height),
         srp: cost,
@@ -2203,6 +2268,8 @@ function buildContractDocumentHtml() {
       (item) => `
         <tr>
           <td>${escapeHtml(item.area)}</td>
+          <td>${escapeHtml(item.type)}</td>
+          <td>${escapeHtml(item.materialCode)}</td>
           <td class="align-right">${escapeHtml(item.width)}</td>
           <td class="align-right">${escapeHtml(item.height)}</td>
           <td class="align-right">${escapeHtml(formatCurrency(item.srp))}</td>
@@ -2297,6 +2364,8 @@ function buildContractDocumentHtml() {
         background: #ffffff;
         box-shadow: 0 18px 38px rgba(84, 58, 37, 0.08);
         overflow: hidden;
+        font-size: 10pt;
+        line-height: 1.35;
       }
 
       .contract-page.page-break {
@@ -2346,11 +2415,13 @@ function buildContractDocumentHtml() {
 
       .contract-title h1 {
         margin-bottom: 0.35rem;
-        font-size: 1.8rem;
+        font-size: 12pt;
+        font-weight: 700;
       }
 
       .contract-title p {
         color: #76685d;
+        font-size: 10pt;
       }
 
       .hero-logo {
@@ -2375,17 +2446,19 @@ function buildContractDocumentHtml() {
         display: block;
         margin-bottom: 0.35rem;
         color: #76685d;
-        font-size: 0.9rem;
+        font-size: 10pt;
       }
 
       .info-card strong {
         display: block;
-        font-size: 1rem;
+        font-size: 10pt;
+        font-weight: 700;
       }
 
       .section-heading {
         margin: 1.5rem 0 0.8rem;
-        font-size: 1rem;
+        font-size: 10pt;
+        font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         color: #9e7149;
@@ -2401,15 +2474,24 @@ function buildContractDocumentHtml() {
         padding: 0.72rem 0.75rem;
         border: 1px solid #e6d8ca;
         vertical-align: top;
+        font-size: 10pt;
       }
 
       th {
         background: #f5ece2;
         text-align: left;
+        font-weight: 700;
       }
 
       .align-right {
         text-align: right;
+      }
+
+      .order-details-table th,
+      .order-details-table td,
+      .order-details-table .align-right {
+        text-align: center;
+        vertical-align: middle;
       }
 
       .totals-table {
@@ -2428,21 +2510,31 @@ function buildContractDocumentHtml() {
 
       .terms-section {
         margin-bottom: 1.3rem;
+        font-size: 10pt;
       }
 
-      .terms-section h2,
+      .terms-section h2 {
+        margin-bottom: 0.45rem;
+        font-size: 11pt;
+        font-weight: 700;
+      }
+
       .terms-section h3 {
         margin-bottom: 0.45rem;
+        font-size: 10pt;
+        font-weight: 700;
       }
 
       .terms-section ol,
       .terms-section ul {
         margin: 0.45rem 0 0 1.2rem;
         padding: 0;
+        font-size: 10pt;
       }
 
       .terms-section li {
         margin-bottom: 0.35rem;
+        font-size: 10pt;
       }
 
       .signature-grid {
@@ -2454,6 +2546,7 @@ function buildContractDocumentHtml() {
       .signature-line {
         padding-top: 2.6rem;
         border-top: 1px solid #2f2a26;
+        font-size: 10pt;
       }
 
       .section-four-page {
@@ -2469,7 +2562,7 @@ function buildContractDocumentHtml() {
       .page-footer {
         margin-top: 2rem;
         color: #76685d;
-        font-size: 0.88rem;
+        font-size: 9pt;
         text-align: right;
       }
 
@@ -2548,10 +2641,12 @@ function buildContractDocumentHtml() {
         </div>
 
         <h2 class="section-heading">Order Details</h2>
-        <table>
+        <table class="order-details-table">
           <thead>
             <tr>
               <th>Area</th>
+              <th>Type</th>
+              <th>Material Code</th>
               <th class="align-right">Width</th>
               <th class="align-right">Height</th>
               <th class="align-right">SRP</th>

@@ -28,6 +28,12 @@ add column if not exists contact_number text;
 alter table public.quotes
 add column if not exists email_address text;
 
+alter table public.quote_measurements
+add column if not exists measurement_type text;
+
+alter table public.quote_measurements
+add column if not exists material_code text;
+
 update public.quotes
 set
   discount_type = coalesce(discount_type, 'amount'),
