@@ -401,12 +401,12 @@ code {
 }
 
 .saved-quotes-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
   max-height: 18.5rem;
   overflow-y: auto;
   padding-right: 0.35rem;
-  align-content: start;
   scrollbar-gutter: stable;
 }
 
@@ -432,6 +432,9 @@ code {
 }
 
 .saved-quote-card {
+  display: flex;
+  flex-direction: column;
+  min-height: fit-content;
   overflow: hidden;
   border: 1px solid var(--panel-border);
   border-radius: 1rem;
