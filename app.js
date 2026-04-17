@@ -906,11 +906,8 @@ async function handleSaveQuote() {
   };
   state.discountType = savedQuote.discount_type === "percent" ? "percent" : "amount";
   state.discountValue =
-    savedQuote.discount_value !== null && savedQuote.discount_value !== undefined
-      ? String(savedQuote.discount_value)
-      : savedQuote.discount
-        ? String(savedQuote.discount)
-        : "";
+    getDiscountInputDisplayValue(savedQuote.discount_value) ||
+    getDiscountInputDisplayValue(savedQuote.discount);
   runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
   saveState();
 
@@ -996,12 +993,8 @@ async function loadQuoteById(quoteId) {
   state.discountType =
     quoteResult.data.discount_type === "percent" ? "percent" : "amount";
   state.discountValue =
-    quoteResult.data.discount_value !== null &&
-    quoteResult.data.discount_value !== undefined
-      ? String(quoteResult.data.discount_value)
-      : quoteResult.data.discount
-        ? String(quoteResult.data.discount)
-        : "";
+    getDiscountInputDisplayValue(quoteResult.data.discount_value) ||
+    getDiscountInputDisplayValue(quoteResult.data.discount);
   ensureStarterRows();
   runtime.expandedQuoteId = quoteId;
   runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
@@ -1596,11 +1589,11 @@ function renderMeasurements() {
 
 function renderSummary() {
   refs.discountType.value = state.discountType;
-  refs.discountValue.value = state.discountValue;
+  refs.discountValue.value = getDiscountInputDisplayValue(state.discountValue);
   refs.discountType.disabled = runtime.quoteBusy;
   refs.discountValue.disabled = runtime.quoteBusy;
   refs.discountValue.placeholder =
-    state.discountType === "percent" ? "0-100" : "0.00";
+    state.discountType === "percent" ? "Enter percent" : "Enter amount";
   refs.discountValue.step = state.discountType === "percent" ? "0.01" : "0.01";
   refs.discountValue.max = state.discountType === "percent" ? "100" : "";
 
@@ -2016,6 +2009,11 @@ function normalizeInputNumber(value) {
   }
 
   return value;
+}
+
+function getDiscountInputDisplayValue(value) {
+  const parsedValue = parseCurrencyLikeNumber(value);
+  return parsedValue === null || parsedValue === 0 ? "" : String(value);
 }
 
 function parseCurrencyLikeNumber(value) {
