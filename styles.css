@@ -734,6 +734,16 @@ code {
   background: #fffdfb;
 }
 
+#discount-value {
+  appearance: textfield;
+}
+
+#discount-value::-webkit-outer-spin-button,
+#discount-value::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
 .accent-card {
   background: #f3e5d7;
   border-color: #e0c6ab;
