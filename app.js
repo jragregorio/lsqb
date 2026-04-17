@@ -2208,17 +2208,17 @@ async function handleExportPdf() {
     const documentDefinition = buildContractPdfDefinition(contract, assets);
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
+    const fileName = buildContractPdfFileName(contract);
 
-    if (popupWindow) {
-      popupWindow.location.href = pdfUrl;
+    if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
       popupWindow.focus();
-      setQuoteStatus("Contract PDF opened in a new tab.");
+      setQuoteStatus("Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.");
     } else {
-      triggerPdfDownload(pdfUrl, buildContractPdfFileName(contract));
+      triggerPdfDownload(pdfUrl, fileName);
       setQuoteStatus("Contract PDF downloaded.");
     }
 
-    window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+    schedulePdfUrlCleanup(pdfUrl, popupWindow);
   } catch (error) {
     console.error(error);
     if (popupWindow && !popupWindow.closed) {
@@ -2374,6 +2374,163 @@ function getPdfBlob(pdfDocument) {
       reject(error);
     }
   });
+}
+
+function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
+  if (!previewWindow || previewWindow.closed) {
+    return false;
+  }
+
+  const previewTitle = escapeHtml(fileName);
+  const viewerUrl = `${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`;
+  previewWindow.document.open();
+  previewWindow.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${previewTitle}</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #efe8df;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: #2f2a26;
+      }
+
+      .pdf-preview-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #dccab8;
+        background: #fbf7f2;
+      }
+
+      .pdf-preview-name {
+        font-size: 14px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .pdf-preview-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .pdf-preview-note {
+        font-size: 12px;
+        color: #6f6257;
+      }
+
+      .pdf-preview-download {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid #9e7149;
+        background: #9e7149;
+        color: #ffffff;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .pdf-preview-download:hover {
+        background: #875f3b;
+        border-color: #875f3b;
+      }
+
+      .pdf-preview-frame {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        background: #5f5a55;
+      }
+
+      @media (max-width: 720px) {
+        .pdf-preview-bar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .pdf-preview-actions {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .pdf-preview-note {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pdf-preview-bar">
+      <div class="pdf-preview-name">${previewTitle}</div>
+      <div class="pdf-preview-actions">
+        <span class="pdf-preview-note">Use Download PDF to save with the correct filename.</span>
+        <a class="pdf-preview-download" data-pdf-download>Download PDF</a>
+      </div>
+    </div>
+    <iframe class="pdf-preview-frame" data-pdf-viewer title="${previewTitle}"></iframe>
+  </body>
+</html>`);
+  previewWindow.document.close();
+
+  const downloadLink = previewWindow.document.querySelector("[data-pdf-download]");
+  if (downloadLink) {
+    downloadLink.setAttribute("href", pdfUrl);
+    downloadLink.setAttribute("download", fileName);
+  }
+
+  const viewerFrame = previewWindow.document.querySelector("[data-pdf-viewer]");
+  if (viewerFrame) {
+    viewerFrame.setAttribute("src", viewerUrl);
+  }
+
+  return true;
+}
+
+function schedulePdfUrlCleanup(pdfUrl, previewWindow) {
+  let revoked = false;
+  const revokeUrl = () => {
+    if (revoked) {
+      return;
+    }
+
+    revoked = true;
+    URL.revokeObjectURL(pdfUrl);
+  };
+
+  if (previewWindow && !previewWindow.closed) {
+    previewWindow.addEventListener("beforeunload", revokeUrl, { once: true });
+    window.setTimeout(revokeUrl, 30 * 60 * 1000);
+    return;
+  }
+
+  window.setTimeout(revokeUrl, 60000);
 }
 
 function triggerPdfDownload(pdfUrl, fileName) {
