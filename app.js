@@ -30,6 +30,7 @@ const refs = {
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
   activeQuoteBar: document.querySelector("#active-quote-bar"),
   activeQuoteTitle: document.querySelector("#active-quote-title"),
+  activeQuoteSaveBtn: document.querySelector("#active-save-quote-btn"),
   unloadQuoteBtn: document.querySelector("#unload-quote-btn"),
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
@@ -67,6 +68,7 @@ const refs = {
 
 const state = loadState();
 const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 100;
+const AUTOSAVE_DELAY_MS = 1800;
 
 const runtime = {
   session: null,
@@ -81,6 +83,7 @@ const runtime = {
   adminDrawerOpen: false,
   loadedQuoteFingerprint: "",
   quoteWorkspaceActive: false,
+  autosaveTimer: 0,
 };
 
 bootstrap();
@@ -112,12 +115,12 @@ async function bootstrap() {
   refs.addMeasurementBtn.addEventListener("click", handleAddMeasurement);
   refs.discountType.addEventListener("change", (event) => {
     state.discountType = event.target.value === "percent" ? "percent" : "amount";
-    saveState();
+    persistDraftChange();
     renderSummary();
   });
   refs.discountValue.addEventListener("input", (event) => {
     state.discountValue = normalizeInputNumber(event.target.value);
-    saveState();
+    persistDraftChange();
     renderSummary();
   });
   refs.signInBtn.addEventListener("click", handleSignIn);
@@ -126,24 +129,29 @@ async function bootstrap() {
     loadMaterialsFromSupabase({ showAlertOnFailure: true }),
   );
   refs.newQuoteBtn.addEventListener("click", handleNewQuote);
+  refs.activeQuoteSaveBtn?.addEventListener("click", () => {
+    void handleSaveQuote();
+  });
   refs.unloadQuoteBtn?.addEventListener("click", handleUnloadQuote);
-  refs.saveQuoteBtn.addEventListener("click", handleSaveQuote);
+  refs.saveQuoteBtn.addEventListener("click", () => {
+    void handleSaveQuote();
+  });
   refs.refreshQuotesBtn.addEventListener("click", () =>
     refreshSavedQuotes({ showAlertOnFailure: true }),
   );
   refs.quoteClientName.addEventListener("input", (event) => {
     state.quoteMeta.clientName = event.target.value;
-    saveState();
+    persistDraftChange();
     renderQuoteStatus();
   });
   refs.quoteProjectName.addEventListener("input", (event) => {
     state.quoteMeta.projectName = event.target.value;
-    saveState();
+    persistDraftChange();
     renderQuoteStatus();
   });
   refs.quoteNotes.addEventListener("input", (event) => {
     state.quoteMeta.notes = event.target.value;
-    saveState();
+    persistDraftChange();
   });
 
   ensureStarterRows();
@@ -281,6 +289,7 @@ function handleUnloadQuote() {
     return;
   }
 
+  clearQueuedAutosave();
   resetQuoteDraft();
   runtime.quoteWorkspaceActive = false;
   saveState();
@@ -345,6 +354,7 @@ function applySession(session) {
   runtime.session = session;
 
   if (!session) {
+    clearQueuedAutosave();
     runtime.authBusy = false;
     runtime.sourceBusy = false;
     runtime.quoteBusy = false;
@@ -455,6 +465,11 @@ function getDefaultState() {
 
 function saveState() {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function persistDraftChange() {
+  saveState();
+  queueAutosave();
 }
 
 async function handleSignIn() {
@@ -716,7 +731,7 @@ function handleAddMaterial() {
   }
 
   state.selectedMaterials.push(createMaterialSetupRow());
-  saveState();
+  persistDraftChange();
   renderMaterials();
   renderMeasurements();
 }
@@ -728,7 +743,7 @@ function handleAddMeasurement() {
   }
 
   state.measurementRows.push(createMeasurementRow());
-  saveState();
+  persistDraftChange();
   renderMeasurements();
   renderSummary();
 }
@@ -741,6 +756,7 @@ function handleNewQuote() {
     return;
   }
 
+  clearQueuedAutosave();
   setSavedQuotesDrawerOpen(false);
   runtime.quoteWorkspaceActive = true;
   resetQuoteDraft();
@@ -749,22 +765,40 @@ function handleNewQuote() {
   setQuoteStatus("New quote draft started.");
 }
 
-async function handleSaveQuote() {
+async function handleSaveQuote(options = {}) {
+  const { autosave = false } = options;
+
+  clearQueuedAutosave();
+
   if (!runtime.session) {
-    setQuoteStatus("Sign in first before saving quotes.", true);
-    return;
+    setQuoteStatus(
+      autosave
+        ? "Autosave paused. Sign in again to keep saving changes."
+        : "Sign in first before saving quotes.",
+      !autosave,
+    );
+    return false;
   }
 
   const validation = validateQuoteForSave();
   if (!validation.ok) {
-    setQuoteStatus(validation.message, true);
-    window.alert(validation.message);
-    return;
+    setQuoteStatus(
+      autosave
+        ? "Unsaved changes detected. Autosave will resume after the required fields are complete."
+        : validation.message,
+      !autosave,
+    );
+    if (!autosave) {
+      window.alert(validation.message);
+    }
+    return false;
   }
 
   runtime.quoteBusy = true;
-  renderQuoteWorkspace();
-  setQuoteStatus(state.quoteMeta.id ? "Updating quote..." : "Saving quote...");
+  render();
+  setQuoteStatus(
+    autosave ? "Autosaving quote..." : state.quoteMeta.id ? "Updating quote..." : "Saving quote...",
+  );
   const summaryTotals = getSummaryTotals();
 
   const quotePayload = {
@@ -798,13 +832,13 @@ async function handleSaveQuote() {
 
   if (quoteError) {
     runtime.quoteBusy = false;
-    renderQuoteWorkspace();
+    render();
     console.error(quoteError);
     setQuoteStatus(
       quoteError.message || "Could not save the quote header. Run the quote security migration first.",
       true,
     );
-    return;
+    return false;
   }
 
   const { error: measurementDeleteError } = await supabase
@@ -814,10 +848,10 @@ async function handleSaveQuote() {
 
   if (measurementDeleteError) {
     runtime.quoteBusy = false;
-    renderQuoteWorkspace();
+    render();
     console.error(measurementDeleteError);
     setQuoteStatus(measurementDeleteError.message || "Could not replace saved measurements.", true);
-    return;
+    return false;
   }
 
   const { error: materialDeleteError } = await supabase
@@ -827,10 +861,10 @@ async function handleSaveQuote() {
 
   if (materialDeleteError) {
     runtime.quoteBusy = false;
-    renderQuoteWorkspace();
+    render();
     console.error(materialDeleteError);
     setQuoteStatus(materialDeleteError.message || "Could not replace saved materials.", true);
-    return;
+    return false;
   }
 
   const materialDrafts = getMaterialDraftsForSave();
@@ -855,10 +889,10 @@ async function handleSaveQuote() {
 
     if (materialInsertError) {
       runtime.quoteBusy = false;
-      renderQuoteWorkspace();
+      render();
       console.error(materialInsertError);
       setQuoteStatus(materialInsertError.message || "Could not save quote materials.", true);
-      return;
+      return false;
     }
 
     materialDrafts.forEach((draft) => {
@@ -888,10 +922,10 @@ async function handleSaveQuote() {
 
     if (measurementInsertError) {
       runtime.quoteBusy = false;
-      renderQuoteWorkspace();
+      render();
       console.error(measurementInsertError);
       setQuoteStatus(measurementInsertError.message || "Could not save quote measurements.", true);
-      return;
+      return false;
     }
   }
 
@@ -914,7 +948,8 @@ async function handleSaveQuote() {
   runtime.quoteBusy = false;
   await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
   render();
-  setQuoteStatus("Quote saved to Supabase.");
+  setQuoteStatus(autosave ? "Quote autosaved to Supabase." : "Quote saved to Supabase.");
+  return true;
 }
 
 async function loadQuoteById(quoteId) {
@@ -923,8 +958,9 @@ async function loadQuoteById(quoteId) {
     return;
   }
 
+  clearQueuedAutosave();
   runtime.quoteBusy = true;
-  renderQuoteWorkspace();
+  render();
   setQuoteStatus("Loading quote...");
 
   const [quoteResult, materialsResult, measurementsResult] = await Promise.all([
@@ -950,7 +986,7 @@ async function loadQuoteById(quoteId) {
   if (quoteResult.error || materialsResult.error || measurementsResult.error) {
     console.error(quoteResult.error || materialsResult.error || measurementsResult.error);
     setQuoteStatus("Could not load the selected quote.", true);
-    renderQuoteWorkspace();
+    render();
     return;
   }
 
@@ -1018,8 +1054,9 @@ async function deleteQuoteById(quoteId) {
     return;
   }
 
+  clearQueuedAutosave();
   runtime.quoteBusy = true;
-  renderQuoteWorkspace();
+  render();
   setQuoteStatus("Deleting quote...");
 
   const { error } = await supabase.from("quotes").delete().eq("id", quoteId);
@@ -1029,7 +1066,7 @@ async function deleteQuoteById(quoteId) {
   if (error) {
     console.error(error);
     setQuoteStatus(error.message || "Could not delete the quote.", true);
-    renderQuoteWorkspace();
+    render();
     return;
   }
 
@@ -1049,7 +1086,6 @@ async function deleteQuoteById(quoteId) {
 }
 
 function render() {
-  renderActiveQuoteBar();
   renderSavedQuotesDrawer();
   renderAdminDrawer();
   renderAuth();
@@ -1073,6 +1109,10 @@ function renderActiveQuoteBar() {
   refs.activeQuoteTitle.textContent = hasLoadedQuote
     ? buildActiveQuoteTitle()
     : "-";
+  if (refs.activeQuoteSaveBtn) {
+    refs.activeQuoteSaveBtn.disabled = !runtime.session || runtime.quoteBusy;
+    refs.activeQuoteSaveBtn.textContent = runtime.quoteBusy ? "Saving..." : "Save Quote";
+  }
   refs.unloadQuoteBtn.disabled = runtime.quoteBusy;
 }
 
@@ -1127,6 +1167,7 @@ function renderQuoteWorkspace() {
 
   renderQuoteStatus();
   renderSavedQuotesList();
+  renderActiveQuoteBar();
 }
 
 function renderQuoteStatus() {
@@ -1366,8 +1407,8 @@ function renderMaterials() {
         row.askingPrice = "";
       }
 
-      saveState();
       sanitizeMeasurementMaterialSelections();
+      persistDraftChange();
       render();
     });
 
@@ -1394,7 +1435,7 @@ function renderMaterials() {
     askingInput.addEventListener("input", (event) => {
       row.askingPrice = normalizeInputNumber(event.target.value);
       pocketCell.textContent = formatCurrency(getPocketValue(row) ?? 0);
-      saveState();
+      persistDraftChange();
       renderSummary();
     });
     askingInput.addEventListener("change", () => {
@@ -1431,7 +1472,7 @@ function renderMaterials() {
       }
 
       sanitizeMeasurementMaterialSelections();
-      saveState();
+      persistDraftChange();
       render();
     });
     actionCell.append(removeButton);
@@ -1466,7 +1507,7 @@ function renderMeasurements() {
         disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.room = value;
-          saveState();
+          persistDraftChange();
         },
       }),
     );
@@ -1479,7 +1520,7 @@ function renderMeasurements() {
         disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.label = value;
-          saveState();
+          persistDraftChange();
         },
       }),
     );
@@ -1492,7 +1533,7 @@ function renderMeasurements() {
         disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.width = value;
-          saveState();
+          persistDraftChange();
           updateMeasurementOutputs();
           renderSummary();
         },
@@ -1507,7 +1548,7 @@ function renderMeasurements() {
         disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.height = value;
-          saveState();
+          persistDraftChange();
           updateMeasurementOutputs();
           renderSummary();
         },
@@ -1528,7 +1569,7 @@ function renderMeasurements() {
     select.disabled = configuredMaterials.length === 0 || runtime.quoteBusy;
     select.addEventListener("change", (event) => {
       row.materialId = event.target.value;
-      saveState();
+      persistDraftChange();
       updateMeasurementOutputs();
       renderSummary();
     });
@@ -1568,7 +1609,7 @@ function renderMeasurements() {
         state.measurementRows.push(createMeasurementRow());
       }
 
-      saveState();
+      persistDraftChange();
       renderMeasurements();
       renderSummary();
     });
@@ -1848,6 +1889,39 @@ function resetQuoteDraft() {
   state.selectedMaterials = [createMaterialSetupRow()];
   state.measurementRows = [createMeasurementRow()];
   runtime.loadedQuoteFingerprint = "";
+}
+
+function clearQueuedAutosave() {
+  if (!runtime.autosaveTimer) {
+    return;
+  }
+
+  window.clearTimeout(runtime.autosaveTimer);
+  runtime.autosaveTimer = 0;
+}
+
+function canAutosaveCurrentQuote() {
+  return Boolean(runtime.session && state.quoteMeta.id) &&
+    !runtime.quoteBusy &&
+    hasLoadedQuoteUnsavedChanges();
+}
+
+function queueAutosave() {
+  clearQueuedAutosave();
+
+  if (!canAutosaveCurrentQuote()) {
+    return;
+  }
+
+  runtime.autosaveTimer = window.setTimeout(() => {
+    runtime.autosaveTimer = 0;
+
+    if (!canAutosaveCurrentQuote()) {
+      return;
+    }
+
+    void handleSaveQuote({ autosave: true });
+  }, AUTOSAVE_DELAY_MS);
 }
 
 function isQuoteWorkspaceActive() {
