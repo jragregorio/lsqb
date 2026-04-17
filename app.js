@@ -23,6 +23,17 @@ const contractDateFormatter = new Intl.DateTimeFormat("en-PH", {
   dateStyle: "long",
 });
 
+const PDFMAKE_TENOR_SANS_URL =
+  "https://cdn.jsdelivr.net/fontsource/fonts/tenor-sans@latest/latin-400-normal.ttf";
+const PDFMAKE_FONTS = {
+  TenorSans: {
+    normal: PDFMAKE_TENOR_SANS_URL,
+    bold: PDFMAKE_TENOR_SANS_URL,
+    italics: PDFMAKE_TENOR_SANS_URL,
+    bolditalics: PDFMAKE_TENOR_SANS_URL,
+  },
+};
+
 const MEASUREMENT_TYPE_OPTIONS = [
   "Sheer Curtain",
   "Blackout Curtain",
@@ -73,6 +84,7 @@ const refs = {
   activeQuoteDiscountValue: document.querySelector("#active-quote-discount-value"),
   activeQuoteFinalTotal: document.querySelector("#active-quote-final-total"),
   activeQuoteSaveBtn: document.querySelector("#active-save-quote-btn"),
+  activeExportPdfBtn: document.querySelector("#active-export-pdf-btn"),
   unloadQuoteBtn: document.querySelector("#unload-quote-btn"),
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
@@ -93,7 +105,7 @@ const refs = {
   quoteNotes: document.querySelector("#quote-notes"),
   newQuoteBtn: document.querySelector("#new-quote-btn"),
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
-  previewContractBtn: document.querySelector("#preview-contract-btn"),
+  exportPdfBtn: document.querySelector("#export-pdf-btn"),
   refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
   currentQuoteLabel: document.querySelector("#current-quote-label"),
   quoteStatus: document.querySelector("#quote-status"),
@@ -127,7 +139,11 @@ const runtime = {
   loadedQuoteFingerprint: "",
   quoteWorkspaceActive: false,
   autosaveTimer: 0,
+  exportPdfBusy: false,
 };
+
+let contractPdfAssetsPromise = null;
+let pdfFontsRegistered = false;
 
 bootstrap();
 
@@ -175,11 +191,16 @@ async function bootstrap() {
   refs.activeQuoteSaveBtn?.addEventListener("click", () => {
     void handleSaveQuote();
   });
+  refs.activeExportPdfBtn?.addEventListener("click", () => {
+    void handleExportPdf();
+  });
   refs.unloadQuoteBtn?.addEventListener("click", handleUnloadQuote);
   refs.saveQuoteBtn.addEventListener("click", () => {
     void handleSaveQuote();
   });
-  refs.previewContractBtn?.addEventListener("click", handlePreviewContract);
+  refs.exportPdfBtn?.addEventListener("click", () => {
+    void handleExportPdf();
+  });
   refs.refreshQuotesBtn.addEventListener("click", () =>
     refreshSavedQuotes({ showAlertOnFailure: true }),
   );
@@ -1180,6 +1201,12 @@ function renderActiveQuoteBar() {
     refs.activeQuoteSaveBtn.disabled = !runtime.session || runtime.quoteBusy;
     refs.activeQuoteSaveBtn.textContent = runtime.quoteBusy ? "Saving..." : "Save Quote";
   }
+  if (refs.activeExportPdfBtn) {
+    refs.activeExportPdfBtn.disabled =
+      runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
+    refs.activeExportPdfBtn.textContent =
+      runtime.exportPdfBusy ? "Preparing PDF..." : "Export PDF";
+  }
   refs.unloadQuoteBtn.disabled = runtime.quoteBusy;
 }
 
@@ -1237,7 +1264,10 @@ function renderQuoteWorkspace() {
   refs.quoteNotes.disabled = runtime.quoteBusy;
   refs.newQuoteBtn.disabled = runtime.quoteBusy;
   refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
-  refs.previewContractBtn.disabled = runtime.quoteBusy || !isQuoteWorkspaceActive();
+  if (refs.exportPdfBtn) {
+    refs.exportPdfBtn.disabled = runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
+    refs.exportPdfBtn.textContent = runtime.exportPdfBusy ? "Preparing PDF..." : "Export PDF";
+  }
   refs.refreshQuotesBtn.disabled =
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
 
@@ -2147,7 +2177,7 @@ function setQuoteStatus(message, isError = false) {
   refs.quoteStatus.classList.toggle("is-error", isError);
 }
 
-function handlePreviewContract() {
+async function handleExportPdf() {
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
@@ -2156,17 +2186,68 @@ function handlePreviewContract() {
     return;
   }
 
-  const previewWindow = window.open("", "_blank");
-  if (!previewWindow) {
-    window.alert("Allow pop-ups for this site so the contract preview can open.");
+  const pdfMake = window.pdfMake;
+  if (!pdfMake?.createPdf) {
+    const message = "PDF export library did not load. Refresh the page and try again.";
+    setQuoteStatus(message, true);
+    window.alert(message);
     return;
   }
 
-  previewWindow.document.open();
-  previewWindow.document.write(buildContractDocumentHtml());
-  previewWindow.document.close();
-  previewWindow.focus();
-  setQuoteStatus("Client contract preview opened in a new tab.");
+  registerPdfFonts(pdfMake);
+
+  runtime.exportPdfBusy = true;
+  renderQuoteWorkspace();
+  setQuoteStatus("Preparing contract PDF...");
+
+  const popupWindow = window.open("", "_blank");
+
+  try {
+    const contract = buildContractPreviewData();
+    const assets = await loadContractPdfAssets();
+    const documentDefinition = buildContractPdfDefinition(contract, assets);
+    const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    if (popupWindow) {
+      popupWindow.location.href = pdfUrl;
+      popupWindow.focus();
+      setQuoteStatus("Contract PDF opened in a new tab.");
+    } else {
+      triggerPdfDownload(pdfUrl, buildContractPdfFileName(contract));
+      setQuoteStatus("Contract PDF downloaded.");
+    }
+
+    window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+  } catch (error) {
+    console.error(error);
+    if (popupWindow && !popupWindow.closed) {
+      popupWindow.close();
+    }
+    const message = "Could not generate the contract PDF.";
+    setQuoteStatus(message, true);
+    window.alert(message);
+  } finally {
+    runtime.exportPdfBusy = false;
+    renderQuoteWorkspace();
+  }
+}
+
+function registerPdfFonts(pdfMake) {
+  if (pdfFontsRegistered || !pdfMake) {
+    return;
+  }
+
+  if (typeof pdfMake.addFonts === "function") {
+    pdfMake.addFonts(PDFMAKE_FONTS);
+  } else {
+    pdfMake.fonts = {
+      ...(pdfMake.fonts || {}),
+      ...PDFMAKE_FONTS,
+    };
+  }
+
+  pdfFontsRegistered = true;
 }
 
 function isSupabaseSourceLoaded() {
@@ -2249,695 +2330,473 @@ function buildContractPreviewData() {
   };
 }
 
-function buildLuxeShadeLogoMarkup(logoSrc, { watermark = false } = {}) {
-  const logoClass = watermark ? "logo-image logo-image-watermark" : "logo-image";
-  const altText = watermark ? "" : "LuxeShade logo";
-  return `<img class="${logoClass}" src="${escapeHtml(logoSrc)}" alt="${altText}" data-chroma-logo="true" />`;
+function loadContractPdfAssets() {
+  if (contractPdfAssetsPromise) {
+    return contractPdfAssetsPromise;
+  }
+
+  const logoUrl = new URL("./assets/luxeshade-logo.png", window.location.href).href;
+  contractPdfAssetsPromise = fileUrlToDataUrl(logoUrl).then((logoDataUrl) => ({
+    logoDataUrl,
+  }));
+  return contractPdfAssetsPromise;
 }
 
-function buildContractDocumentHtml() {
-  const contract = buildContractPreviewData();
-  const logoSrc = new URL("./assets/luxeshade-logo.png", window.location.href).href;
-  const pageWatermark = buildLuxeShadeLogoMarkup(logoSrc, { watermark: true });
-  const heroLogo = buildLuxeShadeLogoMarkup(logoSrc);
-  const buildInfoLine = (label, value) => `
-          <div class="info-line">
-            <span class="info-line-label">${escapeHtml(label)}</span>
-            <strong class="info-line-value">${escapeHtml(value)}</strong>
-          </div>`;
-  const notesPanelHtml = contract.notes
-    ? `
-          <div class="info-notes">
-            <span class="info-notes-label">Notes</span>
-            <div class="info-notes-value">${escapeHtml(contract.notes)}</div>
-          </div>`
-    : "";
+async function fileUrlToDataUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load asset: ${url}`);
+  }
+
+  const blob = await response.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("Could not read asset."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function getPdfBlob(pdfDocument) {
+  try {
+    const result = pdfDocument.getBlob();
+    if (result && typeof result.then === "function") {
+      return result;
+    }
+  } catch (_error) {
+    // Fall through to callback-style support for older builds.
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      pdfDocument.getBlob(resolve);
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function triggerPdfDownload(pdfUrl, fileName) {
+  const link = document.createElement("a");
+  link.href = pdfUrl;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
+function buildContractPdfFileName(contract) {
+  const rawName = `${contract.clientName} ${contract.clientAddress} contract`
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const safeName = rawName
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+
+  return `${safeName || "luxeshade-contract"}.pdf`;
+}
+
+function buildContractPdfDefinition(contract, assets) {
+  const pageMargin = 43.2;
+  const pageWidth = 612;
+  const pageHeight = 792;
+  const orderTableWidths = [92, 76, 112, 60, 60, 76];
+  const totalsTableWidths = [340, 146];
+  const borderColor = "#e6d8ca";
+  const accentColor = "#9e7149";
+  const textColor = "#2f2a26";
+  const lightFill = "#f5ece2";
+  const accentFill = "#f3e5d7";
+  const orderTableLayout = {
+    hLineColor: () => borderColor,
+    vLineColor: () => borderColor,
+    hLineWidth: () => 0.75,
+    vLineWidth: () => 0.75,
+    paddingLeft: () => 4,
+    paddingRight: () => 4,
+    paddingTop: () => 6,
+    paddingBottom: () => 6,
+  };
+  const totalsTableLayout = {
+    hLineColor: () => borderColor,
+    vLineColor: () => borderColor,
+    hLineWidth: () => 0.75,
+    vLineWidth: () => 0.75,
+    paddingLeft: () => 10,
+    paddingRight: () => 10,
+    paddingTop: () => 10,
+    paddingBottom: () => 10,
+  };
+  const formFieldLayout = {
+    hLineWidth: (rowIndex, node) => (rowIndex === 0 ? 0 : 0.75),
+    vLineWidth: () => 0,
+    hLineColor: () => textColor,
+    paddingLeft: () => 0,
+    paddingRight: () => 0,
+    paddingTop: () => 0,
+    paddingBottom: () => 6,
+  };
+
+  const buildField = (label, value) => ({
+    table: {
+      widths: [100, "*"],
+      body: [[
+        { text: label, color: textColor, margin: [0, 4, 8, 0] },
+        { text: value, color: textColor, margin: [0, 0, 0, 0] },
+      ]],
+    },
+    layout: formFieldLayout,
+    margin: [0, 0, 0, 10],
+  });
+
+  const buildTermsList = (entries) => ({
+    ol: entries.map((entry) => ({
+      margin: [0, 0, 0, 8],
+      stack: [
+        { text: entry.title, bold: true },
+        {
+          ul: entry.items.map((item) => ({
+            text: item,
+            margin: [0, 2, 0, 0],
+          })),
+          margin: [0, 4, 0, 0],
+        },
+      ],
+    })),
+  });
+
+  return {
+    pageSize: "LETTER",
+    pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
+    background(currentPage) {
+      return {
+        image: assets.logoDataUrl,
+        width: 220,
+        opacity: 0.16,
+        absolutePosition: {
+          x: (pageWidth - 220) / 2,
+          y: (pageHeight - 220) / 2,
+        },
+      };
+    },
+    footer(currentPage, pageCount) {
+      return {
+        text: `Page ${currentPage} of ${pageCount}`,
+        alignment: "right",
+        color: accentColor,
+        fontSize: 9,
+        margin: [pageMargin, 12, pageMargin, 22],
+      };
+    },
+    defaultStyle: {
+      font: "TenorSans",
+      fontSize: 10,
+      color: textColor,
+      lineHeight: 1.25,
+    },
+    content: [
+      {
+        stack: [
+          {
+            image: assets.logoDataUrl,
+            width: 110,
+            alignment: "center",
+            margin: [0, 0, 0, 10],
+          },
+          {
+            text: "CLIENT INFORMATION",
+            alignment: "center",
+            fontSize: 12,
+            characterSpacing: 1.2,
+            margin: [0, 0, 0, 22],
+          },
+          {
+            columns: [
+              {
+                width: "*",
+                stack: [
+                  buildField("Date", contract.quoteDate),
+                  buildField("Client's Name", contract.clientName),
+                  buildField("Contact No.", contract.contactNumber),
+                ],
+              },
+              {
+                width: 18,
+                text: "",
+              },
+              {
+                width: "*",
+                stack: [
+                  buildField("Client's Address", contract.clientAddress),
+                  buildField("Project Architect", contract.projectArchitect),
+                  buildField("Email Address", contract.emailAddress),
+                ],
+              },
+            ],
+            columnGap: 18,
+          },
+          ...(contract.notes
+            ? [
+                {
+                  stack: [
+                    { text: "Notes", margin: [0, 0, 0, 4] },
+                    {
+                      text: contract.notes,
+                      margin: [0, 0, 0, 0],
+                    },
+                  ],
+                  margin: [0, 4, 0, 0],
+                },
+              ]
+            : []),
+          {
+            text: "ORDER DETAILS",
+            fontSize: 10,
+            bold: true,
+            characterSpacing: 1.2,
+            color: accentColor,
+            margin: [0, 26, 0, 10],
+          },
+          {
+            table: {
+              headerRows: 1,
+              dontBreakRows: true,
+              keepWithHeaderRows: 1,
+              widths: orderTableWidths,
+              body: buildContractPdfOrderTableBody(contract.lineItems, lightFill),
+            },
+            layout: orderTableLayout,
+          },
+          {
+            stack: [
+              {
+                table: {
+                  widths: totalsTableWidths,
+                  body: [
+                    [
+                      { text: "Sub Total", bold: true },
+                      { text: formatCurrency(contract.subtotal), alignment: "right" },
+                    ],
+                    [
+                      { text: "Discount", bold: true },
+                      { text: formatCurrency(contract.discountAmount), alignment: "right" },
+                    ],
+                    [
+                      { text: "Total", bold: true, fillColor: accentFill },
+                      { text: formatCurrency(contract.finalTotal), bold: true, alignment: "right", fillColor: accentFill },
+                    ],
+                  ],
+                },
+                layout: totalsTableLayout,
+              },
+            ],
+            unbreakable: true,
+            margin: [0, 14, 0, 0],
+            pageBreak: "after",
+          },
+        ],
+      },
+      {
+        stack: [
+          {
+            text: "Terms of Contract",
+            fontSize: 11,
+            bold: true,
+            margin: [0, 0, 0, 10],
+          },
+          {
+            text: "Section 1. Payment Schedule and Conditions",
+            bold: true,
+            margin: [0, 0, 0, 8],
+          },
+          buildTermsList([
+            {
+              title: "Down Payment (50%)",
+              items: [
+                `Amount: ${formatCurrency(contract.downpayment)}`,
+                "Payable upon signing or approval of the contract.",
+              ],
+            },
+            {
+              title: "Final Payment (50%)",
+              items: [
+                `Amount: ${formatCurrency(contract.remainingBalance)}`,
+                "Payable on the same day of installation or within 24 hours upon completion of work.",
+              ],
+            },
+            {
+              title: "Payment Options",
+              items: [
+                "Online payment via BDO is accepted.",
+                "Account name: Ma. Elena Bernardo",
+                "Account number: 0110 1002 1573",
+                "Other payment methods such as checks or cash should be coordinated with the supplier as needed.",
+                "For check payments, clearance must be confirmed before work or deliveries commence.",
+              ],
+            },
+          ]),
+          {
+            text: "Section 2. Work and Delivery Lead Time",
+            bold: true,
+            margin: [0, 12, 0, 8],
+          },
+          buildTermsList([
+            {
+              title: "Fabrication and Delivery",
+              items: [
+                "Typically 12 to 14 working days, if fabric is available, from the date of down payment or from the clearing date for check payments.",
+                "This lead time covers the production and preparation of materials.",
+              ],
+            },
+            {
+              title: "Approximate Completion Time On-Site",
+              items: [
+                "Generally 1 to 3 working days for small projects and 3 to 7 working days for big projects, depending on scope.",
+                "Actual time may vary due to building administration requirements, power scheduling, access limitations, or unforeseen events.",
+              ],
+            },
+            {
+              title: "Cooperation with Building or Project Management",
+              items: [
+                "The customer acknowledges that certain installation activities may require coordination with building management, such as permits, elevator scheduling, and access arrangements.",
+                "Delays caused by building administration rules, weather, power interruptions, or similar external factors are beyond the supplier's control.",
+              ],
+            },
+          ]),
+        ],
+        pageBreak: "after",
+      },
+      {
+        stack: [
+          {
+            text: "Section 3. Installation Work",
+            bold: true,
+            margin: [0, 0, 0, 8],
+          },
+          buildTermsList([
+            {
+              title: "Coverage of Installation",
+              items: [
+                "The installation includes fabrication and assembly of the contracted items and proper placement in the customer's designated area.",
+                "The supplier will only be responsible for connecting and installing components directly related to the agreed work.",
+              ],
+            },
+            {
+              title: "Exclusions",
+              items: [
+                "Electrical wiring, water lines, sanitary connections, or structural modifications not stated in the contract are excluded unless otherwise agreed in writing.",
+                "Plumbing or electrical work requiring specialized trades remains the responsibility of the customer or a separately engaged licensed professional.",
+              ],
+            },
+            {
+              title: "Building Permits and Approvals",
+              items: [
+                "The supplier shall secure the necessary building permits and condo work permits required for installation.",
+                "Any associated permit fees may be charged to the customer if not included in the initial quotation.",
+              ],
+            },
+            {
+              title: "Liability",
+              items: [
+                "The supplier will not be held liable for damage or incidents caused by existing building conditions such as defective pipes, concealed wiring, or structural issues.",
+                "Damage resulting from negligence or mishandling by supplier personnel will be addressed in accordance with applicable local laws or as otherwise agreed by both parties.",
+                "Fragile or delicate items should be removed or secured by the customer before installation to avoid damage.",
+              ],
+            },
+          ]),
+        ],
+        pageBreak: "after",
+      },
+      {
+        stack: [
+          {
+            text: "Section 4. Customer Cancellation of Order",
+            bold: true,
+            margin: [0, 0, 0, 8],
+          },
+          buildTermsList([
+            {
+              title: "No Refund Policy",
+              items: [
+                "Once a down payment has been made, it is strictly non-refundable under any circumstances after contract signing.",
+              ],
+            },
+          ]),
+          {
+            text: "",
+            margin: [0, 250, 0, 0],
+          },
+          {
+            text: [{ text: "Dated: ", bold: true }, contract.quoteDate],
+            margin: [0, 0, 0, 24],
+          },
+          {
+            columns: [
+              {
+                width: "*",
+                stack: [
+                  { text: "", margin: [0, 0, 0, 26] },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: textColor }] },
+                  { text: "Company Representative", margin: [0, 6, 0, 0] },
+                ],
+              },
+              {
+                width: 24,
+                text: "",
+              },
+              {
+                width: "*",
+                stack: [
+                  { text: "", margin: [0, 0, 0, 26] },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: textColor }] },
+                  { text: "Client Signature", margin: [0, 6, 0, 0] },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildContractPdfOrderTableBody(lineItems, headerFill) {
+  const body = [[
+    { text: "Area", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+    { text: "Type", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+    { text: "Material Code", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+    { text: "Width", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+    { text: "Height", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+    { text: "SRP", bold: true, fillColor: headerFill, alignment: "center", fontSize: 9 },
+  ]];
+
   let previousRoom = "";
-  const lineItemsHtml = contract.lineItems
-    .map((item) => {
-      const roomRowHtml =
-        item.room && item.room !== previousRoom
-          ? `
-        <tr class="order-details-room-row">
-          <td>${escapeHtml(item.room)}</td>
-          <td></td>
-          <td></td>
-          <td class="align-right"></td>
-          <td class="align-right"></td>
-          <td class="align-right"></td>
-        </tr>`
-          : "";
-
-      previousRoom = item.room || "";
-
-      return `${roomRowHtml}
-        <tr>
-          <td>${escapeHtml(item.label)}</td>
-          <td>${escapeHtml(item.type)}</td>
-          <td>${escapeHtml(item.materialCode)}</td>
-          <td class="align-right">${escapeHtml(item.width)}</td>
-          <td class="align-right">${escapeHtml(item.height)}</td>
-          <td class="align-right">${escapeHtml(formatCurrency(item.srp))}</td>
-        </tr>`;
-    })
-    .join("");
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LuxeShade Contract Preview</title>
-    <style>
-      :root {
-        color-scheme: light;
-        font-family: "Tenor Sans", "Segoe UI", Roboto, sans-serif;
-        line-height: 1.45;
-        color: #2f2a26;
-        background: #efe8df;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        padding: 1.25rem;
-        background: #efe8df;
-      }
-
-      @page {
-        size: Letter;
-        margin: 0.6in;
-      }
-
-      .contract-toolbar {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        justify-content: space-between;
-        margin: 0 auto 1rem;
-        width: min(960px, 100%);
-        padding: 0.9rem 1rem;
-        border: 1px solid #ddcec1;
-        border-radius: 1rem;
-        background: rgba(255, 250, 246, 0.96);
-        box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
-      }
-
-      .contract-toolbar-copy {
-        margin: 0;
-        color: #76685d;
-      }
-
-      .toolbar-actions {
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-      }
-
-      .toolbar-actions button {
-        border: 0;
-        border-radius: 999px;
-        padding: 0.72rem 1.2rem;
-        font: inherit;
-        cursor: pointer;
-      }
-
-      .print-button {
-        background: #b8895d;
-        color: #ffffff;
-      }
-
-      .close-button {
-        background: #f0e4d8;
-        color: #4a392d;
-      }
-
-      .contract-page {
-        position: relative;
-        width: min(8.5in, 100%);
-        min-height: 11in;
-        margin: 0 auto 1rem;
-        padding: 0.6in;
-        border: 1px solid #ddcec1;
-        border-radius: 1.2rem;
-        background: #ffffff;
-        box-shadow: 0 18px 38px rgba(84, 58, 37, 0.08);
-        overflow: hidden;
-        font-size: 10pt;
-        line-height: 1.35;
-      }
-
-      .contract-page.page-break {
-        page-break-after: always;
-      }
-
-      .contract-page-content {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: calc(11in - 1.2in);
-      }
-
-      .page-watermark {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-        z-index: 0;
-      }
-
-      .logo-image {
-        display: block;
-        width: 10rem;
-        height: auto;
-        margin: 0 auto;
-        opacity: 1;
-      }
-
-      .logo-image-watermark {
-        width: 20rem;
-        opacity: 0.22;
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin-top: 0;
-      }
-
-      .contract-title {
-        margin-bottom: 1.8rem;
-        text-align: center;
-      }
-
-      .contract-title h1 {
-        margin-bottom: 0.35rem;
-        font-size: 12pt;
-        font-weight: 400;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-
-      .contract-title p {
-        color: #76685d;
-        font-size: 10pt;
-      }
-
-      .hero-logo {
-        margin-bottom: 1.1rem;
-      }
-
-      .info-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem 1.2rem;
-        margin-bottom: 1.4rem;
-      }
-
-      .info-line {
-        display: grid;
-        grid-template-columns: 8.8rem minmax(0, 1fr);
-        gap: 0.9rem;
-        align-items: end;
-        min-height: 1.9rem;
-        padding: 0 0 0.35rem;
-        border-bottom: 1px solid #2f2a26;
-      }
-
-      .info-line-label {
-        display: block;
-        color: #2f2a26;
-        font-size: 10pt;
-      }
-
-      .info-line-value {
-        display: block;
-        font-size: 10pt;
-        font-weight: 400;
-      }
-
-      .info-notes {
-        grid-column: 1 / -1;
-        margin-top: 0.25rem;
-        padding: 0 0 0.35rem;
-        border-bottom: 1px solid #2f2a26;
-      }
-
-      .info-notes-label {
-        display: block;
-        margin-bottom: 0.3rem;
-        color: #2f2a26;
-        font-size: 10pt;
-      }
-
-      .info-notes-value {
-        font-size: 10pt;
-        white-space: pre-wrap;
-      }
-
-      .section-heading {
-        margin: 1.5rem 0 0.8rem;
-        font-size: 10pt;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #9e7149;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-
-      th,
-      td {
-        padding: 0.72rem 0.75rem;
-        border: 1px solid #e6d8ca;
-        vertical-align: top;
-        font-size: 10pt;
-      }
-
-      th {
-        background: #f5ece2;
-        text-align: left;
-        font-weight: 700;
-      }
-
-      .align-right {
-        text-align: right;
-      }
-
-      .order-details-table th,
-      .order-details-table td,
-      .order-details-table .align-right {
-        text-align: center;
-        vertical-align: middle;
-      }
-
-      .order-details-room-row td {
-        font-weight: 700;
-      }
-
-      .totals-table {
-        margin-top: 1rem;
-      }
-
-      .page-summary-block {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      .totals-table td:first-child {
-        width: 68%;
-        font-weight: 700;
-      }
-
-      .totals-table tr.is-accent td {
-        background: #f3e5d7;
-        font-weight: 700;
-      }
-
-      .terms-section {
-        margin-bottom: 1.3rem;
-        font-size: 10pt;
-      }
-
-      .terms-section h2 {
-        margin-bottom: 0.45rem;
-        font-size: 11pt;
-        font-weight: 700;
-      }
-
-      .terms-section h3 {
-        margin-bottom: 0.45rem;
-        font-size: 10pt;
-        font-weight: 700;
-      }
-
-      .terms-section ol,
-      .terms-section ul {
-        margin: 0.45rem 0 0 1.2rem;
-        padding: 0;
-        font-size: 10pt;
-      }
-
-      .terms-section li {
-        margin-bottom: 0.35rem;
-        font-size: 10pt;
-      }
-
-      .signature-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 2rem;
-      }
-
-      .signature-line {
-        padding-top: 2.6rem;
-        border-top: 1px solid #2f2a26;
-        font-size: 10pt;
-      }
-
-      .section-four-page {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .section-four-spacer {
-        flex: 1;
-        min-height: 3.8in;
-      }
-
-      .page-footer {
-        margin-top: auto;
-        padding-top: 1rem;
-        color: #76685d;
-        font-size: 9pt;
-        text-align: right;
-      }
-
-      @media print {
-        body {
-          padding: 0;
-          background: #ffffff;
-        }
-
-        .contract-toolbar {
-          display: none;
-        }
-
-        .contract-page {
-          width: 100%;
-          min-height: auto;
-          margin: 0;
-          padding: 0;
-          border: 0;
-          border-radius: 0;
-          box-shadow: none;
-        }
-
-        .contract-page-content {
-          display: block;
-          min-height: auto;
-        }
-
-        .order-details-table {
-          page-break-inside: auto;
-        }
-
-        .order-details-table thead {
-          display: table-header-group;
-        }
-
-        .order-details-table tfoot {
-          display: table-footer-group;
-        }
-
-        .order-details-table tr,
-        .order-details-table td,
-        .order-details-table th {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-
-        .totals-table,
-        .totals-table tbody,
-        .totals-table tr,
-        .totals-table td,
-        .page-summary-block {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-
-        .section-four-spacer {
-          min-height: 4.6in;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="contract-toolbar">
-      <p class="contract-toolbar-copy">Preview uses the current quote values. Choose Print and save as PDF when ready.</p>
-      <div class="toolbar-actions">
-        <button class="print-button" onclick="window.print()">Print / Save PDF</button>
-        <button class="close-button" onclick="window.close()">Close Preview</button>
-      </div>
-    </div>
-
-    <section class="contract-page page-break">
-      <div class="page-watermark">${pageWatermark}</div>
-      <div class="contract-page-content">
-        <div class="contract-title">
-          <div class="hero-logo">${heroLogo}</div>
-          <h1>Client Information</h1>
-        </div>
-
-        <div class="info-grid">
-          ${buildInfoLine("Date", contract.quoteDate)}
-          ${buildInfoLine("Client's Address", contract.clientAddress)}
-          ${buildInfoLine("Client's Name", contract.clientName)}
-          ${buildInfoLine("Project Architect", contract.projectArchitect)}
-          ${buildInfoLine("Contact No.", contract.contactNumber)}
-          ${buildInfoLine("Email Address", contract.emailAddress)}
-          ${notesPanelHtml}
-        </div>
-
-        <h2 class="section-heading">Order Details</h2>
-        <table class="order-details-table">
-          <thead>
-            <tr>
-              <th>Area</th>
-              <th>Type</th>
-              <th>Material Code</th>
-              <th class="align-right">Width</th>
-              <th class="align-right">Height</th>
-              <th class="align-right">SRP</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${lineItemsHtml}
-          </tbody>
-        </table>
-
-        <div class="page-summary-block">
-          <table class="totals-table">
-            <tbody>
-              <tr>
-                <td>Sub Total</td>
-                <td class="align-right">${escapeHtml(formatCurrency(contract.subtotal))}</td>
-              </tr>
-              <tr>
-                <td>Discount</td>
-                <td class="align-right">${escapeHtml(formatCurrency(contract.discountAmount))}</td>
-              </tr>
-              <tr class="is-accent">
-                <td>Total</td>
-                <td class="align-right">${escapeHtml(formatCurrency(contract.finalTotal))}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p class="page-footer">Page 1 of 4</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="contract-page page-break">
-      <div class="page-watermark">${pageWatermark}</div>
-      <div class="contract-page-content">
-        <div class="terms-section">
-          <h2>Terms of Contract</h2>
-          <h3>Section 1. Payment Schedule and Conditions</h3>
-          <ol>
-            <li>
-              <strong>Down Payment (50%)</strong>
-              <ul>
-                <li>Amount: ${escapeHtml(formatCurrency(contract.downpayment))}</li>
-                <li>Payable upon signing or approval of the contract.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Final Payment (50%)</strong>
-              <ul>
-                <li>Amount: ${escapeHtml(formatCurrency(contract.remainingBalance))}</li>
-                <li>Payable on the same day of installation or within 24 hours upon completion of work.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Payment Options</strong>
-              <ul>
-                <li>Online payment via BDO is accepted.</li>
-                <li>Account name: Ma. Elena Bernardo</li>
-                <li>Account number: 0110 1002 1573</li>
-                <li>Other payment methods such as checks or cash should be coordinated with the supplier as needed.</li>
-                <li>For check payments, clearance must be confirmed before work or deliveries commence.</li>
-              </ul>
-            </li>
-          </ol>
-        </div>
-
-        <div class="terms-section">
-          <h3>Section 2. Work and Delivery Lead Time</h3>
-          <ol>
-            <li>
-              <strong>Fabrication and Delivery</strong>
-              <ul>
-                <li>Typically 12 to 14 working days, if fabric is available, from the date of down payment or from the clearing date for check payments.</li>
-                <li>This lead time covers the production and preparation of materials.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Approximate Completion Time On-Site</strong>
-              <ul>
-                <li>Generally 1 to 3 working days for small projects and 3 to 7 working days for big projects, depending on scope.</li>
-                <li>Actual time may vary due to building administration requirements, power scheduling, access limitations, or unforeseen events.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Cooperation with Building or Project Management</strong>
-              <ul>
-                <li>The customer acknowledges that certain installation activities may require coordination with building management, such as permits, elevator scheduling, and access arrangements.</li>
-                <li>Delays caused by building administration rules, weather, power interruptions, or similar external factors are beyond the supplier's control.</li>
-              </ul>
-            </li>
-          </ol>
-        </div>
-
-        <p class="page-footer">Page 2 of 4</p>
-      </div>
-    </section>
-
-    <section class="contract-page page-break">
-      <div class="page-watermark">${pageWatermark}</div>
-      <div class="contract-page-content">
-        <div class="terms-section">
-          <h3>Section 3. Installation Work</h3>
-          <ol>
-            <li>
-              <strong>Coverage of Installation</strong>
-              <ul>
-                <li>The installation includes fabrication and assembly of the contracted items and proper placement in the customer's designated area.</li>
-                <li>The supplier will only be responsible for connecting and installing components directly related to the agreed work.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Exclusions</strong>
-              <ul>
-                <li>Electrical wiring, water lines, sanitary connections, or structural modifications not stated in the contract are excluded unless otherwise agreed in writing.</li>
-                <li>Plumbing or electrical work requiring specialized trades remains the responsibility of the customer or a separately engaged licensed professional.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Building Permits and Approvals</strong>
-              <ul>
-                <li>The supplier shall secure the necessary building permits and condo work permits required for installation.</li>
-                <li>Any associated permit fees may be charged to the customer if not included in the initial quotation.</li>
-              </ul>
-            </li>
-            <li>
-              <strong>Liability</strong>
-              <ul>
-                <li>The supplier will not be held liable for damage or incidents caused by existing building conditions such as defective pipes, concealed wiring, or structural issues.</li>
-                <li>Damage resulting from negligence or mishandling by supplier personnel will be addressed in accordance with applicable local laws or as otherwise agreed by both parties.</li>
-                <li>Fragile or delicate items should be removed or secured by the customer before installation to avoid damage.</li>
-              </ul>
-            </li>
-          </ol>
-        </div>
-
-        <p class="page-footer">Page 3 of 4</p>
-      </div>
-    </section>
-
-    <section class="contract-page section-four-page">
-      <div class="page-watermark">${pageWatermark}</div>
-      <div class="contract-page-content section-four-page">
-        <div class="terms-section">
-          <h3>Section 4. Customer Cancellation of Order</h3>
-          <ol>
-            <li>
-              <strong>No Refund Policy</strong>
-              <ul>
-                <li>Once a down payment has been made, it is strictly non-refundable under any circumstances after contract signing.</li>
-              </ul>
-            </li>
-          </ol>
-        </div>
-
-        <div class="section-four-spacer"></div>
-
-        <div>
-          <p><strong>Dated:</strong> ${escapeHtml(contract.quoteDate)}</p>
-
-          <div class="signature-grid">
-            <div class="signature-line">Company Representative</div>
-            <div class="signature-line">Client Signature</div>
-          </div>
-
-          <p class="page-footer">Page 4 of 4</p>
-        </div>
-      </div>
-    </section>
-    <script>
-      (() => {
-        const cleanupLogo = (img) => {
-          const canvas = document.createElement("canvas");
-          const context = canvas.getContext("2d");
-          if (!context) {
-            return;
-          }
-
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-          context.drawImage(img, 0, 0);
-
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          const { data } = imageData;
-
-          for (let index = 0; index < data.length; index += 4) {
-            const red = data[index];
-            const green = data[index + 1];
-            const blue = data[index + 2];
-            const alpha = data[index + 3];
-            const brightness = (red + green + blue) / 3;
-
-            if (alpha === 0) {
-              continue;
-            }
-
-            if (brightness > 245) {
-              data[index + 3] = 0;
-              continue;
-            }
-
-            data[index + 3] = 255;
-          }
-
-          context.putImageData(imageData, 0, 0);
-          img.src = canvas.toDataURL("image/png");
-        };
-
-        document.querySelectorAll("img[data-chroma-logo='true']").forEach((img) => {
-          if (img.complete) {
-            cleanupLogo(img);
-          } else {
-            img.addEventListener("load", () => cleanupLogo(img), { once: true });
-          }
-        });
-      })();
-    </script>
-  </body>
-</html>`;
+  lineItems.forEach((item) => {
+    if (item.room && item.room !== previousRoom) {
+      body.push([
+        { text: item.room, bold: true, alignment: "center", fontSize: 9 },
+        { text: "" },
+        { text: "" },
+        { text: "" },
+        { text: "" },
+        { text: "" },
+      ]);
+    }
+
+    previousRoom = item.room || previousRoom;
+    body.push([
+      { text: item.label || " ", alignment: "center", fontSize: 9 },
+      { text: item.type, alignment: "center", fontSize: 9 },
+      { text: item.materialCode, alignment: "center", fontSize: 9 },
+      { text: item.width, alignment: "center", fontSize: 9 },
+      { text: item.height, alignment: "center", fontSize: 9 },
+      { text: formatCurrency(item.srp), alignment: "center", fontSize: 9 },
+    ]);
+  });
+
+  return body;
 }
 
 function formatContractDate(value) {
