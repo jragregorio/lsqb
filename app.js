@@ -835,6 +835,7 @@ async function handleSaveQuote(options = {}) {
   const { autosave = false } = options;
 
   clearQueuedAutosave();
+  syncQuoteMetaFromInputs();
 
   if (!runtime.session) {
     setQuoteStatus(
@@ -2165,6 +2166,7 @@ function setQuoteStatus(message, isError = false) {
 }
 
 function handlePreviewContract() {
+  syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
     setQuoteStatus(validation.message, true);
@@ -2209,6 +2211,21 @@ function sanitizeOptionalText(value) {
 function sanitizeOptionalDate(value) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function syncQuoteMetaFromInputs() {
+  if (!refs.quoteClientName) {
+    return;
+  }
+
+  state.quoteMeta.clientName = refs.quoteClientName.value;
+  state.quoteMeta.projectName = refs.quoteProjectName.value;
+  state.quoteMeta.quoteDate = refs.quoteDate.value;
+  state.quoteMeta.projectArchitect = refs.quoteProjectArchitect.value;
+  state.quoteMeta.contactNumber = refs.quoteContactNumber.value;
+  state.quoteMeta.emailAddress = refs.quoteEmailAddress.value;
+  state.quoteMeta.notes = refs.quoteNotes.value;
+  saveState();
 }
 
 function buildContractPreviewData() {
