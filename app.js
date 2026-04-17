@@ -1382,6 +1382,9 @@ function queueSavedQuoteScrollIntoView(quoteId) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       scrollSavedQuoteIntoView(quoteId);
+      window.setTimeout(() => {
+        scrollSavedQuoteIntoView(quoteId);
+      }, 180);
     });
   });
 }

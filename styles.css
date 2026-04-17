@@ -513,6 +513,21 @@ code {
   flex-wrap: wrap;
 }
 
+.saved-quotes-drawer .saved-quote-details {
+  grid-template-columns: 1fr;
+}
+
+.saved-quotes-drawer .saved-quote-actions {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.saved-quotes-drawer .saved-quote-actions .secondary-button,
+.saved-quotes-drawer .saved-quote-actions .ghost-danger-button {
+  width: 100%;
+}
+
 .auth-shell {
   display: flex;
   flex-direction: column;
