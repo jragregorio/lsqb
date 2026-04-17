@@ -2281,11 +2281,16 @@ function buildContractDocumentHtml() {
   const logoSrc = new URL("./assets/luxeshade-logo.png", window.location.href).href;
   const pageWatermark = buildLuxeShadeLogoMarkup(logoSrc, { watermark: true });
   const heroLogo = buildLuxeShadeLogoMarkup(logoSrc);
+  const buildInfoLine = (label, value) => `
+          <div class="info-line">
+            <span class="info-line-label">${escapeHtml(label)}</span>
+            <strong class="info-line-value">${escapeHtml(value)}</strong>
+          </div>`;
   const notesPanelHtml = contract.notes
     ? `
-          <div class="info-card info-card-wide">
-            <span>Notes</span>
-            <div class="info-card-copy">${escapeHtml(contract.notes)}</div>
+          <div class="info-notes">
+            <span class="info-notes-label">Notes</span>
+            <div class="info-notes-value">${escapeHtml(contract.notes)}</div>
           </div>`
     : "";
   const lineItemsHtml = contract.lineItems
@@ -2441,7 +2446,9 @@ function buildContractDocumentHtml() {
       .contract-title h1 {
         margin-bottom: 0.35rem;
         font-size: 12pt;
-        font-weight: 700;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
       }
 
       .contract-title p {
@@ -2456,35 +2463,47 @@ function buildContractDocumentHtml() {
       .info-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.8rem 1rem;
+        gap: 0.45rem 1.2rem;
         margin-bottom: 1.4rem;
       }
 
-      .info-card {
-        padding: 0.85rem 0.95rem;
-        border: 1px solid #e6d8ca;
-        border-radius: 0.85rem;
-        background: #fffaf6;
+      .info-line {
+        display: grid;
+        grid-template-columns: 8.8rem minmax(0, 1fr);
+        gap: 0.9rem;
+        align-items: end;
+        min-height: 1.9rem;
+        padding: 0 0 0.35rem;
+        border-bottom: 1px solid #2f2a26;
       }
 
-      .info-card-wide {
+      .info-line-label {
+        display: block;
+        color: #2f2a26;
+        font-size: 10pt;
+      }
+
+      .info-line-value {
+        display: block;
+        font-size: 10pt;
+        font-weight: 400;
+      }
+
+      .info-notes {
         grid-column: 1 / -1;
+        margin-top: 0.25rem;
+        padding: 0 0 0.35rem;
+        border-bottom: 1px solid #2f2a26;
       }
 
-      .info-card span {
+      .info-notes-label {
         display: block;
-        margin-bottom: 0.35rem;
-        color: #76685d;
+        margin-bottom: 0.3rem;
+        color: #2f2a26;
         font-size: 10pt;
       }
 
-      .info-card strong {
-        display: block;
-        font-size: 10pt;
-        font-weight: 700;
-      }
-
-      .info-card-copy {
+      .info-notes-value {
         font-size: 10pt;
         white-space: pre-wrap;
       }
@@ -2648,30 +2667,12 @@ function buildContractDocumentHtml() {
         </div>
 
         <div class="info-grid">
-          <div class="info-card">
-            <span>Date</span>
-            <strong>${escapeHtml(contract.quoteDate)}</strong>
-          </div>
-          <div class="info-card">
-            <span>Client's Address</span>
-            <strong>${escapeHtml(contract.clientAddress)}</strong>
-          </div>
-          <div class="info-card">
-            <span>Client's Name</span>
-            <strong>${escapeHtml(contract.clientName)}</strong>
-          </div>
-          <div class="info-card">
-            <span>Project Architect</span>
-            <strong>${escapeHtml(contract.projectArchitect)}</strong>
-          </div>
-          <div class="info-card">
-            <span>Contact No.</span>
-            <strong>${escapeHtml(contract.contactNumber)}</strong>
-          </div>
-          <div class="info-card">
-            <span>Email Address</span>
-            <strong>${escapeHtml(contract.emailAddress)}</strong>
-          </div>
+          ${buildInfoLine("Date", contract.quoteDate)}
+          ${buildInfoLine("Client's Address", contract.clientAddress)}
+          ${buildInfoLine("Client's Name", contract.clientName)}
+          ${buildInfoLine("Project Architect", contract.projectArchitect)}
+          ${buildInfoLine("Contact No.", contract.contactNumber)}
+          ${buildInfoLine("Email Address", contract.emailAddress)}
           ${notesPanelHtml}
         </div>
 
