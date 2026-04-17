@@ -1970,11 +1970,11 @@ function getMeasurementDraftsForSave(validateOnly = false) {
     );
     const askingPrice = parseCurrencyLikeNumber(selectedMaterial?.askingPrice);
 
-    if (!row.label || width === null || height === null || !selectedMaterial || askingPrice === null) {
+    if (width === null || height === null || !selectedMaterial || askingPrice === null) {
       return {
         ok: false,
         message:
-          "Every measurement row must have a label, width, height, and configured material before saving.",
+          "Every measurement row must have width, height, and a configured material before saving.",
       };
     }
 
@@ -2241,7 +2241,7 @@ function buildContractPreviewData() {
         .join(" - ");
 
       return {
-        area: areaLabel || "Measurement",
+        area: areaLabel,
         type: row.type?.trim() || "-",
         materialCode: row.materialCode?.trim() || "-",
         width: formatMeasurementDimension(row.width),
