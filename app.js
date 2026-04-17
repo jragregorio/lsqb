@@ -2730,8 +2730,6 @@ function buildContractPdfDefinition(contract, assets) {
             },
             {
               title: "Payment Options",
-              titleFont: "Roboto",
-              titleFontSize: 11.5,
               items: [
                 {
                   text: [
@@ -2740,23 +2738,18 @@ function buildContractPdfDefinition(contract, assets) {
                     { text: " is accepted." },
                   ],
                   font: "Roboto",
-                  fontSize: 11.5,
                 },
                 {
                   text: [
                     { text: "Account name: " },
-                    { text: "Ma. Elena Bernardo", bold: true },
+                    { text: "Ma. Elena Bernardo", font: "Roboto", bold: true, fontSize: 11.5 },
                   ],
-                  font: "Roboto",
-                  fontSize: 11.5,
                 },
                 {
                   text: [
                     { text: "Account number: " },
-                    { text: "0110 1002 1573", bold: true },
+                    { text: "0110 1002 1573", font: "Roboto", bold: true, fontSize: 11.5 },
                   ],
-                  font: "Roboto",
-                  fontSize: 11.5,
                 },
                 {
                   text: [
@@ -2765,7 +2758,6 @@ function buildContractPdfDefinition(contract, assets) {
                     { text: " should be coordinated with the supplier as needed." },
                   ],
                   font: "Roboto",
-                  fontSize: 11.5,
                 },
                 {
                   text: [
@@ -2774,7 +2766,6 @@ function buildContractPdfDefinition(contract, assets) {
                     { text: " before work or deliveries commence." },
                   ],
                   font: "Roboto",
-                  fontSize: 11.5,
                 },
               ],
             },
