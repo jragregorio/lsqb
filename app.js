@@ -123,7 +123,7 @@ const refs = {
 };
 
 const state = loadState();
-const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 100;
+const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 const AUTOSAVE_DELAY_MS = 1800;
 
 const runtime = {
