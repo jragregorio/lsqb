@@ -2401,7 +2401,7 @@ function buildContractDocumentHtml() {
         width: min(8.5in, 100%);
         min-height: 11in;
         margin: 0 auto 1rem;
-        padding: 2.2rem;
+        padding: 0.6in;
         border: 1px solid #ddcec1;
         border-radius: 1.2rem;
         background: #ffffff;
@@ -2420,7 +2420,7 @@ function buildContractDocumentHtml() {
         z-index: 1;
         display: flex;
         flex-direction: column;
-        min-height: calc(11in - 4.4rem);
+        min-height: calc(11in - 1.2in);
       }
 
       .page-watermark {
@@ -2570,6 +2570,11 @@ function buildContractDocumentHtml() {
         margin-top: 1rem;
       }
 
+      .page-summary-block {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
       .totals-table td:first-child {
         width: 68%;
         font-weight: 700;
@@ -2653,13 +2658,14 @@ function buildContractDocumentHtml() {
           width: 100%;
           min-height: auto;
           margin: 0;
-          padding: 0.6in;
+          padding: 0;
           border: 0;
           border-radius: 0;
           box-shadow: none;
         }
 
         .contract-page-content {
+          display: block;
           min-height: auto;
         }
 
@@ -2678,6 +2684,15 @@ function buildContractDocumentHtml() {
         .order-details-table tr,
         .order-details-table td,
         .order-details-table th {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .totals-table,
+        .totals-table tbody,
+        .totals-table tr,
+        .totals-table td,
+        .page-summary-block {
           break-inside: avoid;
           page-break-inside: avoid;
         }
@@ -2732,24 +2747,26 @@ function buildContractDocumentHtml() {
           </tbody>
         </table>
 
-        <table class="totals-table">
-          <tbody>
-            <tr>
-              <td>Sub Total</td>
-              <td class="align-right">${escapeHtml(formatCurrency(contract.subtotal))}</td>
-            </tr>
-            <tr>
-              <td>Discount</td>
-              <td class="align-right">${escapeHtml(formatCurrency(contract.discountAmount))}</td>
-            </tr>
-            <tr class="is-accent">
-              <td>Total</td>
-              <td class="align-right">${escapeHtml(formatCurrency(contract.finalTotal))}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="page-summary-block">
+          <table class="totals-table">
+            <tbody>
+              <tr>
+                <td>Sub Total</td>
+                <td class="align-right">${escapeHtml(formatCurrency(contract.subtotal))}</td>
+              </tr>
+              <tr>
+                <td>Discount</td>
+                <td class="align-right">${escapeHtml(formatCurrency(contract.discountAmount))}</td>
+              </tr>
+              <tr class="is-accent">
+                <td>Total</td>
+                <td class="align-right">${escapeHtml(formatCurrency(contract.finalTotal))}</td>
+              </tr>
+            </tbody>
+          </table>
 
-        <p class="page-footer">Page 1 of 4</p>
+          <p class="page-footer">Page 1 of 4</p>
+        </div>
       </div>
     </section>
 
