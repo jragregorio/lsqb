@@ -2243,6 +2243,7 @@ function buildContractPreviewData() {
     projectArchitect: state.quoteMeta.projectArchitect.trim() || "-",
     contactNumber: state.quoteMeta.contactNumber.trim() || "-",
     emailAddress: state.quoteMeta.emailAddress.trim() || "-",
+    notes: state.quoteMeta.notes.trim(),
     lineItems,
     subtotal,
     discountAmount,
@@ -2263,6 +2264,13 @@ function buildContractDocumentHtml() {
   const logoSrc = new URL("./assets/luxeshade-logo.png", window.location.href).href;
   const pageWatermark = buildLuxeShadeLogoMarkup(logoSrc, { watermark: true });
   const heroLogo = buildLuxeShadeLogoMarkup(logoSrc);
+  const notesPanelHtml = contract.notes
+    ? `
+          <div class="info-card info-card-wide">
+            <span>Notes</span>
+            <div class="info-card-copy">${escapeHtml(contract.notes)}</div>
+          </div>`
+    : "";
   const lineItemsHtml = contract.lineItems
     .map(
       (item) => `
@@ -2442,6 +2450,10 @@ function buildContractDocumentHtml() {
         background: #fffaf6;
       }
 
+      .info-card-wide {
+        grid-column: 1 / -1;
+      }
+
       .info-card span {
         display: block;
         margin-bottom: 0.35rem;
@@ -2453,6 +2465,11 @@ function buildContractDocumentHtml() {
         display: block;
         font-size: 10pt;
         font-weight: 700;
+      }
+
+      .info-card-copy {
+        font-size: 10pt;
+        white-space: pre-wrap;
       }
 
       .section-heading {
@@ -2638,6 +2655,7 @@ function buildContractDocumentHtml() {
             <span>Email Address</span>
             <strong>${escapeHtml(contract.emailAddress)}</strong>
           </div>
+          ${notesPanelHtml}
         </div>
 
         <h2 class="section-heading">Order Details</h2>
