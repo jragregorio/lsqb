@@ -2663,6 +2663,25 @@ function buildContractDocumentHtml() {
           min-height: auto;
         }
 
+        .order-details-table {
+          page-break-inside: auto;
+        }
+
+        .order-details-table thead {
+          display: table-header-group;
+        }
+
+        .order-details-table tfoot {
+          display: table-footer-group;
+        }
+
+        .order-details-table tr,
+        .order-details-table td,
+        .order-details-table th {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
         .section-four-spacer {
           min-height: 4.6in;
         }
