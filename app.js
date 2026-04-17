@@ -2526,7 +2526,8 @@ function buildContractPdfDefinition(contract, assets) {
             width: "*",
             text: entry.title,
             bold: true,
-            fontSize: 10.7,
+            ...(entry.titleFont ? { font: entry.titleFont } : {}),
+            fontSize: entry.titleFontSize || 10.7,
             color: textColor,
             lineHeight: 1.12,
           },
@@ -2535,8 +2536,8 @@ function buildContractPdfDefinition(contract, assets) {
         margin: [0, index === 0 ? 0 : 8, 0, 4],
       },
       ...entry.items.map((item) => ({
-        text: item,
         margin: [20, 0, 0, 4],
+        ...(typeof item === "string" ? { text: item } : item),
       })),
     ]);
 
@@ -2702,25 +2703,79 @@ function buildContractPdfDefinition(contract, assets) {
             {
               title: "Down Payment (50%)",
               items: [
-                `Amount: ${formatCurrency(contract.downpayment)}`,
+                {
+                  text: [
+                    { text: "Amount: " },
+                    { text: formatPdfPesoAmount(contract.downpayment), bold: true },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
                 "Payable upon signing or approval of the contract.",
               ],
             },
             {
               title: "Final Payment (50%)",
               items: [
-                `Amount: ${formatCurrency(contract.remainingBalance)}`,
+                {
+                  text: [
+                    { text: "Amount: " },
+                    { text: formatPdfPesoAmount(contract.remainingBalance), bold: true },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
                 "Payable on the same day of installation or within 24 hours upon completion of work.",
               ],
             },
             {
               title: "Payment Options",
+              titleFont: "Roboto",
+              titleFontSize: 11.5,
               items: [
-                "Online payment via BDO is accepted.",
-                "Account name: Ma. Elena Bernardo",
-                "Account number: 0110 1002 1573",
-                "Other payment methods such as checks or cash should be coordinated with the supplier as needed.",
-                "For check payments, clearance must be confirmed before work or deliveries commence.",
+                {
+                  text: [
+                    { text: "Online payment via " },
+                    { text: "BDO", bold: true },
+                    { text: " is accepted." },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
+                {
+                  text: [
+                    { text: "Account name: " },
+                    { text: "Ma. Elena Bernardo", bold: true },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
+                {
+                  text: [
+                    { text: "Account number: " },
+                    { text: "0110 1002 1573", bold: true },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
+                {
+                  text: [
+                    { text: "Other payment methods such as " },
+                    { text: "checks or cash", bold: true },
+                    { text: " should be coordinated with the supplier as needed." },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
+                {
+                  text: [
+                    { text: "For check payments, " },
+                    { text: "clearance must be confirmed", bold: true },
+                    { text: " before work or deliveries commence." },
+                  ],
+                  font: "Roboto",
+                  fontSize: 11.5,
+                },
               ],
             },
           ]),
@@ -2993,6 +3048,15 @@ function parseCurrencyLikeNumber(value) {
 
 function formatCurrency(value) {
   return currencyFormatter.format(value || 0);
+}
+
+function formatPdfPesoAmount(value) {
+  const numericValue = Number(value);
+  const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+  return `\u20b1${safeValue.toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function createEmptyStateRow(colspan, copy) {
