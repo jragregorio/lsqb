@@ -2386,16 +2386,17 @@ function triggerPdfDownload(pdfUrl, fileName) {
 }
 
 function buildContractPdfFileName(contract) {
-  const rawName = `${contract.clientName} ${contract.clientAddress} contract`
-    .replace(/\s+/g, " ")
-    .trim();
+  const clientName = contract.clientName.replace(/\s+/g, " ").trim();
+  const rawName = clientName
+    ? `LuxeShade Contract - ${clientName}`
+    : "LuxeShade Contract";
 
   const safeName = rawName
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
-    .replace(/\s+/g, "-")
-    .toLowerCase();
+    .replace(/\s+/g, " ")
+    .trim();
 
-  return `${safeName || "luxeshade-contract"}.pdf`;
+  return `${safeName || "LuxeShade Contract"}.pdf`;
 }
 
 function buildContractPdfDefinition(contract, assets) {
