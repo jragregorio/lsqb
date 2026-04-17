@@ -2418,6 +2418,8 @@ function buildContractDocumentHtml() {
       .contract-page-content {
         position: relative;
         z-index: 1;
+        display: flex;
+        flex-direction: column;
         min-height: calc(11in - 4.4rem);
       }
 
@@ -2630,7 +2632,8 @@ function buildContractDocumentHtml() {
       }
 
       .page-footer {
-        margin-top: 2rem;
+        margin-top: auto;
+        padding-top: 1rem;
         color: #76685d;
         font-size: 9pt;
         text-align: right;
