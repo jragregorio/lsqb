@@ -37,26 +37,6 @@ Examples:
 
 If you use a local server, the bundled sample pricelist button should work.
 
-## Current Formula Logic
-
-Square footage:
-
-```text
-ROUND(((width_mm / 1000) * (height_mm / 1000)) * 10.76)
-```
-
-Row cost:
-
-```text
-rounded_sqft * asking_price
-```
-
-Pocket:
-
-```text
-asking_price - retail_price
-```
-
 Totals:
 
 - `Subtotal` = sum of row costs
