@@ -35,17 +35,17 @@ const PDFMAKE_FONTS = {
 };
 
 const MEASUREMENT_TYPE_OPTIONS = [
-  "Sheer Curtain",
-  "Blackout Curtain",
-  "Semi-Blackout Curtain",
-  "Soft B/O Curtain",
-  "Combi Blinds",
-  "Roller Blinds",
-  "Wood Blinds",
-  "Silhouette Blinds",
-  "Vertical Blinds",
-  "Sunscreen",
-  "Roman Blinds",
+  "SHEER CURTAIN",
+  "BLACKOUT CURTAIN",
+  "SEMI-BLACKOUT CURTAIN",
+  "SOFT B/O CURTAIN",
+  "COMBI BLINDS",
+  "ROLLER BLINDS",
+  "WOOD BLINDS",
+  "SILHOUETTE BLINDS",
+  "VERTICAL BLINDS",
+  "SUNSCREEN",
+  "ROMAN BLINDS",
 ];
 
 const QUOTE_SELECT_COLUMNS = [
