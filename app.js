@@ -125,6 +125,8 @@ const refs = {
 const state = loadState();
 const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 const AUTOSAVE_DELAY_MS = 1800;
+/** Set to `true` to re-enable debounced Supabase saves while editing (pauses felt slow for some users). */
+const AUTOSAVE_ENABLED = false;
 
 const runtime = {
   session: null,
@@ -1612,7 +1614,7 @@ function renderMeasurements() {
     roomCell.append(
       buildTextInput({
         value: row.room,
-        placeholder: "Living Room",
+        placeholder: "",
         disabled: runtime.quoteBusy,
         onInput: (value) => {
           row.room = value;
@@ -2049,6 +2051,10 @@ function canAutosaveCurrentQuote() {
 
 function queueAutosave() {
   clearQueuedAutosave();
+
+  if (!AUTOSAVE_ENABLED) {
+    return;
+  }
 
   if (!canAutosaveCurrentQuote()) {
     return;
