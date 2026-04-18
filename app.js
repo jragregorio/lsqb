@@ -35,17 +35,18 @@ const PDFMAKE_FONTS = {
 };
 
 const MEASUREMENT_TYPE_OPTIONS = [
-  "SHEER CURTAIN",
   "BLACKOUT CURTAIN",
-  "SEMI-BLACKOUT CURTAIN",
-  "SOFT B/O CURTAIN",
   "COMBI BLINDS",
+  "PREMIUM BLACKOUT ROLLER BLINDS",
   "ROLLER BLINDS",
-  "WOOD BLINDS",
-  "SILHOUETTE BLINDS",
-  "VERTICAL BLINDS",
-  "SUNSCREEN",
   "ROMAN BLINDS",
+  "SEMI-BLACKOUT CURTAIN",
+  "SHEER CURTAIN",
+  "SILHOUETTE BLINDS",
+  "SOFT B/O CURTAIN",
+  "SUNSCREEN",
+  "VERTICAL BLINDS",
+  "WOOD BLINDS"
 ];
 
 const QUOTE_SELECT_COLUMNS = [
@@ -1611,17 +1612,18 @@ function renderMeasurements() {
     const tr = document.createElement("tr");
 
     const roomCell = document.createElement("td");
-    roomCell.append(
-      buildTextInput({
-        value: row.room,
-        placeholder: "",
-        disabled: runtime.quoteBusy,
-        onInput: (value) => {
-          row.room = value;
-          persistDraftChange();
-        },
-      }),
-    );
+    const roomInput = buildTextInput({
+      value: row.room,
+      placeholder: "",
+      className: "room-section-input",
+      disabled: runtime.quoteBusy,
+      onInput: (value) => {
+        row.room = value;
+        persistDraftChange();
+      },
+    });
+    attachRoomSectionInputFit(roomInput);
+    roomCell.append(roomInput);
 
     const typeCell = document.createElement("td");
     const typeSelect = document.createElement("select");
@@ -3157,12 +3159,61 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function buildTextInput({ value, placeholder, disabled = false, onInput }) {
+const ROOM_INPUT_MIN_FONT_PX = 11;
+
+function fitRoomSectionInputToCell(input) {
+  if (!input?.classList?.contains("room-section-input")) {
+    return;
+  }
+
+  if (!input.dataset.roomFontBasePx) {
+    input.style.removeProperty("font-size");
+    const px = parseFloat(window.getComputedStyle(input).fontSize);
+    input.dataset.roomFontBasePx = String(
+      Number.isFinite(px) && px > 0 ? px : 16,
+    );
+  }
+
+  const basePx = Number(input.dataset.roomFontBasePx) || 16;
+  input.style.fontSize = `${basePx}px`;
+  let size = basePx;
+
+  while (input.scrollWidth > input.clientWidth + 1 && size > ROOM_INPUT_MIN_FONT_PX) {
+    size -= 0.5;
+    input.style.fontSize = `${size}px`;
+  }
+}
+
+function attachRoomSectionInputFit(input) {
+  const scheduleFit = () => {
+    window.requestAnimationFrame(() => fitRoomSectionInputToCell(input));
+  };
+
+  const onCellResize = () => {
+    delete input.dataset.roomFontBasePx;
+    scheduleFit();
+  };
+
+  input.addEventListener("input", scheduleFit);
+
+  const td = input.closest("td");
+  if (td && typeof ResizeObserver !== "undefined") {
+    const resizeObserver = new ResizeObserver(onCellResize);
+    resizeObserver.observe(td);
+  }
+
+  scheduleFit();
+}
+
+function buildTextInput({ value, placeholder, disabled = false, onInput, className }) {
   const input = document.createElement("input");
   input.type = "text";
   input.value = value;
   input.placeholder = placeholder;
   input.disabled = disabled;
+  if (className) {
+    input.className = className;
+  }
   input.addEventListener("input", (event) => onInput(event.target.value));
   return input;
 }
