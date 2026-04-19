@@ -1497,6 +1497,26 @@ function scrollSavedQuoteIntoView(quoteId) {
   }
 }
 
+function getSourceMaterialOptionLabel(material) {
+  if (!material) {
+    return "";
+  }
+  return material.division
+    ? `${material.category} (${material.division})`
+    : String(material.category || "");
+}
+
+function sourceMaterialMatchesSearch(material, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return true;
+  }
+  const cat = String(material.category || "").toLowerCase();
+  const div = String(material.division || "").toLowerCase();
+  const full = getSourceMaterialOptionLabel(material).toLowerCase();
+  return cat.includes(q) || div.includes(q) || full.includes(q);
+}
+
 function renderMaterials() {
   refs.materialBody.innerHTML = "";
 
@@ -1506,50 +1526,308 @@ function renderMaterials() {
   }
 
   const selectedKeys = state.selectedMaterials
-    .map((row) => row.sourceKey)
+    .map((r) => r.sourceKey)
     .filter(Boolean);
 
   state.selectedMaterials.forEach((row) => {
     const tr = document.createElement("tr");
 
     const materialCell = document.createElement("td");
-    const select = document.createElement("select");
-    const placeholder = new Option("Select material", "");
-    select.append(placeholder);
+    materialCell.className = "material-combobox-cell";
 
-    state.sourceMaterials.forEach((material) => {
-      const option = new Option(
-        material.division
-          ? `${material.category} (${material.division})`
-          : material.category,
-        material.key,
+    const wrap = document.createElement("div");
+    wrap.className = "material-combobox";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "material-combobox-input";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = "Search material…";
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-expanded", "false");
+
+    const currentMaterial = row.sourceKey
+      ? state.sourceMaterials.find((m) => m.key === row.sourceKey)
+      : null;
+    input.value = currentMaterial ? getSourceMaterialOptionLabel(currentMaterial) : "";
+
+    const list = document.createElement("ul");
+    list.className = "material-combobox-list";
+    list.setAttribute("role", "listbox");
+    list.hidden = true;
+
+    let tableShellScrollEl = null;
+    let outsidePointerActive = false;
+
+    const catalogEmpty = state.sourceMaterials.length === 0;
+    input.disabled = runtime.quoteBusy || catalogEmpty;
+    if (catalogEmpty) {
+      input.placeholder = "Load catalog first";
+    }
+
+    const isKeyTakenElsewhere = (key) =>
+      selectedKeys.includes(key) && key !== row.sourceKey;
+
+    const positionDropdown = () => {
+      if (list.hidden) {
+        return;
+      }
+      const rect = input.getBoundingClientRect();
+      const margin = 6;
+      const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
+      const maxH = Math.min(280, Math.max(120, spaceBelow));
+      list.style.position = "fixed";
+      list.style.left = `${rect.left}px`;
+      list.style.top = `${rect.bottom + margin}px`;
+      list.style.width = `${Math.max(rect.width, 200)}px`;
+      list.style.maxHeight = `${maxH}px`;
+      list.style.zIndex = "3000";
+    };
+
+    const syncInputLabelFromRow = () => {
+      const m = row.sourceKey
+        ? state.sourceMaterials.find((item) => item.key === row.sourceKey)
+        : null;
+      if (m) {
+        input.value = getSourceMaterialOptionLabel(m);
+      }
+    };
+
+    const isPointerInsideCombobox = (event) => {
+      const x = event.clientX;
+      const y = event.clientY;
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        const over = document.elementFromPoint(x, y);
+        if (
+          over &&
+          (over === input ||
+            over === list ||
+            over === wrap ||
+            wrap.contains(over))
+        ) {
+          return true;
+        }
+        // Overlay scrollbars: elementFromPoint often misses the <ul>; use geometry.
+        const listRect = list.getBoundingClientRect();
+        if (
+          x >= listRect.left &&
+          x <= listRect.right &&
+          y >= listRect.top &&
+          y <= listRect.bottom
+        ) {
+          return true;
+        }
+        const inputRect = input.getBoundingClientRect();
+        if (
+          x >= inputRect.left &&
+          x <= inputRect.right &&
+          y >= inputRect.top &&
+          y <= inputRect.bottom
+        ) {
+          return true;
+        }
+      }
+      if (event.target instanceof Node && wrap.contains(event.target)) {
+        return true;
+      }
+      if (typeof event.composedPath === "function") {
+        for (const node of event.composedPath()) {
+          if (node === wrap || node === list || node === input) {
+            return true;
+          }
+          if (node instanceof HTMLElement && wrap.contains(node)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    const onWindowScrollCapture = (event) => {
+      if (list.hidden) {
+        return;
+      }
+      const t = event.target;
+      if (t === list) {
+        return;
+      }
+      if (t instanceof Node && list.contains(t)) {
+        return;
+      }
+      closeList();
+    };
+
+    const onOutsidePointerDown = (event) => {
+      if (list.hidden) {
+        return;
+      }
+      if (isPointerInsideCombobox(event)) {
+        return;
+      }
+      syncInputLabelFromRow();
+      closeList();
+    };
+
+    const registerOutsideCloser = () => {
+      if (outsidePointerActive) {
+        return;
+      }
+      document.addEventListener("pointerdown", onOutsidePointerDown, true);
+      outsidePointerActive = true;
+    };
+
+    const unregisterOutsideCloser = () => {
+      if (!outsidePointerActive) {
+        return;
+      }
+      document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+      outsidePointerActive = false;
+    };
+
+    const onTableShellScroll = () => {
+      if (!list.hidden) {
+        // Reposition instead of closing: wheel/trackpad often scroll-chains from
+        // the dropdown list into this ancestor; closing there felt like "scroll
+        // closes the menu".
+        positionDropdown();
+      }
+    };
+
+    const closeList = () => {
+      list.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      unregisterOutsideCloser();
+      window.removeEventListener("scroll", onWindowScrollCapture, true);
+      window.removeEventListener("resize", positionDropdown);
+      tableShellScrollEl?.removeEventListener("scroll", onTableShellScroll);
+      tableShellScrollEl = null;
+    };
+
+    const openList = () => {
+      if (catalogEmpty || runtime.quoteBusy) {
+        return;
+      }
+      list.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      renderMaterialListOptions();
+      positionDropdown();
+      registerOutsideCloser();
+      window.addEventListener("scroll", onWindowScrollCapture, true);
+      window.addEventListener("resize", positionDropdown);
+      tableShellScrollEl = document.querySelector(
+        "#material-setup-panel .table-shell",
       );
-      option.disabled =
-        selectedKeys.includes(material.key) && material.key !== row.sourceKey;
-      option.selected = material.key === row.sourceKey;
-      select.append(option);
-    });
+      tableShellScrollEl?.addEventListener("scroll", onTableShellScroll, {
+        passive: true,
+      });
+    };
 
-    select.disabled = runtime.quoteBusy;
-    select.addEventListener("change", (event) => {
-      const nextKey = event.target.value;
-      const material = state.sourceMaterials.find((item) => item.key === nextKey);
+    function renderMaterialListOptions() {
+      list.innerHTML = "";
+      const filtered = state.sourceMaterials.filter((m) =>
+        sourceMaterialMatchesSearch(m, input.value),
+      );
 
-      row.sourceKey = nextKey;
-      row.category = material?.category || "";
-      row.division = material?.division || "";
-      row.retailPrice = material ? material.retailPrice : "";
-
-      if (!nextKey) {
-        row.askingPrice = "";
+      if (filtered.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "material-combobox-empty";
+        empty.textContent = "No materials match your search.";
+        list.append(empty);
+        return;
       }
 
-      sanitizeMeasurementMaterialSelections();
-      persistDraftChange();
-      render();
+      filtered.forEach((material) => {
+        const li = document.createElement("li");
+        li.className = "material-combobox-option";
+        li.setAttribute("role", "option");
+        const taken = isKeyTakenElsewhere(material.key);
+        if (taken) {
+          li.classList.add("is-disabled");
+        }
+
+        const main = document.createElement("div");
+        main.className = "material-combobox-option-main";
+        main.textContent = material.category || "";
+
+        const sub = document.createElement("div");
+        sub.className = "material-combobox-option-sub";
+        if (material.division) {
+          sub.textContent = material.division;
+        } else {
+          sub.hidden = true;
+        }
+
+        li.append(main, sub);
+
+        if (!taken) {
+          li.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            row.sourceKey = material.key;
+            row.category = material.category || "";
+            row.division = material.division || "";
+            row.retailPrice = material ? material.retailPrice : "";
+            input.value = getSourceMaterialOptionLabel(material);
+            closeList();
+            sanitizeMeasurementMaterialSelections();
+            persistDraftChange();
+            render();
+          });
+        }
+
+        list.append(li);
+      });
+    }
+
+    input.addEventListener("focus", () => {
+      if (catalogEmpty || runtime.quoteBusy) {
+        return;
+      }
+      if (row.sourceKey) {
+        input.select();
+      }
+      openList();
     });
 
-    materialCell.append(select);
+    input.addEventListener("input", () => {
+      if (catalogEmpty || runtime.quoteBusy) {
+        return;
+      }
+      renderMaterialListOptions();
+      if (list.hidden) {
+        openList();
+      } else {
+        positionDropdown();
+      }
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        syncInputLabelFromRow();
+        closeList();
+        input.blur();
+      }
+    });
+
+    input.addEventListener("focusout", (event) => {
+      if (list.hidden) {
+        return;
+      }
+      const next = event.relatedTarget;
+      if (next === null) {
+        return;
+      }
+      if (wrap.contains(next)) {
+        return;
+      }
+      syncInputLabelFromRow();
+      closeList();
+    });
+
+    wrap.append(input, list);
+    materialCell.append(wrap);
 
     const retailCell = document.createElement("td");
     retailCell.className = "money-cell";

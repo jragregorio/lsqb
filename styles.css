@@ -750,6 +750,92 @@ code {
   background: #f7efe8;
 }
 
+.material-combobox-cell {
+  position: relative;
+  min-width: 12rem;
+  vertical-align: middle;
+}
+
+.material-combobox {
+  position: relative;
+  width: 100%;
+}
+
+.material-combobox-input {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddcec1;
+  border-radius: 0.8rem;
+  background: #fffdfb;
+  font: inherit;
+  font-size: max(16px, 0.95rem);
+  box-sizing: border-box;
+}
+
+.material-combobox-input:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.material-combobox-input:focus {
+  outline: 2px solid rgba(139, 115, 95, 0.35);
+  outline-offset: 1px;
+}
+
+.material-combobox-list {
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  background: #fffdfb;
+  border: 1px solid #ddcec1;
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px rgba(42, 32, 26, 0.12);
+}
+
+.material-combobox-option {
+  padding: 0.55rem 0.75rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f0e6de;
+  box-sizing: border-box;
+}
+
+.material-combobox-option:last-child {
+  border-bottom: 0;
+}
+
+.material-combobox-option:hover:not(.is-disabled) {
+  background: #fff5ec;
+}
+
+.material-combobox-option.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.material-combobox-option-main {
+  font-weight: 600;
+  color: #3d3229;
+  font-size: 0.92rem;
+}
+
+.material-combobox-option-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.material-combobox-empty {
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .money-cell {
   min-width: 150px;
   font-weight: 700;
