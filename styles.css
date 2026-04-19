@@ -707,10 +707,11 @@ code {
   min-width: 8.4rem;
 }
 
+/* Width (mm) = 6, Height (mm) = 7 — drag column shifted indices; was wrongly 7/8 */
+.measurements-table th:nth-child(6),
+.measurements-table td:nth-child(6),
 .measurements-table th:nth-child(7),
-.measurements-table td:nth-child(7),
-.measurements-table th:nth-child(8),
-.measurements-table td:nth-child(8) {
+.measurements-table td:nth-child(7) {
   width: calc(6.3rem * 1.05);
   min-width: calc(6.3rem * 1.05);
   max-width: calc(6.3rem * 1.05);

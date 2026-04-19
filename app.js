@@ -390,9 +390,8 @@ async function initializeAuth() {
   });
 
   if (session) {
-    if (!isSupabaseSourceLoaded()) {
-      await loadMaterialsFromSupabase({ showAlertOnFailure: false });
-    }
+    // Always refetch: localStorage may hold a stale catalog count after DB rows change.
+    await loadMaterialsFromSupabase({ showAlertOnFailure: false });
     await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
   }
 }
