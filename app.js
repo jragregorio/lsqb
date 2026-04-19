@@ -46,8 +46,11 @@ const MEASUREMENT_TYPE_OPTIONS = [
   "SOFT B/O CURTAIN",
   "SUNSCREEN",
   "VERTICAL BLINDS",
-  "WOOD BLINDS"
+  "WOOD BLINDS",
 ];
+
+/** Must match the configured material category in Material Setup (e.g. pricelist row). */
+const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized";
 
 const QUOTE_SELECT_COLUMNS = [
   "id",
@@ -121,6 +124,10 @@ const refs = {
   discountType: document.querySelector("#discount-type"),
   discountValue: document.querySelector("#discount-value"),
   summaryPanel: document.querySelector(".summary-panel"),
+  motorQuantityDialog: document.querySelector("#motor-quantity-dialog"),
+  motorQuantityForm: document.querySelector("#motor-quantity-form"),
+  motorQuantityInput: document.querySelector("#motor-quantity-input"),
+  motorQuantityCancel: document.querySelector("#motor-quantity-cancel"),
 };
 
 const state = loadState();
@@ -464,6 +471,7 @@ function createMeasurementRow() {
     width: "",
     height: "",
     materialId: "",
+    unitQuantity: "",
   };
 }
 
@@ -981,6 +989,8 @@ async function handleSaveQuote(options = {}) {
           material_label: item.materialLabel,
           asking_price: item.askingPrice,
           sort_order: index,
+          unit_quantity: item.unitQuantity,
+          line_cost: item.lineCost,
         })),
       );
 
@@ -1044,7 +1054,9 @@ async function loadQuoteById(quoteId) {
       .order("sort_order", { ascending: true }),
     supabase
       .from("quote_measurements")
-      .select("id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, sort_order")
+      .select(
+        "id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, sort_order",
+      )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true }),
   ]);
@@ -1089,16 +1101,28 @@ async function loadQuoteById(quoteId) {
     }) || [];
 
   state.measurementRows =
-    measurementsResult.data.map((row) => ({
-      id: createId("measurement"),
-      room: row.room_section || "",
-      type: row.measurement_type || "",
-      materialCode: row.material_code || "",
-      label: row.label || "",
-      width: row.width_mm === null ? "" : String(row.width_mm),
-      height: row.height_mm === null ? "" : String(row.height_mm),
-      materialId: localIdMap.get(row.quote_material_id) || "",
-    })) || [];
+    measurementsResult.data.map((row) => {
+      const unitQty =
+        row.unit_quantity !== null && row.unit_quantity !== undefined
+          ? String(row.unit_quantity)
+          : "";
+      const isQtyLine =
+        row.unit_quantity !== null &&
+        row.unit_quantity !== undefined &&
+        Number(row.unit_quantity) > 0;
+
+      return {
+        id: createId("measurement"),
+        room: row.room_section || "",
+        type: row.measurement_type || "",
+        materialCode: row.material_code || "",
+        label: row.label || "",
+        width: isQtyLine ? "" : row.width_mm === null ? "" : String(row.width_mm),
+        height: isQtyLine ? "" : row.height_mm === null ? "" : String(row.height_mm),
+        materialId: localIdMap.get(row.quote_material_id) || "",
+        unitQuantity: unitQty,
+      };
+    }) || [];
 
   state.discountType =
     quoteResult.data.discount_type === "percent" ? "percent" : "amount";
@@ -1610,6 +1634,7 @@ function renderMeasurements() {
 
   state.measurementRows.forEach((row) => {
     const tr = document.createElement("tr");
+    const motorized = isMotorizedMaterialRow(row);
 
     const roomCell = document.createElement("td");
     const roomInput = buildTextInput({
@@ -1669,9 +1694,9 @@ function renderMeasurements() {
     const widthCell = document.createElement("td");
     widthCell.append(
       buildNumberInput({
-        value: row.width,
+        value: motorized ? "" : row.width,
         placeholder: "0",
-        disabled: runtime.quoteBusy,
+        disabled: runtime.quoteBusy || motorized,
         onInput: (value) => {
           row.width = value;
           persistDraftChange();
@@ -1684,9 +1709,9 @@ function renderMeasurements() {
     const heightCell = document.createElement("td");
     heightCell.append(
       buildNumberInput({
-        value: row.height,
+        value: motorized ? "" : row.height,
         placeholder: "0",
-        disabled: runtime.quoteBusy,
+        disabled: runtime.quoteBusy || motorized,
         onInput: (value) => {
           row.height = value;
           persistDraftChange();
@@ -1708,10 +1733,33 @@ function renderMeasurements() {
       select.append(option);
     });
     select.disabled = configuredMaterials.length === 0 || runtime.quoteBusy;
-    select.addEventListener("change", (event) => {
-      row.materialId = event.target.value;
+    select.addEventListener("focus", () => {
+      select.dataset.prevMaterial = row.materialId;
+    });
+    select.addEventListener("change", () => {
+      const previousMaterialId = select.dataset.prevMaterial || "";
+      row.materialId = select.value;
+
+      const material = configuredMaterials.find((item) => item.id === row.materialId);
+      if (material && isMotorizedCategoryFromMaterial(material)) {
+        void openMotorQuantityDialog(row).then((result) => {
+          if (!result.ok) {
+            row.materialId = previousMaterialId;
+          } else {
+            row.unitQuantity = String(result.quantity);
+            row.width = "";
+            row.height = "";
+          }
+          persistDraftChange();
+          renderMeasurements();
+          renderSummary();
+        });
+        return;
+      }
+
+      row.unitQuantity = "";
       persistDraftChange();
-      updateMeasurementOutputs();
+      renderMeasurements();
       renderSummary();
     });
     materialCell.append(select);
@@ -1721,7 +1769,21 @@ function renderMeasurements() {
     const updateMeasurementOutputs = () => {
       const cost = getMeasurementCost(row);
       const squareFootage = getMeasurementSquareFootage(row);
+      const motorizedRow = isMotorizedMaterialRow(row);
+      const qty = parseMotorQuantity(row.unitQuantity);
+
       costCell.textContent = cost === null ? "PHP 0.00" : formatCurrency(cost);
+
+      if (motorizedRow) {
+        const helper = document.createElement("span");
+        helper.className = "muted-helper";
+        helper.textContent = qty
+          ? `${qty} quantity`
+          : "Quantity required — pick Curtains Motorized again to enter";
+        costCell.append(helper);
+        return;
+      }
+
       if (squareFootage !== null) {
         const helper = document.createElement("span");
         helper.className = squareFootage.minimumApplied
@@ -1800,6 +1862,85 @@ function getConfiguredMaterials() {
   });
 }
 
+function getMeasurementMaterialForRow(row) {
+  return state.selectedMaterials.find((material) => material.id === row.materialId);
+}
+
+function isMotorizedCategoryFromMaterial(material) {
+  return material?.category?.trim() === MOTORIZED_MATERIAL_CATEGORY;
+}
+
+function isMotorizedMaterialRow(row) {
+  return isMotorizedCategoryFromMaterial(getMeasurementMaterialForRow(row));
+}
+
+function parseMotorQuantity(value) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return null;
+  }
+  return parsed;
+}
+
+function openMotorQuantityDialog(row) {
+  const dialog = refs.motorQuantityDialog;
+  const input = refs.motorQuantityInput;
+  const form = refs.motorQuantityForm;
+  const cancelBtn = refs.motorQuantityCancel;
+
+  return new Promise((resolve) => {
+    if (!dialog || !input || !form) {
+      resolve({ ok: false });
+      return;
+    }
+
+    input.value = row.unitQuantity ? String(row.unitQuantity) : "";
+
+    let settled = false;
+
+    const cleanup = () => {
+      form.removeEventListener("submit", onSubmit);
+      cancelBtn?.removeEventListener("click", onCancel);
+      dialog.removeEventListener("cancel", onDismiss);
+    };
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    const onSubmit = (event) => {
+      event.preventDefault();
+      const qty = parseMotorQuantity(input.value);
+      if (qty === null) {
+        input.focus();
+        return;
+      }
+      dialog.close();
+      finish({ ok: true, quantity: qty });
+    };
+
+    const onCancel = () => {
+      dialog.close();
+      finish({ ok: false });
+    };
+
+    const onDismiss = () => {
+      finish({ ok: false });
+    };
+
+    form.addEventListener("submit", onSubmit);
+    cancelBtn?.addEventListener("click", onCancel);
+    dialog.addEventListener("cancel", onDismiss);
+    dialog.showModal();
+    window.requestAnimationFrame(() => input.focus());
+  });
+}
+
 function getPocketValue(materialRow) {
   const askingPrice = parseCurrencyLikeNumber(materialRow.askingPrice);
   const retailPrice = parseCurrencyLikeNumber(materialRow.retailPrice);
@@ -1812,6 +1953,10 @@ function getPocketValue(materialRow) {
 }
 
 function getMeasurementSquareFootage(row) {
+  if (isMotorizedMaterialRow(row)) {
+    return null;
+  }
+
   const width = parseCurrencyLikeNumber(row.width);
   const height = parseCurrencyLikeNumber(row.height);
 
@@ -1833,11 +1978,23 @@ function getMeasurementSquareFootage(row) {
 }
 
 function getMeasurementCost(row) {
-  const squareFootage = getMeasurementSquareFootage(row);
-  const material = state.selectedMaterials.find((item) => item.id === row.materialId);
+  const material = getMeasurementMaterialForRow(row);
   const askingPrice = parseCurrencyLikeNumber(material?.askingPrice);
 
-  if (squareFootage === null || askingPrice === null) {
+  if (askingPrice === null) {
+    return null;
+  }
+
+  if (isMotorizedMaterialRow(row)) {
+    const qty = parseMotorQuantity(row.unitQuantity);
+    if (qty === null) {
+      return null;
+    }
+    return qty * askingPrice;
+  }
+
+  const squareFootage = getMeasurementSquareFootage(row);
+  if (squareFootage === null) {
     return null;
   }
 
@@ -1973,26 +2130,79 @@ function getMeasurementDraftsForSave(validateOnly = false) {
       Boolean(row.label) ||
       row.width !== "" ||
       row.height !== "" ||
-      Boolean(row.materialId);
+      Boolean(row.materialId) ||
+      row.unitQuantity !== "";
 
     if (!hasAnyValue) {
       continue;
     }
 
-    const width = parseCurrencyLikeNumber(row.width);
-    const height = parseCurrencyLikeNumber(row.height);
     const selectedMaterial = state.selectedMaterials.find(
       (material) => material.id === row.materialId,
     );
     const askingPrice = parseCurrencyLikeNumber(selectedMaterial?.askingPrice);
 
-    if (width === null || height === null || !selectedMaterial || askingPrice === null) {
+    if (!selectedMaterial || askingPrice === null) {
+      return {
+        ok: false,
+        message:
+          "Every measurement row must use a configured material with a valid asking price before saving.",
+      };
+    }
+
+    const motorized = isMotorizedCategoryFromMaterial(selectedMaterial);
+
+    if (motorized) {
+      const qty = parseMotorQuantity(row.unitQuantity);
+      if (qty === null) {
+        return {
+          ok: false,
+          message:
+            "Curtains Motorized rows need a quantity. Select the material again and enter a whole number (1 or more).",
+        };
+      }
+
+      const lineCost = qty * askingPrice;
+
+      if (!validateOnly) {
+        drafts.push({
+          localMaterialId: selectedMaterial.id,
+          room: row.room,
+          type: row.type,
+          materialCode: row.materialCode,
+          label: row.label.trim(),
+          width: 0,
+          height: 0,
+          unitQuantity: qty,
+          lineCost,
+          materialLabel: selectedMaterial.category,
+          askingPrice,
+        });
+      }
+      continue;
+    }
+
+    const width = parseCurrencyLikeNumber(row.width);
+    const height = parseCurrencyLikeNumber(row.height);
+
+    if (width === null || height === null) {
       return {
         ok: false,
         message:
           "Every measurement row must have width, height, and a configured material before saving.",
       };
     }
+
+    const squareFootage = getMeasurementSquareFootage(row);
+    if (squareFootage === null) {
+      return {
+        ok: false,
+        message:
+          "Every measurement row must have width, height, and a configured material before saving.",
+      };
+    }
+
+    const lineCost = squareFootage.billed * askingPrice;
 
     if (!validateOnly) {
       drafts.push({
@@ -2003,6 +2213,8 @@ function getMeasurementDraftsForSave(validateOnly = false) {
         label: row.label.trim(),
         width,
         height,
+        unitQuantity: null,
+        lineCost,
         materialLabel: selectedMaterial.category,
         askingPrice,
       });
@@ -2096,7 +2308,8 @@ function hasMeaningfulDraftChanges() {
           row.label ||
           row.width !== "" ||
           row.height !== "" ||
-          row.materialId,
+          row.materialId ||
+          row.unitQuantity !== "",
       ),
   );
 }
@@ -2136,6 +2349,7 @@ function buildCurrentQuoteFingerprint() {
       width: row.width === "" ? "" : String(row.width),
       height: row.height === "" ? "" : String(row.height),
       materialId: row.materialId || "",
+      unitQuantity: row.unitQuantity === "" ? "" : String(row.unitQuantity),
     })),
   });
 }
@@ -2307,13 +2521,14 @@ function buildContractPreviewData() {
         return null;
       }
 
+      const motorized = isMotorizedMaterialRow(row);
       return {
         room: row.room?.trim() || "",
         label: row.label?.trim() || "",
         type: row.type?.trim() || "-",
         materialCode: row.materialCode?.trim() || "-",
-        width: formatMeasurementDimension(row.width),
-        height: formatMeasurementDimension(row.height),
+        width: motorized ? "—" : formatMeasurementDimension(row.width),
+        height: motorized ? "—" : formatMeasurementDimension(row.height),
         srp: cost,
       };
     })

@@ -63,31 +63,21 @@ create table if not exists public.quote_measurements (
   measurement_type text,
   material_code text,
   label text not null,
-  width_mm numeric(12, 2) not null check (width_mm > 0),
-  height_mm numeric(12, 2) not null check (height_mm > 0),
+  width_mm numeric(12, 2) not null,
+  height_mm numeric(12, 2) not null,
   material_label text not null,
   asking_price numeric(12, 2) not null check (asking_price >= 0),
-  raw_sqft integer generated always as (
-    round(((width_mm / 1000.0) * (height_mm / 1000.0)) * 10.76)
-  ) stored,
-  billed_sqft integer generated always as (
-    greatest(
-      round(((width_mm / 1000.0) * (height_mm / 1000.0)) * 10.76),
-      15
-    )
-  ) stored,
-  minimum_applied boolean generated always as (
-    round(((width_mm / 1000.0) * (height_mm / 1000.0)) * 10.76) < 15
-  ) stored,
-  line_cost numeric(12, 2) generated always as (
-    greatest(
-      round(((width_mm / 1000.0) * (height_mm / 1000.0)) * 10.76),
-      15
-    ) * asking_price
-  ) stored,
+  unit_quantity numeric(12, 4),
+  line_cost numeric(12, 2) not null,
   sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint quote_measurements_width_mm_nonneg check (width_mm >= 0),
+  constraint quote_measurements_height_mm_nonneg check (height_mm >= 0),
+  constraint quote_measurements_qty_or_dims check (
+    (unit_quantity is not null and unit_quantity > 0)
+    or (width_mm > 0 and height_mm > 0)
+  )
 );
 
 create index if not exists idx_quote_materials_quote_id
