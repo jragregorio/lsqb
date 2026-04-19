@@ -685,7 +685,7 @@ code {
 }
 
 .measurements-table {
-  min-width: 1180px;
+  min-width: 1190px;
   table-layout: fixed;
   width: 100%;
 }
@@ -701,9 +701,9 @@ code {
 .measurements-table td:nth-child(5),
 .measurements-table th:nth-child(6),
 .measurements-table td:nth-child(6) {
-  width: 6.3rem;
-  min-width: 6.3rem;
-  max-width: 6.3rem;
+  width: calc(6.3rem * 1.05);
+  min-width: calc(6.3rem * 1.05);
+  max-width: calc(6.3rem * 1.05);
 }
 
 .data-table th,

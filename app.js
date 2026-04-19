@@ -3063,7 +3063,7 @@ function buildContractPdfDefinition(contract, assets) {
   const pageMargin = 43.2;
   const pageWidth = 612;
   const pageHeight = 792;
-  const orderTableWidths = [92, 76, 112, 60, 60, 76];
+  const orderTableWidths = [92, 76, 112, 63, 63, 76];
   const totalsTableWidths = [340, 146];
   const borderColor = "#e6d8ca";
   const accentColor = "#9e7149";
