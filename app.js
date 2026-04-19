@@ -136,6 +136,8 @@ const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 const AUTOSAVE_DELAY_MS = 1000;
 /** Debounced Supabase save after Measurements → Add Row (see AUTOSAVE_DELAY_MS). */
 const AUTOSAVE_ENABLED = true;
+/** Pointer movement before a measurement row drag activates (mouse + touch/tablet). */
+const MEASUREMENT_DRAG_ACTIVATE_PX = 8;
 
 const runtime = {
   session: null,
@@ -155,6 +157,8 @@ const runtime = {
 
 let contractPdfAssetsPromise = null;
 let pdfFontsRegistered = false;
+/** Active pointer-drag session for measurement row reorder (HTML5 DnD is unreliable on touch). */
+let measurementPointerDragSession = null;
 
 bootstrap();
 
@@ -183,8 +187,6 @@ async function bootstrap() {
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
   refs.addMeasurementBtn.addEventListener("click", handleAddMeasurement);
-  refs.measurementBody.addEventListener("dragover", handleMeasurementTableDragOver);
-  refs.measurementBody.addEventListener("drop", handleMeasurementTableDrop);
   refs.discountType.addEventListener("change", (event) => {
     state.discountType = event.target.value === "percent" ? "percent" : "amount";
     persistDraftChange();
@@ -1938,73 +1940,145 @@ function buildMeasurementDragPreviewCard(row) {
   return wrap;
 }
 
-function attachMeasurementDragPreview(dragEvent, row) {
-  const preview = buildMeasurementDragPreviewCard(row);
-  preview.style.cssText =
-    "position:fixed;left:-9999px;top:0;pointer-events:none;z-index:2147483647;";
-  document.body.append(preview);
-  const w = preview.offsetWidth;
-  const h = preview.offsetHeight;
-  const offsetX = Math.min(72, Math.max(28, Math.floor(w * 0.14)));
-  const offsetY = Math.floor(h / 2);
-  dragEvent.dataTransfer.setDragImage(preview, offsetX, offsetY);
-  window.requestAnimationFrame(() => {
-    preview.remove();
-  });
-}
-
-function measurementDragHasPlainText(dataTransfer) {
-  if (!dataTransfer?.types) {
-    return false;
-  }
-  const types = dataTransfer.types;
-  if (typeof types.contains === "function") {
-    return types.contains("text/plain");
-  }
-  return Array.from(types).includes("text/plain");
-}
-
-function handleMeasurementTableDragOver(event) {
-  if (!measurementDragHasPlainText(event.dataTransfer)) {
-    return;
-  }
-  event.preventDefault();
-  event.dataTransfer.dropEffect = "move";
-  const tr = event.target.closest("tr.measurement-row");
+function updateMeasurementRowDropHighlight(clientX, clientY, draggedRowId) {
+  const target = document.elementFromPoint(clientX, clientY);
+  const tr = target?.closest?.("tr.measurement-row");
   refs.measurementBody.querySelectorAll(".measurement-row--drag-over").forEach((el) => {
     if (el !== tr) {
       el.classList.remove("measurement-row--drag-over");
     }
   });
-  if (tr) {
+  if (tr?.dataset.measurementRowId && tr.dataset.measurementRowId !== draggedRowId) {
     tr.classList.add("measurement-row--drag-over");
   }
 }
 
-function handleMeasurementTableDrop(event) {
-  const draggedId = event.dataTransfer.getData("text/plain");
-  if (!draggedId) {
+function cleanupMeasurementPointerDragSession(session) {
+  if (!session) {
     return;
   }
-  event.preventDefault();
-  event.stopPropagation();
-  const tr = event.target.closest("tr.measurement-row");
-  if (!tr?.dataset.measurementRowId) {
-    return;
+  if (session.ghostEl?.parentNode) {
+    session.ghostEl.remove();
+  }
+  session.sourceTr?.classList.remove("measurement-row--dragging");
+  refs.measurementBody?.querySelectorAll(".measurement-row--drag-over").forEach((el) => {
+    el.classList.remove("measurement-row--drag-over");
+  });
+  if (measurementPointerDragSession === session) {
+    measurementPointerDragSession = null;
+  }
+}
+
+function applyMeasurementRowDropAtPoint(draggedRowId, clientX, clientY) {
+  const target = document.elementFromPoint(clientX, clientY);
+  const tr = target?.closest?.("tr.measurement-row");
+  if (!tr?.dataset?.measurementRowId) {
+    return false;
   }
   const targetId = tr.dataset.measurementRowId;
-  tr.classList.remove("measurement-row--drag-over");
-  if (draggedId === targetId) {
-    return;
+  if (targetId === draggedRowId) {
+    return false;
   }
   const rect = tr.getBoundingClientRect();
-  const insertAfter = event.clientY > rect.top + rect.height / 2;
-  if (!reorderMeasurementRowsByIds(draggedId, targetId, insertAfter)) {
-    return;
+  const insertAfter = clientY > rect.top + rect.height / 2;
+  if (!reorderMeasurementRowsByIds(draggedRowId, targetId, insertAfter)) {
+    return false;
   }
   persistDraftChange();
   renderMeasurements();
   renderSummary();
+  return true;
+}
+
+/**
+ * Pointer-based row drag (mouse, touch, pen). Native HTML5 DnD does not work on most tablets.
+ */
+function bindMeasurementRowDragControls(dragHandle, tr, row) {
+  const onPointerDown = (event) => {
+    if (runtime.quoteBusy || event.button !== 0) {
+      return;
+    }
+    if (measurementPointerDragSession) {
+      return;
+    }
+    measurementPointerDragSession = {
+      rowId: row.id,
+      row,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      ghostEl: null,
+      offsetX: 0,
+      offsetY: 0,
+      handle: dragHandle,
+      sourceTr: tr,
+    };
+    try {
+      dragHandle.setPointerCapture(event.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
+    event.preventDefault();
+  };
+
+  const onPointerMove = (event) => {
+    const session = measurementPointerDragSession;
+    if (!session || event.pointerId !== session.pointerId) {
+      return;
+    }
+    if (runtime.quoteBusy) {
+      return;
+    }
+    const dx = event.clientX - session.startX;
+    const dy = event.clientY - session.startY;
+    if (!session.active) {
+      if (Math.hypot(dx, dy) < MEASUREMENT_DRAG_ACTIVATE_PX) {
+        return;
+      }
+      session.active = true;
+      const ghost = buildMeasurementDragPreviewCard(session.row);
+      ghost.style.cssText =
+        "position:fixed;left:-9999px;top:0;pointer-events:none;z-index:2147483647;";
+      document.body.append(ghost);
+      const width = ghost.offsetWidth;
+      const height = ghost.offsetHeight;
+      session.offsetX = Math.min(72, Math.max(28, Math.floor(width * 0.14)));
+      session.offsetY = Math.floor(height / 2);
+      ghost.style.left = `${event.clientX - session.offsetX}px`;
+      ghost.style.top = `${event.clientY - session.offsetY}px`;
+      session.ghostEl = ghost;
+      session.sourceTr.classList.add("measurement-row--dragging");
+    } else {
+      session.ghostEl.style.left = `${event.clientX - session.offsetX}px`;
+      session.ghostEl.style.top = `${event.clientY - session.offsetY}px`;
+      updateMeasurementRowDropHighlight(event.clientX, event.clientY, session.rowId);
+    }
+    if (session.active && event.pointerType === "touch") {
+      event.preventDefault();
+    }
+  };
+
+  const onPointerUpOrCancel = (event) => {
+    const session = measurementPointerDragSession;
+    if (!session || event.pointerId !== session.pointerId) {
+      return;
+    }
+    try {
+      dragHandle.releasePointerCapture(session.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
+    if (session.active) {
+      applyMeasurementRowDropAtPoint(session.rowId, event.clientX, event.clientY);
+    }
+    cleanupMeasurementPointerDragSession(session);
+  };
+
+  dragHandle.addEventListener("pointerdown", onPointerDown);
+  dragHandle.addEventListener("pointermove", onPointerMove, { passive: false });
+  dragHandle.addEventListener("pointerup", onPointerUpOrCancel);
+  dragHandle.addEventListener("pointercancel", onPointerUpOrCancel);
 }
 
 /** Move a measurement row relative to another; persists sort order via save pipeline. */
@@ -2049,7 +2123,6 @@ function renderMeasurements() {
 
     const dragCell = document.createElement("td");
     dragCell.className = "measurement-drag-cell";
-    // Chrome/WebKit often ignore draggable on <tr>; use a real draggable on the handle.
     const dragHandle = document.createElement("div");
     dragHandle.className = "measurement-drag-handle";
     dragHandle.setAttribute("role", "button");
@@ -2059,33 +2132,13 @@ function renderMeasurements() {
     if (runtime.quoteBusy) {
       dragHandle.setAttribute("aria-disabled", "true");
     }
-    dragHandle.draggable = !runtime.quoteBusy;
     const dragGlyph = document.createElement("span");
     dragGlyph.className = "measurement-drag-glyph";
     dragGlyph.setAttribute("aria-hidden", "true");
     dragGlyph.textContent = "\u22EE\u22EE";
     dragHandle.append(dragGlyph);
     dragCell.append(dragHandle);
-
-    dragHandle.addEventListener("dragstart", (event) => {
-      if (runtime.quoteBusy) {
-        event.preventDefault();
-        return;
-      }
-      event.dataTransfer.setData("text/plain", row.id);
-      event.dataTransfer.effectAllowed = "move";
-      attachMeasurementDragPreview(event, row);
-      tr.classList.add("measurement-row--dragging");
-    });
-
-    dragHandle.addEventListener("dragend", () => {
-      tr.classList.remove("measurement-row--dragging");
-      refs.measurementBody
-        .querySelectorAll(".measurement-row--drag-over")
-        .forEach((el) => {
-          el.classList.remove("measurement-row--drag-over");
-        });
-    });
+    bindMeasurementRowDragControls(dragHandle, tr, row);
 
     const roomCell = document.createElement("td");
     const roomInput = buildTextInput({

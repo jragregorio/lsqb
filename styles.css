@@ -731,6 +731,7 @@ code {
   font: inherit;
   line-height: 1;
   touch-action: none;
+  -webkit-touch-callout: none;
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
