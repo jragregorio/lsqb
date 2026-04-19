@@ -133,7 +133,7 @@ const refs = {
 const state = loadState();
 const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 /** Wait this long after Add Row before running autosave (debounce reset on each Add Row). */
-const AUTOSAVE_DELAY_MS = 1800;
+const AUTOSAVE_DELAY_MS = 1000;
 /** Debounced Supabase save after Measurements → Add Row (see AUTOSAVE_DELAY_MS). */
 const AUTOSAVE_ENABLED = true;
 
