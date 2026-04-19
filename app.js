@@ -183,6 +183,8 @@ async function bootstrap() {
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
   refs.addMeasurementBtn.addEventListener("click", handleAddMeasurement);
+  refs.measurementBody.addEventListener("dragover", handleMeasurementTableDragOver);
+  refs.measurementBody.addEventListener("drop", handleMeasurementTableDrop);
   refs.discountType.addEventListener("change", (event) => {
     state.discountType = event.target.value === "percent" ? "percent" : "amount";
     persistDraftChange();
@@ -1897,12 +1899,140 @@ function renderMaterials() {
   });
 }
 
+/** Custom drag preview: card-shaped ghost (native DnD only snapshots setDragImage). */
+function buildMeasurementDragPreviewCard(row) {
+  const wrap = document.createElement("div");
+  wrap.className = "measurement-drag-card measurement-drag-card--ghost";
+  wrap.setAttribute("aria-hidden", "true");
+
+  const title = document.createElement("div");
+  title.className = "measurement-drag-card-title";
+  const room = (row.room || "").trim() || "Room / section";
+  const label = (row.label || "").trim() || "Label";
+  title.textContent = `${room} · ${label}`;
+
+  const meta = document.createElement("div");
+  meta.className = "measurement-drag-card-meta";
+  const type = (row.type || "").trim() || "—";
+  const code = (row.materialCode || "").trim() || "—";
+  meta.textContent = `${type} · ${code}`;
+
+  const dims = document.createElement("div");
+  dims.className = "measurement-drag-card-dims";
+  if (isMotorizedMaterialRow(row)) {
+    const q = parseMotorQuantity(row.unitQuantity);
+    dims.textContent =
+      q !== null ? `Motorized · qty ${q}` : "Motorized — quantity not set";
+  } else {
+    const w = (row.width || "").trim();
+    const h = (row.height || "").trim();
+    dims.textContent = w && h ? `${w} × ${h} mm` : "Width × height (mm)";
+  }
+
+  const costEl = document.createElement("div");
+  costEl.className = "measurement-drag-card-cost";
+  const cost = getMeasurementCost(row);
+  costEl.textContent = cost === null ? "Cost —" : formatCurrency(cost);
+
+  wrap.append(title, meta, dims, costEl);
+  return wrap;
+}
+
+function attachMeasurementDragPreview(dragEvent, row) {
+  const preview = buildMeasurementDragPreviewCard(row);
+  preview.style.cssText =
+    "position:fixed;left:-9999px;top:0;pointer-events:none;z-index:2147483647;";
+  document.body.append(preview);
+  const w = preview.offsetWidth;
+  const h = preview.offsetHeight;
+  const offsetX = Math.min(72, Math.max(28, Math.floor(w * 0.14)));
+  const offsetY = Math.floor(h / 2);
+  dragEvent.dataTransfer.setDragImage(preview, offsetX, offsetY);
+  window.requestAnimationFrame(() => {
+    preview.remove();
+  });
+}
+
+function measurementDragHasPlainText(dataTransfer) {
+  if (!dataTransfer?.types) {
+    return false;
+  }
+  const types = dataTransfer.types;
+  if (typeof types.contains === "function") {
+    return types.contains("text/plain");
+  }
+  return Array.from(types).includes("text/plain");
+}
+
+function handleMeasurementTableDragOver(event) {
+  if (!measurementDragHasPlainText(event.dataTransfer)) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  const tr = event.target.closest("tr.measurement-row");
+  refs.measurementBody.querySelectorAll(".measurement-row--drag-over").forEach((el) => {
+    if (el !== tr) {
+      el.classList.remove("measurement-row--drag-over");
+    }
+  });
+  if (tr) {
+    tr.classList.add("measurement-row--drag-over");
+  }
+}
+
+function handleMeasurementTableDrop(event) {
+  const draggedId = event.dataTransfer.getData("text/plain");
+  if (!draggedId) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  const tr = event.target.closest("tr.measurement-row");
+  if (!tr?.dataset.measurementRowId) {
+    return;
+  }
+  const targetId = tr.dataset.measurementRowId;
+  tr.classList.remove("measurement-row--drag-over");
+  if (draggedId === targetId) {
+    return;
+  }
+  const rect = tr.getBoundingClientRect();
+  const insertAfter = event.clientY > rect.top + rect.height / 2;
+  if (!reorderMeasurementRowsByIds(draggedId, targetId, insertAfter)) {
+    return;
+  }
+  persistDraftChange();
+  renderMeasurements();
+  renderSummary();
+}
+
+/** Move a measurement row relative to another; persists sort order via save pipeline. */
+function reorderMeasurementRowsByIds(dragId, targetId, insertAfter) {
+  if (dragId === targetId) {
+    return false;
+  }
+  const dragged = state.measurementRows.find((r) => r.id === dragId);
+  if (!dragged) {
+    return false;
+  }
+  const without = state.measurementRows.filter((r) => r.id !== dragId);
+  const insertBeforeIndex = without.findIndex((r) => r.id === targetId);
+  if (insertBeforeIndex === -1) {
+    return false;
+  }
+  const insertIdx = insertAfter ? insertBeforeIndex + 1 : insertBeforeIndex;
+  without.splice(insertIdx, 0, dragged);
+  state.measurementRows = without;
+  return true;
+}
+
 function renderMeasurements() {
   refs.measurementBody.innerHTML = "";
 
   if (state.measurementRows.length === 0) {
     refs.measurementBody.append(
-      createEmptyStateRow(9, "Add a measurement row to begin."),
+      createEmptyStateRow(10, "Add a measurement row to begin."),
     );
     return;
   }
@@ -1913,7 +2043,49 @@ function renderMeasurements() {
 
   state.measurementRows.forEach((row) => {
     const tr = document.createElement("tr");
+    tr.classList.add("measurement-row");
+    tr.dataset.measurementRowId = row.id;
     const motorized = isMotorizedMaterialRow(row);
+
+    const dragCell = document.createElement("td");
+    dragCell.className = "measurement-drag-cell";
+    // Chrome/WebKit often ignore draggable on <tr>; use a real draggable on the handle.
+    const dragHandle = document.createElement("div");
+    dragHandle.className = "measurement-drag-handle";
+    dragHandle.setAttribute("role", "button");
+    dragHandle.tabIndex = runtime.quoteBusy ? -1 : 0;
+    dragHandle.setAttribute("aria-label", "Drag to reorder row");
+    dragHandle.setAttribute("data-measurement-drag-handle", "");
+    if (runtime.quoteBusy) {
+      dragHandle.setAttribute("aria-disabled", "true");
+    }
+    dragHandle.draggable = !runtime.quoteBusy;
+    const dragGlyph = document.createElement("span");
+    dragGlyph.className = "measurement-drag-glyph";
+    dragGlyph.setAttribute("aria-hidden", "true");
+    dragGlyph.textContent = "\u22EE\u22EE";
+    dragHandle.append(dragGlyph);
+    dragCell.append(dragHandle);
+
+    dragHandle.addEventListener("dragstart", (event) => {
+      if (runtime.quoteBusy) {
+        event.preventDefault();
+        return;
+      }
+      event.dataTransfer.setData("text/plain", row.id);
+      event.dataTransfer.effectAllowed = "move";
+      attachMeasurementDragPreview(event, row);
+      tr.classList.add("measurement-row--dragging");
+    });
+
+    dragHandle.addEventListener("dragend", () => {
+      tr.classList.remove("measurement-row--dragging");
+      refs.measurementBody
+        .querySelectorAll(".measurement-row--drag-over")
+        .forEach((el) => {
+          el.classList.remove("measurement-row--drag-over");
+        });
+    });
 
     const roomCell = document.createElement("td");
     const roomInput = buildTextInput({
@@ -2098,6 +2270,7 @@ function renderMeasurements() {
     actionCell.append(removeButton);
 
     tr.append(
+      dragCell,
       roomCell,
       labelCell,
       typeCell,

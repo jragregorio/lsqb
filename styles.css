@@ -685,25 +685,139 @@ code {
 }
 
 .measurements-table {
-  min-width: 1190px;
+  min-width: 1230px;
   table-layout: fixed;
   width: 100%;
 }
 
+.measurements-table th.measurement-drag-col,
+.measurements-table td.measurement-drag-cell {
+  width: 2.35rem;
+  min-width: 2.35rem;
+  max-width: 2.35rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  text-align: center;
+}
+
 /* Room / Section: more space for labels; Width / Height: compact (mm only) */
-.measurements-table th:nth-child(1),
-.measurements-table td:nth-child(1) {
+.measurements-table th:nth-child(2),
+.measurements-table td:nth-child(2) {
   width: 16.8%;
   min-width: 8.4rem;
 }
 
-.measurements-table th:nth-child(5),
-.measurements-table td:nth-child(5),
-.measurements-table th:nth-child(6),
-.measurements-table td:nth-child(6) {
+.measurements-table th:nth-child(7),
+.measurements-table td:nth-child(7),
+.measurements-table th:nth-child(8),
+.measurements-table td:nth-child(8) {
   width: calc(6.3rem * 1.05);
   min-width: calc(6.3rem * 1.05);
   max-width: calc(6.3rem * 1.05);
+}
+
+.measurement-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  min-height: 2.2rem;
+  padding: 0.2rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: #9a8b7c;
+  cursor: grab;
+  font: inherit;
+  line-height: 1;
+  touch-action: none;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: element;
+}
+
+.measurement-drag-handle:hover:not([aria-disabled="true"]) {
+  background: #f0e8df;
+  color: #5a4a3d;
+}
+
+.measurement-drag-handle:active:not([aria-disabled="true"]) {
+  cursor: grabbing;
+}
+
+.measurement-drag-handle[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.measurement-drag-glyph {
+  display: inline-block;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+/* Floating card shown as HTML5 drag image (see attachMeasurementDragPreview) */
+.measurement-drag-card.measurement-drag-card--ghost {
+  width: min(28rem, calc(100vw - 2rem));
+  max-width: 28rem;
+  padding: 0.85rem 1rem 0.85rem 0.95rem;
+  border: 1px solid #ddcec1;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #fffdfb 0%, #faf4ee 100%);
+  box-shadow:
+    0 4px 6px rgba(42, 32, 26, 0.06),
+    0 18px 40px rgba(42, 32, 26, 0.16);
+  color: #3d3229;
+  font: inherit;
+  text-align: left;
+  box-sizing: border-box;
+  border-left: 4px solid rgba(139, 115, 95, 0.55);
+}
+
+.measurement-drag-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  margin-bottom: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.measurement-drag-card-meta {
+  font-size: 0.82rem;
+  color: #6b5c50;
+  line-height: 1.35;
+  margin-bottom: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.measurement-drag-card-dims {
+  font-size: 0.8rem;
+  color: #7a6a5e;
+  margin-bottom: 0.45rem;
+}
+
+.measurement-drag-card-cost {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #4a392d;
+  padding-top: 0.35rem;
+  border-top: 1px solid #eadfd4;
+}
+
+tbody tr.measurement-row--dragging {
+  opacity: 0.45;
+}
+
+tbody tr.measurement-row--drag-over {
+  outline: 2px solid rgba(139, 115, 95, 0.45);
+  outline-offset: -2px;
 }
 
 .data-table th,
