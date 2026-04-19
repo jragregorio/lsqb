@@ -3563,6 +3563,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
     bold: true,
     fillColor: headerFill,
     alignment: "center",
+    verticalAlignment: "middle",
     fontSize: 9.4,
     color: "#000000",
     characterSpacing: 0.2,
@@ -3588,6 +3589,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
           bold: true,
           color: "#000000",
           alignment: "left",
+          verticalAlignment: "middle",
           fontSize: 10,
           characterSpacing: 0.15,
           margin: [6, 1, 0, 1],
@@ -3602,15 +3604,16 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
 
     previousRoom = item.room || previousRoom;
     body.push([
-      { text: item.label || " ", alignment: "center", fontSize: 9 },
-      { text: item.type, alignment: "center", fontSize: 9 },
-      { text: item.materialCode, alignment: "center", fontSize: 9 },
-      { text: item.width, alignment: "center", fontSize: 9 },
-      { text: item.height, alignment: "center", fontSize: 9 },
+      { text: item.label || " ", alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.type, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.materialCode, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.width, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.height, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       {
         text: formatPdfPesoAmount(item.srp),
         font: "Roboto",
         alignment: "center",
+        verticalAlignment: "middle",
         fontSize: 9,
       },
     ]);
