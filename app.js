@@ -132,9 +132,10 @@ const refs = {
 
 const state = loadState();
 const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
+/** Wait this long after Add Row before running autosave (debounce reset on each Add Row). */
 const AUTOSAVE_DELAY_MS = 1800;
-/** Set to `true` to re-enable debounced Supabase saves while editing (pauses felt slow for some users). */
-const AUTOSAVE_ENABLED = false;
+/** Debounced Supabase save after Measurements → Add Row (see AUTOSAVE_DELAY_MS). */
+const AUTOSAVE_ENABLED = true;
 
 const runtime = {
   session: null,
@@ -534,7 +535,6 @@ function saveState() {
 
 function persistDraftChange() {
   saveState();
-  queueAutosave();
 }
 
 async function handleSignIn() {
@@ -809,6 +809,7 @@ function handleAddMeasurement() {
 
   state.measurementRows.push(createMeasurementRow());
   persistDraftChange();
+  queueAutosave();
   renderMeasurements();
   renderSummary();
 }
@@ -2263,6 +2264,7 @@ function canAutosaveCurrentQuote() {
     hasLoadedQuoteUnsavedChanges();
 }
 
+/** Schedules a debounced Supabase save. Call sites: Measurements → Add Row. */
 function queueAutosave() {
   clearQueuedAutosave();
 
