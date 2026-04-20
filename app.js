@@ -2143,18 +2143,19 @@ function renderMeasurements() {
     const roomInput = buildTextInput({
       value: row.room,
       placeholder: "",
-      className: "room-section-input",
+      className: "measurement-fit-field",
       disabled: runtime.quoteBusy,
       onInput: (value) => {
         row.room = value;
         persistDraftChange();
       },
     });
-    attachRoomSectionInputFit(roomInput);
+    attachMeasurementFieldFit(roomInput);
     roomCell.append(roomInput);
 
     const typeCell = document.createElement("td");
     const typeSelect = document.createElement("select");
+    typeSelect.classList.add("measurement-fit-field");
     typeSelect.append(new Option("Select type", ""));
     MEASUREMENT_TYPE_OPTIONS.forEach((optionLabel) => {
       const option = new Option(optionLabel, optionLabel);
@@ -2166,66 +2167,72 @@ function renderMeasurements() {
       row.type = event.target.value;
       persistDraftChange();
     });
+    attachMeasurementFieldFit(typeSelect);
     typeCell.append(typeSelect);
 
     const materialCodeCell = document.createElement("td");
-    materialCodeCell.append(
-      buildTextInput({
-        value: row.materialCode,
-        placeholder: "Material code",
-        disabled: runtime.quoteBusy,
-        onInput: (value) => {
-          row.materialCode = value;
-          persistDraftChange();
-        },
-      }),
-    );
+    const materialCodeInput = buildTextInput({
+      value: row.materialCode,
+      placeholder: "Material code",
+      className: "measurement-fit-field",
+      disabled: runtime.quoteBusy,
+      onInput: (value) => {
+        row.materialCode = value;
+        persistDraftChange();
+      },
+    });
+    attachMeasurementFieldFit(materialCodeInput);
+    materialCodeCell.append(materialCodeInput);
 
     const labelCell = document.createElement("td");
-    labelCell.append(
-      buildTextInput({
-        value: row.label,
-        placeholder: "W1",
-        disabled: runtime.quoteBusy,
-        onInput: (value) => {
-          row.label = value;
-          persistDraftChange();
-        },
-      }),
-    );
+    const labelInput = buildTextInput({
+      value: row.label,
+      placeholder: "W1",
+      className: "measurement-fit-field",
+      disabled: runtime.quoteBusy,
+      onInput: (value) => {
+        row.label = value;
+        persistDraftChange();
+      },
+    });
+    attachMeasurementFieldFit(labelInput);
+    labelCell.append(labelInput);
 
     const widthCell = document.createElement("td");
-    widthCell.append(
-      buildNumberInput({
-        value: motorized ? "" : row.width,
-        placeholder: "0",
-        disabled: runtime.quoteBusy || motorized,
-        onInput: (value) => {
-          row.width = value;
-          persistDraftChange();
-          updateMeasurementOutputs();
-          renderSummary();
-        },
-      }),
-    );
+    const widthInput = buildNumberInput({
+      value: motorized ? "" : row.width,
+      placeholder: "0",
+      className: "measurement-fit-field",
+      disabled: runtime.quoteBusy || motorized,
+      onInput: (value) => {
+        row.width = value;
+        persistDraftChange();
+        updateMeasurementOutputs();
+        renderSummary();
+      },
+    });
+    attachMeasurementFieldFit(widthInput);
+    widthCell.append(widthInput);
 
     const heightCell = document.createElement("td");
-    heightCell.append(
-      buildNumberInput({
-        value: motorized ? "" : row.height,
-        placeholder: "0",
-        disabled: runtime.quoteBusy || motorized,
-        onInput: (value) => {
-          row.height = value;
-          persistDraftChange();
-          updateMeasurementOutputs();
-          renderSummary();
-        },
-      }),
-    );
+    const heightInput = buildNumberInput({
+      value: motorized ? "" : row.height,
+      placeholder: "0",
+      className: "measurement-fit-field",
+      disabled: runtime.quoteBusy || motorized,
+      onInput: (value) => {
+        row.height = value;
+        persistDraftChange();
+        updateMeasurementOutputs();
+        renderSummary();
+      },
+    });
+    attachMeasurementFieldFit(heightInput);
+    heightCell.append(heightInput);
 
     const materialCell = document.createElement("td");
     const select = document.createElement("select");
+    select.classList.add("measurement-fit-field");
     select.append(new Option("Select configured material", ""));
     configuredMaterials.forEach((material) => {
       const option = new Option(
@@ -2265,6 +2272,7 @@ function renderMeasurements() {
       renderMeasurements();
       renderSummary();
     });
+    attachMeasurementFieldFit(select);
     materialCell.append(select);
 
     const costCell = document.createElement("td");
@@ -3882,44 +3890,95 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-const ROOM_INPUT_MIN_FONT_PX = 11;
+const MEASUREMENT_FIT_MIN_FONT_PX = 11;
+/** Reserve space for the native dropdown arrow on `<select>` (see fit logic). */
+const MEASUREMENT_FIT_SELECT_ARROW_RESERVE_PX = 28;
 
-function fitRoomSectionInputToCell(input) {
-  if (!input?.classList?.contains("room-section-input")) {
+let measurementFitMeasureCanvas;
+
+function getMeasurementFitMeasureContext() {
+  if (!measurementFitMeasureCanvas) {
+    measurementFitMeasureCanvas = document.createElement("canvas");
+  }
+  return measurementFitMeasureCanvas.getContext("2d");
+}
+
+function measureMeasurementFieldTextWidth(cs, text, fontSizePx) {
+  const ctx = getMeasurementFitMeasureContext();
+  if (!ctx) {
+    return 0;
+  }
+  const family = cs.fontFamily || "sans-serif";
+  const weight = cs.fontWeight || "400";
+  const style = cs.fontStyle || "normal";
+  ctx.font = `${style} ${weight} ${fontSizePx}px ${family}`;
+  return ctx.measureText(text).width;
+}
+
+function getSelectMeasurementTextMaxPx(el) {
+  const cs = window.getComputedStyle(el);
+  const pl = parseFloat(cs.paddingLeft) || 0;
+  const pr = parseFloat(cs.paddingRight) || 0;
+  const inner = el.clientWidth - pl - pr;
+  return Math.max(0, inner - MEASUREMENT_FIT_SELECT_ARROW_RESERVE_PX);
+}
+
+function fitMeasurementFieldToCell(el) {
+  if (!el?.classList?.contains("measurement-fit-field")) {
     return;
   }
 
-  if (!input.dataset.roomFontBasePx) {
-    input.style.removeProperty("font-size");
-    const px = parseFloat(window.getComputedStyle(input).fontSize);
-    input.dataset.roomFontBasePx = String(
+  if (!el.dataset.measurementFitFontBasePx) {
+    el.style.removeProperty("font-size");
+    const px = parseFloat(window.getComputedStyle(el).fontSize);
+    el.dataset.measurementFitFontBasePx = String(
       Number.isFinite(px) && px > 0 ? px : 16,
     );
   }
 
-  const basePx = Number(input.dataset.roomFontBasePx) || 16;
-  input.style.fontSize = `${basePx}px`;
+  const basePx = Number(el.dataset.measurementFitFontBasePx) || 16;
+  el.style.fontSize = `${basePx}px`;
   let size = basePx;
 
-  while (input.scrollWidth > input.clientWidth + 1 && size > ROOM_INPUT_MIN_FONT_PX) {
+  if (el.tagName === "SELECT") {
+    const text = el.options[el.selectedIndex]?.text ?? "";
+    const cs = window.getComputedStyle(el);
+    const maxW = getSelectMeasurementTextMaxPx(el);
+    if (!text || maxW <= 0) {
+      return;
+    }
+    while (
+      size > MEASUREMENT_FIT_MIN_FONT_PX &&
+      measureMeasurementFieldTextWidth(cs, text, size) > maxW
+    ) {
+      size -= 0.5;
+      el.style.fontSize = `${size}px`;
+    }
+    return;
+  }
+
+  while (el.scrollWidth > el.clientWidth + 1 && size > MEASUREMENT_FIT_MIN_FONT_PX) {
     size -= 0.5;
-    input.style.fontSize = `${size}px`;
+    el.style.fontSize = `${size}px`;
   }
 }
 
-function attachRoomSectionInputFit(input) {
+function attachMeasurementFieldFit(el) {
   const scheduleFit = () => {
-    window.requestAnimationFrame(() => fitRoomSectionInputToCell(input));
+    window.requestAnimationFrame(() => fitMeasurementFieldToCell(el));
   };
 
   const onCellResize = () => {
-    delete input.dataset.roomFontBasePx;
+    delete el.dataset.measurementFitFontBasePx;
     scheduleFit();
   };
 
-  input.addEventListener("input", scheduleFit);
+  el.addEventListener("input", scheduleFit);
+  if (el.tagName === "SELECT") {
+    el.addEventListener("change", scheduleFit);
+  }
 
-  const td = input.closest("td");
+  const td = el.closest("td");
   if (td && typeof ResizeObserver !== "undefined") {
     const resizeObserver = new ResizeObserver(onCellResize);
     resizeObserver.observe(td);
@@ -3946,6 +4005,7 @@ function buildNumberInput({
   placeholder,
   disabled = false,
   onInput,
+  className,
 }) {
   const input = document.createElement("input");
   input.type = "number";
@@ -3955,6 +4015,9 @@ function buildNumberInput({
   input.value = value;
   input.placeholder = placeholder;
   input.disabled = disabled;
+  if (className) {
+    input.className = className;
+  }
   input.addEventListener("input", (event) =>
     onInput(normalizeInputNumber(event.target.value)),
   );

@@ -856,8 +856,9 @@ tbody tr.measurement-row--drag-over {
   background: #fffdfb;
 }
 
-/* Shrink long room names to fit the cell; fallback scroll if still too long at min size */
-.data-table input.room-section-input {
+/* Shrink long values to fit the cell; fallback horizontal scroll if still too long at min size */
+.data-table input.measurement-fit-field,
+.data-table select.measurement-fit-field {
   box-sizing: border-box;
   overflow-x: auto;
 }
