@@ -351,6 +351,21 @@ code {
   margin-bottom: 0.8rem;
 }
 
+.admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+}
+
+.admin-form-row select {
+  min-height: 2.9rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #ddcec1;
+  border-radius: 0.8rem;
+  background: #fffdfb;
+}
+
 .quote-toolbar {
   display: flex;
   gap: 1rem;

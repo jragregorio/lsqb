@@ -100,6 +100,7 @@ const refs = {
   csvInput: document.querySelector("#csv-input"),
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
+  pdfOrgSelect: document.querySelector("#pdf-org-select"),
   quoteClientName: document.querySelector("#quote-client-name"),
   quoteProjectName: document.querySelector("#quote-project-name"),
   quoteDate: document.querySelector("#quote-date"),
@@ -192,6 +193,13 @@ async function bootstrap() {
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
   refs.addMeasurementBtn.addEventListener("click", handleAddMeasurement);
+  if (refs.pdfOrgSelect) {
+    refs.pdfOrgSelect.value = state.pdfOrganization || "luxe";
+    refs.pdfOrgSelect.addEventListener("change", (event) => {
+      state.pdfOrganization = event.target.value === "nds" ? "nds" : "luxe";
+      persistDraftChange();
+    });
+  }
   refs.discountType.addEventListener("change", (event) => {
     state.discountType = event.target.value === "percent" ? "percent" : "amount";
     persistDraftChange();
@@ -529,6 +537,7 @@ function loadState() {
       sourceMaterials: Array.isArray(parsed.sourceMaterials)
         ? parsed.sourceMaterials
         : [],
+      pdfOrganization: parsed.pdfOrganization === "nds" ? "nds" : "luxe",
       quoteMeta: getDefaultQuoteMeta(),
       selectedMaterials: [],
       measurementRows: [],
@@ -545,6 +554,7 @@ function getDefaultState() {
   return {
     sourceLabel: "",
     sourceMaterials: [],
+    pdfOrganization: "luxe",
     quoteMeta: getDefaultQuoteMeta(),
     selectedMaterials: [],
     measurementRows: [],
@@ -3434,7 +3444,9 @@ async function handleExportPdf() {
     const contract = buildContractPreviewData();
     const assets = await loadContractPdfAssets();
     setQuoteStatus("Rendering PDF (3/3)...");
-    const documentDefinition = buildContractPdfDefinition(contract, assets);
+    const documentDefinition = buildContractPdfDefinition(contract, assets, {
+      organization: state.pdfOrganization,
+    });
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const fileName = buildContractPdfFileName(contract);
@@ -3570,9 +3582,14 @@ function loadContractPdfAssets() {
     return contractPdfAssetsPromise;
   }
 
-  const logoUrl = new URL("./assets/luxeshade-logo.png", window.location.href).href;
-  contractPdfAssetsPromise = fileUrlToDataUrl(logoUrl).then((logoDataUrl) => ({
-    logoDataUrl,
+  const luxeLogoUrl = new URL("./assets/luxeshade-logo.png", window.location.href).href;
+  const ndsLogoUrl = new URL("./assets/nds-trading-logo.png", window.location.href).href;
+  contractPdfAssetsPromise = Promise.all([
+    fileUrlToDataUrl(luxeLogoUrl),
+    fileUrlToDataUrl(ndsLogoUrl),
+  ]).then(([luxeLogoDataUrl, ndsLogoDataUrl]) => ({
+    luxeLogoDataUrl,
+    ndsLogoDataUrl,
   }));
   return contractPdfAssetsPromise;
 }
@@ -3791,17 +3808,40 @@ function buildContractPdfFileName(contract) {
   return `${safeName || "LuxeShade Contract"}.pdf`;
 }
 
-function buildContractPdfDefinition(contract, assets) {
+function getContractPdfBranding(organization, assets) {
+  if (organization === "nds") {
+    return {
+      logoDataUrl: assets.ndsLogoDataUrl,
+      watermarkSize: 260,
+      watermarkOpacity: 0.14,
+      borderColor: "#e4c7c6",
+      accentColor: "#8d2a24",
+      textColor: "#2b2422",
+      lightFill: "#f7eaea",
+      accentFill: "#f2dada",
+    };
+  }
+
+  return {
+    logoDataUrl: assets.luxeLogoDataUrl,
+    watermarkSize: 220,
+    watermarkOpacity: 0.16,
+    borderColor: "#e6d8ca",
+    accentColor: "#9e7149",
+    textColor: "#2f2a26",
+    lightFill: "#f5ece2",
+    accentFill: "#f3e5d7",
+  };
+}
+
+function buildContractPdfDefinition(contract, assets, { organization = "luxe" } = {}) {
   const pageMargin = 43.2;
   const pageWidth = 612;
   const pageHeight = 792;
   const orderTableWidths = [92, 76, 112, 63, 63, 76];
   const totalsTableWidths = [340, 146];
-  const borderColor = "#e6d8ca";
-  const accentColor = "#9e7149";
-  const textColor = "#2f2a26";
-  const lightFill = "#f5ece2";
-  const accentFill = "#f3e5d7";
+  const branding = getContractPdfBranding(organization, assets);
+  const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
   const orderTableLayout = {
     hLineColor: () => borderColor,
     vLineColor: () => borderColor,
@@ -3961,12 +4001,12 @@ function buildContractPdfDefinition(contract, assets) {
     pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
     background(currentPage) {
       return {
-        image: assets.logoDataUrl,
-        width: 220,
-        opacity: 0.16,
+        image: branding.logoDataUrl,
+        width: branding.watermarkSize,
+        opacity: branding.watermarkOpacity,
         absolutePosition: {
-          x: (pageWidth - 220) / 2,
-          y: (pageHeight - 220) / 2,
+          x: (pageWidth - branding.watermarkSize) / 2,
+          y: (pageHeight - branding.watermarkSize) / 2,
         },
       };
     },
@@ -3989,7 +4029,7 @@ function buildContractPdfDefinition(contract, assets) {
       {
         stack: [
           {
-            image: assets.logoDataUrl,
+            image: branding.logoDataUrl,
             width: 110,
             alignment: "center",
             margin: [0, 0, 0, 10],
