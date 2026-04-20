@@ -537,7 +537,8 @@ function loadState() {
       sourceMaterials: Array.isArray(parsed.sourceMaterials)
         ? parsed.sourceMaterials
         : [],
-      pdfOrganization: parsed.pdfOrganization === "nds" ? "nds" : "luxe",
+      // Always default PDF branding to Luxe on refresh (do not persist org selection).
+      pdfOrganization: "luxe",
       quoteMeta: getDefaultQuoteMeta(),
       selectedMaterials: [],
       measurementRows: [],
@@ -564,7 +565,9 @@ function getDefaultState() {
 }
 
 function saveState() {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Do not persist PDF branding choice; it should reset to Luxe after refresh.
+  const { pdfOrganization: _pdfOrganization, ...persistedState } = state;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
 }
 
 function persistDraftChange() {
