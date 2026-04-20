@@ -385,8 +385,12 @@ function handleUnloadQuote() {
   resetQuoteDraft();
   runtime.quoteWorkspaceActive = false;
   saveState();
+  // Bring header menus back into view immediately.
+  setSavedQuotesDrawerOpen(false);
+  setAdminDrawerOpen(false);
   render();
   setQuoteStatus("Quote unloaded. Select a saved quote or start a new one.");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 async function initializeAuth() {
