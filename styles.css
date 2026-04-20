@@ -385,6 +385,21 @@ code {
   font-size: 1.1rem;
 }
 
+.quote-save-indicator {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.quote-save-indicator.is-warning {
+  color: #8f6a45;
+}
+
+.quote-save-indicator.is-error {
+  color: #b53a2b;
+}
+
 .quote-meta-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

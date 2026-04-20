@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LuxeShade Quote Builder v4.0.8</title>
+    <title>LuxeShade Quote Builder v4.0.9</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.0.8" />
+    <link rel="stylesheet" href="./styles.css?v=4.0.9" />
   </head>
   <body>
     <main class="app-shell">
@@ -50,7 +50,7 @@
         </div>
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>LuxeShade Quote Builder v4.0.8</h1>
+          <h1>LuxeShade Quote Builder v4.0.9</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
@@ -243,6 +243,9 @@
             <button id="save-quote-btn" class="primary-button" type="button">
               Save Quote
             </button>
+            <button id="save-as-new-quote-btn" class="secondary-button" type="button">
+              Save as New
+            </button>
             <button id="export-pdf-btn" class="secondary-button" type="button">
               Export PDF
             </button>
@@ -251,6 +254,7 @@
           <article class="quote-badge">
             <span>Current Quote</span>
             <strong id="current-quote-label">Unsaved draft</strong>
+            <span id="quote-save-indicator" class="quote-save-indicator" aria-live="polite"></span>
           </article>
         </div>
 
@@ -497,6 +501,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.0.8"></script>
+    <script type="module" src="./app.js?v=4.0.9"></script>
   </body>
 </html>

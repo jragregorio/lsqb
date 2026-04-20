@@ -109,9 +109,11 @@ const refs = {
   quoteNotes: document.querySelector("#quote-notes"),
   newQuoteBtn: document.querySelector("#new-quote-btn"),
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
+  saveAsNewQuoteBtn: document.querySelector("#save-as-new-quote-btn"),
   exportPdfBtn: document.querySelector("#export-pdf-btn"),
   refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
   currentQuoteLabel: document.querySelector("#current-quote-label"),
+  quoteSaveIndicator: document.querySelector("#quote-save-indicator"),
   quoteStatus: document.querySelector("#quote-status"),
   savedQuotesCount: document.querySelector("#saved-quotes-count"),
   savedQuotesList: document.querySelector("#saved-quotes-list"),
@@ -153,6 +155,8 @@ const runtime = {
   quoteWorkspaceActive: false,
   autosaveTimer: 0,
   exportPdfBusy: false,
+  lastDraftEditAtMs: 0,
+  autosaveInterval: 0,
 };
 
 let contractPdfAssetsPromise = null;
@@ -203,6 +207,9 @@ async function bootstrap() {
     loadMaterialsFromSupabase({ showAlertOnFailure: true }),
   );
   refs.newQuoteBtn.addEventListener("click", handleNewQuote);
+  refs.saveAsNewQuoteBtn?.addEventListener("click", () => {
+    void handleSaveAsNewQuote();
+  });
   refs.activeQuoteSaveBtn?.addEventListener("click", () => {
     void handleSaveQuote();
   });
@@ -219,6 +226,19 @@ async function bootstrap() {
   refs.refreshQuotesBtn.addEventListener("click", () =>
     refreshSavedQuotes({ showAlertOnFailure: true }),
   );
+
+  if (AUTOSAVE_ENABLED && !runtime.autosaveInterval) {
+    runtime.autosaveInterval = window.setInterval(() => {
+      if (!canAutosaveCurrentQuote()) {
+        return;
+      }
+      // Only autosave when edits have been idle for a bit (debounce alone can be cancelled by constant typing).
+      if (Date.now() - (runtime.lastDraftEditAtMs || 0) < Math.max(1500, AUTOSAVE_DELAY_MS)) {
+        return;
+      }
+      void handleSaveQuote({ autosave: true });
+    }, 15000);
+  }
   refs.quoteClientName.addEventListener("input", (event) => {
     state.quoteMeta.clientName = event.target.value;
     persistDraftChange();
@@ -538,6 +558,9 @@ function saveState() {
 
 function persistDraftChange() {
   saveState();
+  runtime.lastDraftEditAtMs = Date.now();
+  queueAutosave();
+  renderQuoteSaveIndicator();
 }
 
 async function handleSignIn() {
@@ -1031,7 +1054,50 @@ async function handleSaveQuote(options = {}) {
   await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
   render();
   setQuoteStatus(autosave ? "Quote autosaved to Supabase." : "Quote saved to Supabase.");
+  renderQuoteSaveIndicator();
   return true;
+}
+
+async function handleSaveAsNewQuote() {
+  syncQuoteMetaFromInputs();
+
+  if (!runtime.session) {
+    setQuoteStatus("Sign in first before saving quotes.", true);
+    window.alert("Sign in first before saving quotes.");
+    return;
+  }
+
+  if (!isQuoteWorkspaceActive() || !hasMeaningfulDraftChanges()) {
+    window.alert("Nothing to save yet.");
+    return;
+  }
+
+  const validation = validateQuoteForSave();
+  if (!validation.ok) {
+    setQuoteStatus(validation.message, true);
+    window.alert(validation.message);
+    return;
+  }
+
+  if (state.quoteMeta.id) {
+    const ok = window.confirm(
+      "Save this quote as a new copy? The original quote will remain unchanged.",
+    );
+    if (!ok) {
+      return;
+    }
+  }
+
+  state.quoteMeta = {
+    ...state.quoteMeta,
+    id: "",
+    createdAt: "",
+    updatedAt: "",
+  };
+  runtime.loadedQuoteFingerprint = "";
+  saveState();
+  render();
+  void handleSaveQuote();
 }
 
 async function loadQuoteById(quoteId) {
@@ -1295,6 +1361,10 @@ function renderQuoteWorkspace() {
   refs.quoteNotes.disabled = runtime.quoteBusy;
   refs.newQuoteBtn.disabled = runtime.quoteBusy;
   refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
+  if (refs.saveAsNewQuoteBtn) {
+    refs.saveAsNewQuoteBtn.disabled =
+      !signedIn || runtime.quoteBusy || !isQuoteWorkspaceActive();
+  }
   if (refs.exportPdfBtn) {
     refs.exportPdfBtn.disabled = runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
     refs.exportPdfBtn.textContent = runtime.exportPdfBusy ? "Preparing PDF..." : "Export PDF";
@@ -1303,6 +1373,7 @@ function renderQuoteWorkspace() {
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
 
   renderQuoteStatus();
+  renderQuoteSaveIndicator();
   renderSavedQuotesList();
   renderActiveQuoteBar();
 }
@@ -2912,6 +2983,64 @@ function setQuoteStatus(message, isError = false) {
   refs.quoteStatus.classList.toggle("is-error", isError);
 }
 
+function formatTimeAgoShort(isoValue) {
+  if (!isoValue) {
+    return "";
+  }
+  const ms = new Date(isoValue).getTime();
+  if (!Number.isFinite(ms)) {
+    return "";
+  }
+  const delta = Date.now() - ms;
+  if (!Number.isFinite(delta) || delta < 0) {
+    return "";
+  }
+  if (delta < 10_000) return "just now";
+  if (delta < 60_000) return `${Math.round(delta / 1000)}s ago`;
+  if (delta < 60 * 60_000) return `${Math.round(delta / 60_000)}m ago`;
+  return `${Math.round(delta / (60 * 60_000))}h ago`;
+}
+
+function getQuoteSaveIndicatorState() {
+  const signedIn = Boolean(runtime.session);
+  const hasId = Boolean(state.quoteMeta.id);
+  const unsaved = hasLoadedQuoteUnsavedChanges();
+
+  if (!signedIn) {
+    if (hasMeaningfulDraftChanges()) {
+      return { text: "Unsaved (sign in to save)", tone: "warning" };
+    }
+    return { text: "", tone: "" };
+  }
+  if (runtime.quoteBusy) {
+    return { text: "Saving...", tone: "" };
+  }
+  if (runtime.autosaveTimer) {
+    return { text: "Unsaved changes (autosave queued)", tone: "warning" };
+  }
+  if (hasId && unsaved) {
+    return { text: "Unsaved changes", tone: "warning" };
+  }
+  if (hasId) {
+    const timeAgo = formatTimeAgoShort(state.quoteMeta.updatedAt);
+    return { text: timeAgo ? `Saved ${timeAgo}` : "Saved", tone: "" };
+  }
+  if (hasMeaningfulDraftChanges()) {
+    return { text: "Unsaved draft", tone: "warning" };
+  }
+  return { text: "", tone: "" };
+}
+
+function renderQuoteSaveIndicator() {
+  if (!refs.quoteSaveIndicator) {
+    return;
+  }
+  const { text, tone } = getQuoteSaveIndicatorState();
+  refs.quoteSaveIndicator.textContent = text;
+  refs.quoteSaveIndicator.classList.toggle("is-warning", tone === "warning");
+  refs.quoteSaveIndicator.classList.toggle("is-error", tone === "error");
+}
+
 async function handleExportPdf() {
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
@@ -2933,13 +3062,15 @@ async function handleExportPdf() {
 
   runtime.exportPdfBusy = true;
   renderQuoteWorkspace();
-  setQuoteStatus("Preparing contract PDF...");
+  setQuoteStatus("Preparing contract PDF (1/3)...");
 
   const popupWindow = window.open("", "_blank");
 
   try {
+    setQuoteStatus("Loading PDF assets (2/3)...");
     const contract = buildContractPreviewData();
     const assets = await loadContractPdfAssets();
+    setQuoteStatus("Rendering PDF (3/3)...");
     const documentDefinition = buildContractPdfDefinition(contract, assets);
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -2950,7 +3081,11 @@ async function handleExportPdf() {
       setQuoteStatus("Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.");
     } else {
       triggerPdfDownload(pdfUrl, fileName);
-      setQuoteStatus("Contract PDF downloaded.");
+      setQuoteStatus(
+        popupWindow
+          ? "Contract PDF downloaded."
+          : "Popup blocked by browser. Contract PDF downloaded instead.",
+      );
     }
 
     schedulePdfUrlCleanup(pdfUrl, popupWindow);
@@ -2959,7 +3094,8 @@ async function handleExportPdf() {
     if (popupWindow && !popupWindow.closed) {
       popupWindow.close();
     }
-    const message = "Could not generate the contract PDF.";
+    const details = error?.message ? `\n\nDetails: ${error.message}` : "";
+    const message = `Could not generate the contract PDF.${details}\n\nTry refreshing the page, then export again. If the issue persists, confirm you're signed in and that your internet connection is stable.`;
     setQuoteStatus(message, true);
     window.alert(message);
   } finally {
