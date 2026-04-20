@@ -157,6 +157,7 @@ const runtime = {
   exportPdfBusy: false,
   lastDraftEditAtMs: 0,
   autosaveInterval: 0,
+  recentMeasurementMaterialIds: [],
 };
 
 let contractPdfAssetsPromise = null;
@@ -1107,6 +1108,7 @@ async function loadQuoteById(quoteId) {
   }
 
   clearQueuedAutosave();
+  runtime.recentMeasurementMaterialIds = [];
   runtime.quoteBusy = true;
   render();
   setQuoteStatus("Loading quote...");
@@ -1589,6 +1591,17 @@ function sourceMaterialMatchesSearch(material, query) {
   const div = String(material.division || "").toLowerCase();
   const full = getSourceMaterialOptionLabel(material).toLowerCase();
   return cat.includes(q) || div.includes(q) || full.includes(q);
+}
+
+function pushRecentMeasurementMaterial(materialId) {
+  const id = String(materialId || "");
+  if (!id) {
+    return;
+  }
+  runtime.recentMeasurementMaterialIds = [
+    id,
+    ...(runtime.recentMeasurementMaterialIds || []).filter((existing) => existing !== id),
+  ].slice(0, 10);
 }
 
 function renderMaterials() {
@@ -2225,21 +2238,177 @@ function renderMeasurements() {
     roomCell.append(roomInput);
 
     const typeCell = document.createElement("td");
-    const typeSelect = document.createElement("select");
-    typeSelect.classList.add("measurement-fit-field");
-    typeSelect.append(new Option("Select type", ""));
-    MEASUREMENT_TYPE_OPTIONS.forEach((optionLabel) => {
-      const option = new Option(optionLabel, optionLabel);
-      option.selected = optionLabel === row.type;
-      typeSelect.append(option);
+    typeCell.className = "material-combobox-cell";
+
+    const typeWrap = document.createElement("div");
+    typeWrap.className = "material-combobox";
+
+    const typeInput = document.createElement("input");
+    typeInput.type = "text";
+    typeInput.className = "material-combobox-input measurement-fit-field";
+    typeInput.autocomplete = "off";
+    typeInput.spellcheck = false;
+    typeInput.placeholder = "Search type…";
+    typeInput.setAttribute("role", "combobox");
+    typeInput.setAttribute("aria-autocomplete", "list");
+    typeInput.setAttribute("aria-expanded", "false");
+    typeInput.disabled = runtime.quoteBusy;
+    typeInput.value = row.type || "";
+    attachMeasurementFieldFit(typeInput);
+
+    const typeList = document.createElement("ul");
+    typeList.className = "material-combobox-list";
+    typeList.setAttribute("role", "listbox");
+    typeList.hidden = true;
+
+    let typeOutsidePointerActive = false;
+
+    const closeTypeList = () => {
+      typeList.hidden = true;
+      typeInput.setAttribute("aria-expanded", "false");
+      if (typeOutsidePointerActive) {
+        document.removeEventListener("pointerdown", onOutsideTypePointerDown, true);
+        typeOutsidePointerActive = false;
+      }
+      window.removeEventListener("scroll", onTypeWindowScrollCapture, true);
+      window.removeEventListener("resize", positionTypeDropdown);
+    };
+
+    const positionTypeDropdown = () => {
+      if (typeList.hidden) {
+        return;
+      }
+      const rect = typeInput.getBoundingClientRect();
+      const margin = 6;
+      const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
+      const maxH = Math.min(280, Math.max(120, spaceBelow));
+      typeList.style.position = "fixed";
+      typeList.style.left = `${rect.left}px`;
+      typeList.style.top = `${rect.bottom + margin}px`;
+      typeList.style.width = `${Math.max(rect.width, 200)}px`;
+      typeList.style.maxHeight = `${maxH}px`;
+      typeList.style.zIndex = "3000";
+    };
+
+    const onTypeWindowScrollCapture = (event) => {
+      if (typeList.hidden) {
+        return;
+      }
+      const t = event.target;
+      if (t === typeList) {
+        return;
+      }
+      if (t instanceof Node && typeList.contains(t)) {
+        return;
+      }
+      closeTypeList();
+    };
+
+    const onOutsideTypePointerDown = (event) => {
+      if (typeList.hidden) {
+        return;
+      }
+      if (event.target instanceof Node && typeWrap.contains(event.target)) {
+        return;
+      }
+      // revert label if it's not an exact option
+      typeInput.value = row.type || "";
+      closeTypeList();
+    };
+
+    function renderTypeListOptions() {
+      typeList.innerHTML = "";
+      const q = typeInput.value.trim().toLowerCase();
+      const filtered = MEASUREMENT_TYPE_OPTIONS.filter((label) =>
+        !q ? true : String(label).toLowerCase().includes(q),
+      );
+
+      if (filtered.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "material-combobox-empty";
+        empty.textContent = "No types match your search.";
+        typeList.append(empty);
+        return;
+      }
+
+      filtered.forEach((label) => {
+        const li = document.createElement("li");
+        li.className = "material-combobox-option";
+        li.setAttribute("role", "option");
+        const main = document.createElement("div");
+        main.className = "material-combobox-option-main";
+        main.textContent = label;
+        const sub = document.createElement("div");
+        sub.className = "material-combobox-option-sub";
+        sub.hidden = true;
+        li.append(main, sub);
+        li.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          row.type = label;
+          typeInput.value = label;
+          closeTypeList();
+          persistDraftChange();
+          renderMeasurements();
+        });
+        typeList.append(li);
+      });
+    }
+
+    const openTypeList = () => {
+      if (runtime.quoteBusy) {
+        return;
+      }
+      typeList.hidden = false;
+      typeInput.setAttribute("aria-expanded", "true");
+      renderTypeListOptions();
+      positionTypeDropdown();
+      window.addEventListener("scroll", onTypeWindowScrollCapture, true);
+      window.addEventListener("resize", positionTypeDropdown);
+      if (!typeOutsidePointerActive) {
+        document.addEventListener("pointerdown", onOutsideTypePointerDown, true);
+        typeOutsidePointerActive = true;
+      }
+    };
+
+    typeInput.addEventListener("focus", () => {
+      if (runtime.quoteBusy) {
+        return;
+      }
+      if (row.type) {
+        typeInput.select();
+      }
+      openTypeList();
     });
-    typeSelect.disabled = runtime.quoteBusy;
-    typeSelect.addEventListener("change", (event) => {
-      row.type = event.target.value;
-      persistDraftChange();
+    typeInput.addEventListener("input", () => {
+      if (runtime.quoteBusy) {
+        return;
+      }
+      renderTypeListOptions();
+      if (typeList.hidden) {
+        openTypeList();
+      } else {
+        positionTypeDropdown();
+      }
     });
-    attachMeasurementFieldFit(typeSelect);
-    typeCell.append(typeSelect);
+    typeInput.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        typeInput.value = row.type || "";
+        closeTypeList();
+        typeInput.blur();
+      }
+    });
+    typeInput.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (!typeList.hidden) {
+          typeInput.value = row.type || "";
+          closeTypeList();
+        }
+      }, 0);
+    });
+
+    typeWrap.append(typeInput, typeList);
+    typeCell.append(typeWrap);
 
     const materialCodeCell = document.createElement("td");
     const materialCodeInput = buildTextInput({
@@ -2302,49 +2471,242 @@ function renderMeasurements() {
     heightCell.append(heightInput);
 
     const materialCell = document.createElement("td");
-    const select = document.createElement("select");
-    select.classList.add("measurement-fit-field");
-    select.append(new Option("Select configured material", ""));
-    configuredMaterials.forEach((material) => {
-      const option = new Option(
-        `${material.category} (${formatCurrency(material.askingPrice)})`,
-        material.id,
-      );
-      option.selected = material.id === row.materialId;
-      select.append(option);
-    });
-    select.disabled = configuredMaterials.length === 0 || runtime.quoteBusy;
-    select.addEventListener("focus", () => {
-      select.dataset.prevMaterial = row.materialId;
-    });
-    select.addEventListener("change", () => {
-      const previousMaterialId = select.dataset.prevMaterial || "";
-      row.materialId = select.value;
+    materialCell.className = "material-combobox-cell";
 
-      const material = configuredMaterials.find((item) => item.id === row.materialId);
-      if (material && isMotorizedCategoryFromMaterial(material)) {
-        void openMotorQuantityDialog(row).then((result) => {
-          if (!result.ok) {
-            row.materialId = previousMaterialId;
-          } else {
-            row.unitQuantity = String(result.quantity);
-            row.width = "";
-            row.height = "";
+    const materialWrap = document.createElement("div");
+    materialWrap.className = "material-combobox";
+
+    const materialInput = document.createElement("input");
+    materialInput.type = "text";
+    materialInput.className = "material-combobox-input measurement-fit-field";
+    materialInput.autocomplete = "off";
+    materialInput.spellcheck = false;
+    materialInput.placeholder = configuredMaterials.length === 0
+      ? "Add configured material first"
+      : "Search material…";
+    materialInput.setAttribute("role", "combobox");
+    materialInput.setAttribute("aria-autocomplete", "list");
+    materialInput.setAttribute("aria-expanded", "false");
+    materialInput.disabled = configuredMaterials.length === 0 || runtime.quoteBusy;
+    attachMeasurementFieldFit(materialInput);
+
+    const currentConfigured = configuredMaterials.find((m) => m.id === row.materialId);
+    materialInput.value = currentConfigured
+      ? `${currentConfigured.category} (${formatCurrency(currentConfigured.askingPrice)})`
+      : "";
+
+    const materialList = document.createElement("ul");
+    materialList.className = "material-combobox-list";
+    materialList.setAttribute("role", "listbox");
+    materialList.hidden = true;
+
+    let materialOutsidePointerActive = false;
+    let prevMaterialId = row.materialId || "";
+
+    const closeMaterialList = () => {
+      materialList.hidden = true;
+      materialInput.setAttribute("aria-expanded", "false");
+      if (materialOutsidePointerActive) {
+        document.removeEventListener("pointerdown", onOutsideMaterialPointerDown, true);
+        materialOutsidePointerActive = false;
+      }
+      window.removeEventListener("scroll", onMaterialWindowScrollCapture, true);
+      window.removeEventListener("resize", positionMaterialDropdown);
+    };
+
+    const positionMaterialDropdown = () => {
+      if (materialList.hidden) {
+        return;
+      }
+      const rect = materialInput.getBoundingClientRect();
+      const margin = 6;
+      const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
+      const maxH = Math.min(320, Math.max(140, spaceBelow));
+      materialList.style.position = "fixed";
+      materialList.style.left = `${rect.left}px`;
+      materialList.style.top = `${rect.bottom + margin}px`;
+      materialList.style.width = `${Math.max(rect.width, 220)}px`;
+      materialList.style.maxHeight = `${maxH}px`;
+      materialList.style.zIndex = "3000";
+    };
+
+    const syncMaterialInputLabelFromRow = () => {
+      const selected = configuredMaterials.find((m) => m.id === row.materialId);
+      materialInput.value = selected
+        ? `${selected.category} (${formatCurrency(selected.askingPrice)})`
+        : "";
+    };
+
+    const onMaterialWindowScrollCapture = (event) => {
+      if (materialList.hidden) {
+        return;
+      }
+      const t = event.target;
+      if (t === materialList) {
+        return;
+      }
+      if (t instanceof Node && materialList.contains(t)) {
+        return;
+      }
+      closeMaterialList();
+    };
+
+    const onOutsideMaterialPointerDown = (event) => {
+      if (materialList.hidden) {
+        return;
+      }
+      if (event.target instanceof Node && materialWrap.contains(event.target)) {
+        return;
+      }
+      syncMaterialInputLabelFromRow();
+      closeMaterialList();
+    };
+
+    const buildMaterialOptionMain = (material) =>
+      `${material.category} (${formatCurrency(material.askingPrice)})`;
+
+    function renderMaterialListOptions() {
+      materialList.innerHTML = "";
+      const q = materialInput.value.trim().toLowerCase();
+      const matches = (m) => buildMaterialOptionMain(m).toLowerCase().includes(q);
+
+      const seen = new Set();
+      const recentIds = runtime.recentMeasurementMaterialIds || [];
+      const recent = !q
+        ? recentIds
+            .map((id) => configuredMaterials.find((m) => m.id === id))
+            .filter(Boolean)
+        : [];
+
+      const addItem = (material, { subLabel } = {}) => {
+        if (!material || seen.has(material.id)) {
+          return;
+        }
+        seen.add(material.id);
+        const li = document.createElement("li");
+        li.className = "material-combobox-option";
+        li.setAttribute("role", "option");
+
+        const main = document.createElement("div");
+        main.className = "material-combobox-option-main";
+        main.textContent = buildMaterialOptionMain(material);
+
+        const sub = document.createElement("div");
+        sub.className = "material-combobox-option-sub";
+        if (subLabel) {
+          sub.textContent = subLabel;
+        } else {
+          sub.hidden = true;
+        }
+
+        li.append(main, sub);
+        li.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          const picked = material;
+          prevMaterialId = row.materialId || "";
+          row.materialId = picked.id;
+          syncMaterialInputLabelFromRow();
+          closeMaterialList();
+
+          if (picked && isMotorizedCategoryFromMaterial(picked)) {
+            void openMotorQuantityDialog(row).then((result) => {
+              if (!result.ok) {
+                row.materialId = prevMaterialId;
+                syncMaterialInputLabelFromRow();
+              } else {
+                row.unitQuantity = String(result.quantity);
+                row.width = "";
+                row.height = "";
+                pushRecentMeasurementMaterial(picked.id);
+              }
+              persistDraftChange();
+              renderMeasurements();
+              renderSummary();
+            });
+            return;
           }
+
+          row.unitQuantity = "";
+          pushRecentMeasurementMaterial(picked.id);
           persistDraftChange();
           renderMeasurements();
           renderSummary();
         });
-        return;
+        materialList.append(li);
+      };
+
+      if (recent.length > 0) {
+        recent.forEach((m) => addItem(m, { subLabel: "Recent" }));
       }
 
-      row.unitQuantity = "";
-      persistDraftChange();
-      renderMeasurements();
-      renderSummary();
+      configuredMaterials
+        .filter((m) => (q ? matches(m) : true))
+        .forEach((m) => addItem(m));
+
+      if (materialList.children.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "material-combobox-empty";
+        empty.textContent = "No materials match your search.";
+        materialList.append(empty);
+      }
+    }
+
+    const openMaterialList = () => {
+      if (configuredMaterials.length === 0 || runtime.quoteBusy) {
+        return;
+      }
+      materialList.hidden = false;
+      materialInput.setAttribute("aria-expanded", "true");
+      renderMaterialListOptions();
+      positionMaterialDropdown();
+      window.addEventListener("scroll", onMaterialWindowScrollCapture, true);
+      window.addEventListener("resize", positionMaterialDropdown);
+      if (!materialOutsidePointerActive) {
+        document.addEventListener("pointerdown", onOutsideMaterialPointerDown, true);
+        materialOutsidePointerActive = true;
+      }
+    };
+
+    materialInput.addEventListener("focus", () => {
+      if (configuredMaterials.length === 0 || runtime.quoteBusy) {
+        return;
+      }
+      prevMaterialId = row.materialId || "";
+      if (row.materialId) {
+        materialInput.select();
+      }
+      openMaterialList();
     });
-    attachMeasurementFieldFit(select);
-    materialCell.append(select);
+    materialInput.addEventListener("input", () => {
+      if (configuredMaterials.length === 0 || runtime.quoteBusy) {
+        return;
+      }
+      renderMaterialListOptions();
+      if (materialList.hidden) {
+        openMaterialList();
+      } else {
+        positionMaterialDropdown();
+      }
+    });
+    materialInput.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        syncMaterialInputLabelFromRow();
+        closeMaterialList();
+        materialInput.blur();
+      }
+    });
+    materialInput.addEventListener("blur", () => {
+      window.setTimeout(() => {
+        if (!materialList.hidden) {
+          syncMaterialInputLabelFromRow();
+          closeMaterialList();
+        }
+      }, 0);
+    });
+
+    materialWrap.append(materialInput, materialList);
+    materialCell.append(materialWrap);
 
     const costCell = document.createElement("td");
     costCell.className = "money-cell";
@@ -2829,6 +3191,7 @@ function resetQuoteDraft() {
   state.selectedMaterials = [createMaterialSetupRow()];
   state.measurementRows = [createMeasurementRow()];
   runtime.loadedQuoteFingerprint = "";
+  runtime.recentMeasurementMaterialIds = [];
 }
 
 function clearQueuedAutosave() {
