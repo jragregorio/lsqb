@@ -286,6 +286,25 @@ code {
   flex-shrink: 0;
 }
 
+.secondary-button.saved-quotes-drawer-close,
+.secondary-button.admin-drawer-close {
+  border-color: rgba(176, 53, 53, 0.85);
+  background: rgba(176, 53, 53, 0.14);
+  color: #8f2323;
+}
+
+.secondary-button.saved-quotes-drawer-close:hover:not(:disabled),
+.secondary-button.admin-drawer-close:hover:not(:disabled) {
+  border-color: rgba(176, 53, 53, 0.8);
+  background: rgba(176, 53, 53, 0.14);
+  color: #7d1c1c;
+}
+
+.secondary-button.saved-quotes-drawer-close:active:not(:disabled),
+.secondary-button.admin-drawer-close:active:not(:disabled) {
+  background: rgba(176, 53, 53, 0.18);
+}
+
 .admin-drawer {
   position: fixed;
   top: 0;
