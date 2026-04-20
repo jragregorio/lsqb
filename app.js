@@ -3810,9 +3810,12 @@ function buildContractPdfFileName(contract) {
 
 function getContractPdfBranding(organization, assets) {
   if (organization === "nds") {
+    const ndsAspectRatio = 125 / 425;
+    const watermarkWidth = 260;
     return {
       logoDataUrl: assets.ndsLogoDataUrl,
-      watermarkSize: 260,
+      watermarkWidth,
+      watermarkHeight: Math.round(watermarkWidth * ndsAspectRatio),
       watermarkOpacity: 0.14,
       borderColor: "#e4c7c6",
       accentColor: "#8d2a24",
@@ -3822,9 +3825,12 @@ function getContractPdfBranding(organization, assets) {
     };
   }
 
+  const luxeAspectRatio = 872 / 1024;
+  const watermarkWidth = 220;
   return {
     logoDataUrl: assets.luxeLogoDataUrl,
-    watermarkSize: 220,
+    watermarkWidth,
+    watermarkHeight: Math.round(watermarkWidth * luxeAspectRatio),
     watermarkOpacity: 0.16,
     borderColor: "#e6d8ca",
     accentColor: "#9e7149",
@@ -3836,8 +3842,6 @@ function getContractPdfBranding(organization, assets) {
 
 function buildContractPdfDefinition(contract, assets, { organization = "luxe" } = {}) {
   const pageMargin = 43.2;
-  const pageWidth = 612;
-  const pageHeight = 792;
   const orderTableWidths = [92, 76, 112, 63, 63, 76];
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
@@ -3999,14 +4003,17 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
   return {
     pageSize: "LETTER",
     pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
-    background(currentPage) {
+    background(currentPage, pageSize) {
+      const safePageWidth = pageSize?.width || 612;
+      const safePageHeight = pageSize?.height || 792;
       return {
         image: branding.logoDataUrl,
-        width: branding.watermarkSize,
+        width: branding.watermarkWidth,
+        height: branding.watermarkHeight,
         opacity: branding.watermarkOpacity,
         absolutePosition: {
-          x: (pageWidth - branding.watermarkSize) / 2,
-          y: (pageHeight - branding.watermarkSize) / 2,
+          x: (safePageWidth - branding.watermarkWidth) / 2,
+          y: (safePageHeight - branding.watermarkHeight) / 2,
         },
       };
     },
