@@ -62,6 +62,10 @@ const QUOTE_SELECT_COLUMNS = [
   "email_address",
   "quote_reference",
   "notes",
+  "delivery_amount",
+  "delivery_is_free",
+  "install_steam_amount",
+  "install_steam_is_free",
   "discount",
   "discount_type",
   "discount_value",
@@ -101,6 +105,10 @@ const refs = {
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
+  deliveryAmount: document.querySelector("#delivery-amount"),
+  deliveryFree: document.querySelector("#delivery-free"),
+  installSteamAmount: document.querySelector("#install-steam-amount"),
+  installSteamFree: document.querySelector("#install-steam-free"),
   quoteClientName: document.querySelector("#quote-client-name"),
   quoteProjectName: document.querySelector("#quote-project-name"),
   quoteDate: document.querySelector("#quote-date"),
@@ -208,6 +216,27 @@ async function bootstrap() {
   });
   refs.discountValue.addEventListener("input", (event) => {
     state.discountValue = normalizeInputNumber(event.target.value);
+    persistDraftChange();
+    renderSummary();
+  });
+
+  refs.deliveryAmount?.addEventListener("input", (event) => {
+    state.quoteMeta.deliveryAmount = normalizeInputNumber(event.target.value);
+    persistDraftChange();
+    renderSummary();
+  });
+  refs.deliveryFree?.addEventListener("change", (event) => {
+    state.quoteMeta.deliveryIsFree = Boolean(event.target.checked);
+    persistDraftChange();
+    renderSummary();
+  });
+  refs.installSteamAmount?.addEventListener("input", (event) => {
+    state.quoteMeta.installSteamAmount = normalizeInputNumber(event.target.value);
+    persistDraftChange();
+    renderSummary();
+  });
+  refs.installSteamFree?.addEventListener("change", (event) => {
+    state.quoteMeta.installSteamIsFree = Boolean(event.target.checked);
     persistDraftChange();
     renderSummary();
   });
@@ -524,6 +553,10 @@ function getDefaultQuoteMeta() {
     emailAddress: "",
     quoteReference: "",
     notes: "",
+    deliveryAmount: "",
+    deliveryIsFree: false,
+    installSteamAmount: "",
+    installSteamIsFree: false,
     createdAt: "",
     updatedAt: "",
   };
@@ -923,6 +956,10 @@ async function handleSaveQuote(options = {}) {
     email_address: sanitizeOptionalText(state.quoteMeta.emailAddress),
     quote_reference: sanitizeOptionalText(state.quoteMeta.quoteReference),
     notes: sanitizeOptionalText(state.quoteMeta.notes),
+    delivery_amount: parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0,
+    delivery_is_free: Boolean(state.quoteMeta.deliveryIsFree),
+    install_steam_amount: parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0,
+    install_steam_is_free: Boolean(state.quoteMeta.installSteamIsFree),
     discount: summaryTotals.discountAmount,
     discount_type: state.discountType,
     discount_value: parseCurrencyLikeNumber(state.discountValue) || 0,
@@ -1059,6 +1096,10 @@ async function handleSaveQuote(options = {}) {
     emailAddress: savedQuote.email_address || "",
     quoteReference: savedQuote.quote_reference || "",
     notes: savedQuote.notes || "",
+    deliveryAmount: getDiscountInputDisplayValue(savedQuote.delivery_amount) || "",
+    deliveryIsFree: Boolean(savedQuote.delivery_is_free),
+    installSteamAmount: getDiscountInputDisplayValue(savedQuote.install_steam_amount) || "",
+    installSteamIsFree: Boolean(savedQuote.install_steam_is_free),
     createdAt: savedQuote.created_at || "",
     updatedAt: savedQuote.updated_at || "",
   };
@@ -1172,6 +1213,10 @@ async function loadQuoteById(quoteId) {
     emailAddress: quoteResult.data.email_address || "",
     quoteReference: quoteResult.data.quote_reference || "",
     notes: quoteResult.data.notes || "",
+    deliveryAmount: getDiscountInputDisplayValue(quoteResult.data.delivery_amount) || "",
+    deliveryIsFree: Boolean(quoteResult.data.delivery_is_free),
+    installSteamAmount: getDiscountInputDisplayValue(quoteResult.data.install_steam_amount) || "",
+    installSteamIsFree: Boolean(quoteResult.data.install_steam_is_free),
     createdAt: quoteResult.data.created_at || "",
     updatedAt: quoteResult.data.updated_at || "",
   };
@@ -1370,6 +1415,23 @@ function renderQuoteWorkspace() {
   refs.quoteContactNumber.value = state.quoteMeta.contactNumber;
   refs.quoteEmailAddress.value = state.quoteMeta.emailAddress;
   refs.quoteNotes.value = state.quoteMeta.notes;
+
+  if (refs.deliveryAmount) {
+    refs.deliveryAmount.value = state.quoteMeta.deliveryAmount || "";
+    refs.deliveryAmount.disabled = runtime.quoteBusy;
+  }
+  if (refs.deliveryFree) {
+    refs.deliveryFree.checked = Boolean(state.quoteMeta.deliveryIsFree);
+    refs.deliveryFree.disabled = runtime.quoteBusy;
+  }
+  if (refs.installSteamAmount) {
+    refs.installSteamAmount.value = state.quoteMeta.installSteamAmount || "";
+    refs.installSteamAmount.disabled = runtime.quoteBusy;
+  }
+  if (refs.installSteamFree) {
+    refs.installSteamFree.checked = Boolean(state.quoteMeta.installSteamIsFree);
+    refs.installSteamFree.disabled = runtime.quoteBusy;
+  }
 
   const signedIn = Boolean(runtime.session);
   refs.quoteClientName.disabled = runtime.quoteBusy;
@@ -2965,10 +3027,17 @@ function getMeasurementCost(row) {
 }
 
 function getSubtotal() {
+  const delivery = state.quoteMeta.deliveryIsFree
+    ? 0
+    : parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
+  const installSteam = state.quoteMeta.installSteamIsFree
+    ? 0
+    : parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+
   return state.measurementRows.reduce((total, row) => {
     const cost = getMeasurementCost(row);
     return total + (cost ?? 0);
-  }, 0);
+  }, 0) + delivery + installSteam;
 }
 
 function getSummaryTotals() {
@@ -3003,6 +3072,15 @@ function getAppliedDiscountAmount(subtotal = getSubtotal()) {
 function validateQuoteForSave() {
   if (!state.quoteMeta.clientName.trim()) {
     return { ok: false, message: "Client Name is required before saving a quote." };
+  }
+
+  const deliveryAmount = parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
+  if (deliveryAmount < 0) {
+    return { ok: false, message: "Delivery amount cannot be negative." };
+  }
+  const installSteamAmount = parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+  if (installSteamAmount < 0) {
+    return { ok: false, message: "Installation and steam amount cannot be negative." };
   }
 
   const discountValue = parseCurrencyLikeNumber(state.discountValue) || 0;
@@ -3542,6 +3620,11 @@ function syncQuoteMetaFromInputs() {
   state.quoteMeta.contactNumber = refs.quoteContactNumber.value;
   state.quoteMeta.emailAddress = refs.quoteEmailAddress.value;
   state.quoteMeta.notes = refs.quoteNotes.value;
+  state.quoteMeta.deliveryAmount = refs.deliveryAmount?.value || state.quoteMeta.deliveryAmount || "";
+  state.quoteMeta.deliveryIsFree = Boolean(refs.deliveryFree?.checked);
+  state.quoteMeta.installSteamAmount =
+    refs.installSteamAmount?.value || state.quoteMeta.installSteamAmount || "";
+  state.quoteMeta.installSteamIsFree = Boolean(refs.installSteamFree?.checked);
   saveState();
 }
 
@@ -3567,6 +3650,8 @@ function buildContractPreviewData() {
     .filter(Boolean);
 
   const { subtotal, discountAmount, finalTotal, half } = getSummaryTotals();
+  const deliveryAmount = parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
+  const installSteamAmount = parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
 
   return {
     clientName: state.quoteMeta.clientName.trim() || "-",
@@ -3576,6 +3661,10 @@ function buildContractPreviewData() {
     contactNumber: state.quoteMeta.contactNumber.trim() || "-",
     emailAddress: state.quoteMeta.emailAddress.trim() || "-",
     notes: state.quoteMeta.notes.trim(),
+    deliveryAmount,
+    deliveryIsFree: Boolean(state.quoteMeta.deliveryIsFree),
+    installSteamAmount,
+    installSteamIsFree: Boolean(state.quoteMeta.installSteamIsFree),
     lineItems,
     subtotal,
     discountAmount,
@@ -4148,6 +4237,28 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
                       },
                     ],
                     [
+                      { text: "Delivery", bold: true },
+                      {
+                        text: formatPdfAdditionalChargeDisplay(
+                          contract.deliveryAmount,
+                          contract.deliveryIsFree,
+                        ),
+                        font: "Roboto",
+                        alignment: "right",
+                      },
+                    ],
+                    [
+                      { text: "Installation and Steam", bold: true },
+                      {
+                        text: formatPdfAdditionalChargeDisplay(
+                          contract.installSteamAmount,
+                          contract.installSteamIsFree,
+                        ),
+                        font: "Roboto",
+                        alignment: "right",
+                      },
+                    ],
+                    [
                       { text: "Discount", bold: true },
                       {
                         text: formatPdfPesoAmount(contract.discountAmount),
@@ -4642,6 +4753,12 @@ function formatPdfPesoAmount(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/** Shows list price; when marked free, appends (FREE) for transparency while subtotal still treats it as zero. */
+function formatPdfAdditionalChargeDisplay(amount, isFree) {
+  const line = formatPdfPesoAmount(amount);
+  return isFree ? `${line} (FREE)` : line;
 }
 
 function createEmptyStateRow(colspan, copy) {

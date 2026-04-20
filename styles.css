@@ -1099,6 +1099,27 @@ tbody tr.measurement-row--drag-over {
   gap: 1rem;
 }
 
+.charges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.charge-free-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  color: var(--muted);
+  user-select: none;
+}
+
+.charge-free-row input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+}
+
 .summary-card {
   display: flex;
   flex-direction: column;
