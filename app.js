@@ -196,7 +196,8 @@ async function bootstrap() {
   if (refs.pdfOrgSelect) {
     refs.pdfOrgSelect.value = state.pdfOrganization || "luxe";
     refs.pdfOrgSelect.addEventListener("change", (event) => {
-      state.pdfOrganization = event.target.value === "nds" ? "nds" : "luxe";
+      const next = String(event.target.value || "").toLowerCase();
+      state.pdfOrganization = next === "nds" || next === "kk" ? next : "luxe";
       persistDraftChange();
     });
   }
@@ -3591,12 +3592,15 @@ function loadContractPdfAssets() {
 
   const luxeLogoUrl = new URL("./assets/luxeshade-logo.png", window.location.href).href;
   const ndsLogoUrl = new URL("./assets/nds-trading-logo.png", window.location.href).href;
+  const kkLogoUrl = new URL("./assets/kurtina-kultura-logo.png", window.location.href).href;
   contractPdfAssetsPromise = Promise.all([
     fileUrlToDataUrl(luxeLogoUrl),
     fileUrlToDataUrl(ndsLogoUrl),
-  ]).then(([luxeLogoDataUrl, ndsLogoDataUrl]) => ({
+    fileUrlToDataUrl(kkLogoUrl),
+  ]).then(([luxeLogoDataUrl, ndsLogoDataUrl, kkLogoDataUrl]) => ({
     luxeLogoDataUrl,
     ndsLogoDataUrl,
+    kkLogoDataUrl,
   }));
   return contractPdfAssetsPromise;
 }
@@ -3816,6 +3820,21 @@ function buildContractPdfFileName(contract) {
 }
 
 function getContractPdfBranding(organization, assets) {
+  if (organization === "kk") {
+    const kkAspectRatio = 585 / 1024;
+    const watermarkWidth = 250;
+    return {
+      logoDataUrl: assets.kkLogoDataUrl,
+      watermarkWidth,
+      watermarkHeight: Math.round(watermarkWidth * kkAspectRatio),
+      watermarkOpacity: 0.12,
+      borderColor: "#d9d2cd",
+      accentColor: "#111111",
+      textColor: "#1a1a1a",
+      lightFill: "#f3f1ef",
+      accentFill: "#eae6e2",
+    };
+  }
   if (organization === "nds") {
     const ndsAspectRatio = 125 / 425;
     const watermarkWidth = 260;
