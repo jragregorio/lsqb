@@ -3689,6 +3689,9 @@ function buildContractPreviewData() {
   const { subtotal, discountAmount, finalTotal, half } = getSummaryTotals();
   const deliveryAmount = parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
   const installSteamAmount = parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+  const discountValueRaw = String(state.discountValue ?? "").trim();
+  const discountValueNumeric = parseCurrencyLikeNumber(state.discountValue) || 0;
+  const hasDiscount = discountValueRaw !== "" && discountValueNumeric > 0;
 
   return {
     clientName: state.quoteMeta.clientName.trim() || "-",
@@ -3704,6 +3707,7 @@ function buildContractPreviewData() {
     installSteamIsFree: Boolean(state.quoteMeta.installSteamIsFree),
     lineItems,
     subtotal,
+    hasDiscount,
     discountAmount,
     finalTotal,
     downpayment: half,
@@ -4264,46 +4268,62 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
               {
                 table: {
                   widths: totalsTableWidths,
-                  body: [
-                    [
-                      { text: "Sub Total", bold: true },
-                      {
-                        text: formatPdfPesoAmount(contract.subtotal),
-                        font: "Roboto",
-                        alignment: "right",
-                      },
-                    ],
-                    [
-                      { text: "Delivery", bold: true },
-                      {
-                        text: formatPdfAdditionalChargeDisplay(
-                          contract.deliveryAmount,
-                          contract.deliveryIsFree,
-                        ),
-                        font: "Roboto",
-                        alignment: "right",
-                      },
-                    ],
-                    [
-                      { text: "Installation and Steam", bold: true },
-                      {
-                        text: formatPdfAdditionalChargeDisplay(
-                          contract.installSteamAmount,
-                          contract.installSteamIsFree,
-                        ),
-                        font: "Roboto",
-                        alignment: "right",
-                      },
-                    ],
-                    [
-                      { text: "Discount", bold: true },
-                      {
-                        text: formatPdfPesoAmount(contract.discountAmount),
-                        font: "Roboto",
-                        alignment: "right",
-                      },
-                    ],
-                    [
+                  body: (() => {
+                    const rows = [
+                      [
+                        { text: "Sub Total", bold: true },
+                        {
+                          text: formatPdfPesoAmount(contract.subtotal),
+                          font: "Roboto",
+                          alignment: "right",
+                        },
+                      ],
+                    ];
+
+                    const shouldShowDelivery =
+                      Boolean(contract.deliveryIsFree) || Number(contract.deliveryAmount) > 0;
+                    if (shouldShowDelivery) {
+                      rows.push([
+                        { text: "Delivery", bold: true },
+                        {
+                          text: formatPdfAdditionalChargeDisplay(
+                            contract.deliveryAmount,
+                            contract.deliveryIsFree,
+                          ),
+                          font: "Roboto",
+                          alignment: "right",
+                        },
+                      ]);
+                    }
+
+                    const shouldShowInstallSteam =
+                      Boolean(contract.installSteamIsFree) || Number(contract.installSteamAmount) > 0;
+                    if (shouldShowInstallSteam) {
+                      rows.push([
+                        { text: "Installation and Steam", bold: true },
+                        {
+                          text: formatPdfAdditionalChargeDisplay(
+                            contract.installSteamAmount,
+                            contract.installSteamIsFree,
+                          ),
+                          font: "Roboto",
+                          alignment: "right",
+                        },
+                      ]);
+                    }
+
+                    if (contract.hasDiscount) {
+                      rows.push([
+                        { text: "Discount", bold: true },
+                        {
+                          text: formatPdfPesoAmount(contract.discountAmount),
+                          font: "Roboto",
+                          alignment: "right",
+                        },
+                      ]);
+                    }
+
+                    rows.push([
                       { text: "Total", bold: true, fontSize: 14, fillColor: accentFill },
                       {
                         text: formatPdfPesoAmount(contract.finalTotal),
@@ -4313,8 +4333,10 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
                         alignment: "right",
                         fillColor: accentFill,
                       },
-                    ],
-                  ],
+                    ]);
+
+                    return rows;
+                  })(),
                 },
                 layout: totalsTableLayout,
               },
