@@ -755,6 +755,32 @@ code {
   width: 100%;
 }
 
+/* Tablet: allow table to auto-fit and relax hard min-widths to reduce horizontal scrolling */
+@media (max-width: 1024px) {
+  .measurements-table {
+    min-width: 0;
+    table-layout: auto;
+  }
+
+  .measurements-table th:nth-child(2),
+  .measurements-table td:nth-child(2) {
+    min-width: 7.2rem;
+  }
+
+  .measurements-table th:nth-child(6),
+  .measurements-table td:nth-child(6),
+  .measurements-table th:nth-child(7),
+  .measurements-table td:nth-child(7) {
+    min-width: 5.6rem;
+    max-width: 5.6rem;
+    width: 5.6rem;
+  }
+
+  .measurements-table .material-combobox-cell {
+    min-width: 9rem;
+  }
+}
+
 .measurements-table th.measurement-drag-col,
 .measurements-table td.measurement-drag-cell {
   width: 2.35rem;
