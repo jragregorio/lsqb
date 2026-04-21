@@ -750,14 +750,15 @@ code {
 }
 
 .measurements-table {
-  min-width: 1270px;
-  table-layout: fixed;
+  min-width: 0;
+  table-layout: auto;
   width: 100%;
 }
 
 /* Tablet: allow table to auto-fit and relax hard min-widths to reduce horizontal scrolling */
 @media (max-width: 1024px) {
   .measurements-table {
+    /* Keep overrides for readability on smaller screens. */
     min-width: 0;
     table-layout: auto;
   }
