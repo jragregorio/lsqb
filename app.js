@@ -2852,8 +2852,16 @@ function renderMeasurements() {
     const actionCell = document.createElement("td");
     const removeButton = document.createElement("button");
     removeButton.type = "button";
-    removeButton.className = "ghost-danger-button";
-    removeButton.textContent = "Remove";
+    removeButton.className = "ghost-danger-button measurement-remove-button";
+    removeButton.setAttribute("aria-label", "Remove row");
+    removeButton.innerHTML = [
+      '<span class="measurement-remove-label">Remove</span>',
+      '<span class="measurement-remove-icon" aria-hidden="true">',
+      '<svg viewBox="0 0 24 24" width="18" height="18" focusable="false" aria-hidden="true">',
+      '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v10h-2V9zm4 0h2v10h-2V9zM6 9h2v10H6V9zm2 12h8a2 2 0 0 0 2-2V9H4v10a2 2 0 0 0 2 2z"/>',
+      "</svg>",
+      "</span>",
+    ].join("");
     removeButton.disabled = runtime.quoteBusy;
     removeButton.addEventListener("click", () => {
       state.measurementRows = state.measurementRows.filter(
