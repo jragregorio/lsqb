@@ -3700,6 +3700,8 @@ function buildContractPreviewData() {
   const discountValueRaw = String(state.discountValue ?? "").trim();
   const discountValueNumeric = parseCurrencyLikeNumber(state.discountValue) || 0;
   const hasDiscount = discountValueRaw !== "" && discountValueNumeric > 0;
+  const discountType = state.discountType === "percent" ? "percent" : "amount";
+  const discountPercent = discountType === "percent" ? discountValueNumeric : 0;
 
   return {
     clientName: state.quoteMeta.clientName.trim() || "-",
@@ -3717,6 +3719,8 @@ function buildContractPreviewData() {
     subtotal,
     hasDiscount,
     discountAmount,
+    discountType,
+    discountPercent,
     finalTotal,
     downpayment: half,
     remainingBalance: half,
@@ -4321,10 +4325,14 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
                     }
 
                     if (contract.hasDiscount) {
+                      const discountSuffix =
+                        contract.discountType === "percent" && Number(contract.discountPercent) > 0
+                          ? ` (${Number(contract.discountPercent)}%)`
+                          : "";
                       rows.push([
                         { text: "Discount", bold: true },
                         {
-                          text: formatPdfPesoAmount(contract.discountAmount),
+                          text: `${formatPdfPesoAmount(contract.discountAmount)}${discountSuffix}`,
                           font: "Roboto",
                           alignment: "right",
                         },
