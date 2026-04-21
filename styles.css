@@ -792,6 +792,12 @@ code {
   text-align: center;
 }
 
+.measurements-table thead th {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .measurements-table th.measurement-free-col,
 .measurements-table td.measurement-free-cell {
   width: 2.75rem;
@@ -953,6 +959,8 @@ tbody tr.measurement-row--drag-over {
   color: #5a4a3d;
   background: #f6eee7;
 }
+
+/* Measurements table headers are styled near the table layout rules. */
 
 .data-table tbody tr:last-child td {
   border-bottom: 0;
