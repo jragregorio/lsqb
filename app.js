@@ -3579,7 +3579,7 @@ async function handleExportPdf() {
     });
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
-    const fileName = buildContractPdfFileName(contract);
+    const fileName = buildContractPdfFileName(contract, state.pdfOrganization);
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
       popupWindow.focus();
@@ -3947,18 +3947,21 @@ function triggerPdfDownload(pdfUrl, fileName) {
   link.remove();
 }
 
-function buildContractPdfFileName(contract) {
+function buildContractPdfFileName(contract, organization = "luxe") {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
-  const rawName = clientName
-    ? `LuxeShade Contract - ${clientName}`
-    : "LuxeShade Contract";
+  const prefix = organization === "nds"
+    ? "NDS Contract"
+    : organization === "kk"
+      ? "KK Contract"
+      : "LuxeShade Contract";
+  const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
   const safeName = rawName
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
-  return `${safeName || "LuxeShade Contract"}.pdf`;
+  return `${safeName || prefix}.pdf`;
 }
 
 function getContractPdfBranding(organization, assets) {
