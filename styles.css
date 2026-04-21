@@ -773,8 +773,8 @@ code {
 /* Room / Section: more space for labels; Width / Height: compact (mm only) */
 .measurements-table th:nth-child(2),
 .measurements-table td:nth-child(2) {
-  width: 15.1%;
-  min-width: 7.6rem;
+  width: 13.6%;
+  min-width: 6.85rem;
 }
 
 /* Width (mm) = 6, Height (mm) = 7 — drag column shifted indices; was wrongly 7/8 */
