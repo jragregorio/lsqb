@@ -697,26 +697,20 @@ code {
   color: var(--danger);
 }
 
-/* Measurement table actions: use label on desktop, icon on tablet */
-.measurement-remove-icon {
+/* Measurement table actions: trash icon (global) */
+.measurement-remove-button {
+  padding: 0.55rem 0.6rem;
+  min-height: 2.4rem;
+}
+
+.measurement-remove-label {
   display: none;
 }
 
-@media (max-width: 1024px) {
-  .measurement-remove-button {
-    padding: 0.55rem 0.6rem;
-    min-height: 2.4rem;
-  }
-
-  .measurement-remove-label {
-    display: none;
-  }
-
-  .measurement-remove-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
+.measurement-remove-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .file-picker {
