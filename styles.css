@@ -1123,9 +1123,12 @@ tbody tr.measurement-row--drag-over {
 .sqft-warning {
   display: inline-block;
   padding: 0.2rem 0.45rem;
-  border-radius: 999px;
+  border-radius: 0.55rem;
   background: #fff1a8;
   color: #6b5600;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
 }
 
 .app-dialog {
