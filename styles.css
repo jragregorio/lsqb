@@ -798,6 +798,20 @@ code {
   letter-spacing: 0.08em;
 }
 
+/* Label column: give more room (before Type). */
+.measurements-table th:nth-child(3),
+.measurements-table td:nth-child(3) {
+  min-width: 8.4rem;
+}
+
+/* Cost column: keep compact. */
+.measurements-table th:nth-child(10),
+.measurements-table td:nth-child(10) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 110px;
+}
+
 .measurements-table th.measurement-free-col,
 .measurements-table td.measurement-free-cell {
   width: 2.75rem;
@@ -1093,7 +1107,7 @@ tbody tr.measurement-row--drag-over {
 }
 
 .money-cell {
-  min-width: 150px;
+  min-width: 100px;
   font-weight: 700;
   color: #4a392d;
 }
