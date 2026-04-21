@@ -128,6 +128,7 @@ const refs = {
   savedQuotesList: document.querySelector("#saved-quotes-list"),
   materialPanel: document.querySelector("#material-setup-panel"),
   measurementsPanel: document.querySelector("#measurements-panel"),
+  chargesPanel: document.querySelector("#charges-panel"),
   materialBody: document.querySelector("#material-setup-body"),
   measurementBody: document.querySelector("#measurement-body"),
   addMaterialBtn: document.querySelector("#add-material-btn"),
@@ -539,6 +540,7 @@ function createMeasurementRow() {
     height: "",
     materialId: "",
     unitQuantity: "",
+    isFree: false,
   };
 }
 
@@ -1074,6 +1076,7 @@ async function handleSaveQuote(options = {}) {
           sort_order: index,
           unit_quantity: item.unitQuantity,
           line_cost: item.lineCost,
+          line_is_free: Boolean(item.isFree),
         })),
       );
 
@@ -1186,7 +1189,7 @@ async function loadQuoteById(quoteId) {
     supabase
       .from("quote_measurements")
       .select(
-        "id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, sort_order",
+        "id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, line_is_free, sort_order",
       )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true }),
@@ -1256,6 +1259,7 @@ async function loadQuoteById(quoteId) {
         height: isQtyLine ? "" : row.height_mm === null ? "" : String(row.height_mm),
         materialId: localIdMap.get(row.quote_material_id) || "",
         unitQuantity: unitQty,
+        isFree: Boolean(row.line_is_free),
       };
     }) || [];
 
@@ -1377,6 +1381,7 @@ function renderQuoteDetailPanels() {
 
   refs.materialPanel?.classList.toggle("hidden", !shouldShow);
   refs.measurementsPanel?.classList.toggle("hidden", !shouldShow);
+  refs.chargesPanel?.classList.toggle("hidden", !shouldShow);
   refs.summaryPanel?.classList.toggle("hidden", !shouldShow);
 }
 
@@ -2097,7 +2102,13 @@ function buildMeasurementDragPreviewCard(row) {
   const costEl = document.createElement("div");
   costEl.className = "measurement-drag-card-cost";
   const cost = getMeasurementCost(row);
-  costEl.textContent = cost === null ? "Cost —" : formatCurrency(cost);
+  if (cost === null) {
+    costEl.textContent = "Cost —";
+  } else {
+    costEl.textContent = row.isFree
+      ? `${formatCurrency(cost)} (FREE)`
+      : formatCurrency(cost);
+  }
 
   wrap.append(title, meta, dims, costEl);
   return wrap;
@@ -2269,7 +2280,7 @@ function renderMeasurements() {
 
   if (state.measurementRows.length === 0) {
     refs.measurementBody.append(
-      createEmptyStateRow(10, "Add a measurement row to begin."),
+      createEmptyStateRow(11, "Add a measurement row to begin."),
     );
     return;
   }
@@ -2796,7 +2807,8 @@ function renderMeasurements() {
       const motorizedRow = isMotorizedMaterialRow(row);
       const qty = parseMotorQuantity(row.unitQuantity);
 
-      costCell.textContent = cost === null ? "PHP 0.00" : formatCurrency(cost);
+      const baseCostText = cost === null ? "PHP 0.00" : formatCurrency(cost);
+      costCell.textContent = row.isFree ? `${baseCostText} (FREE)` : baseCostText;
 
       if (motorizedRow) {
         const helper = document.createElement("span");
@@ -2814,12 +2826,28 @@ function renderMeasurements() {
           ? "muted-helper sqft-warning"
           : "muted-helper";
         helper.textContent = squareFootage.minimumApplied
-          ? `${squareFootage.rawRounded} sqft rounded -> billed as ${squareFootage.billed} sqft minimum`
+          ? `${squareFootage.rawRounded} sqft -> rounded to ${squareFootage.billed} sqft minimum`
           : `${squareFootage.billed} sqft rounded`;
         costCell.append(helper);
       }
     };
     updateMeasurementOutputs();
+
+    const freeCell = document.createElement("td");
+    freeCell.className = "measurement-free-cell";
+    const freeInput = document.createElement("input");
+    freeInput.type = "checkbox";
+    freeInput.className = "measurement-free-checkbox";
+    freeInput.checked = Boolean(row.isFree);
+    freeInput.disabled = runtime.quoteBusy;
+    freeInput.setAttribute("aria-label", "Complimentary line (reference cost only)");
+    freeInput.addEventListener("change", (event) => {
+      row.isFree = Boolean(event.target.checked);
+      persistDraftChange();
+      updateMeasurementOutputs();
+      renderSummary();
+    });
+    freeCell.append(freeInput);
 
     const actionCell = document.createElement("td");
     const removeButton = document.createElement("button");
@@ -2851,6 +2879,7 @@ function renderMeasurements() {
       widthCell,
       heightCell,
       materialCell,
+      freeCell,
       costCell,
       actionCell,
     );
@@ -3035,6 +3064,9 @@ function getSubtotal() {
     : parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
 
   return state.measurementRows.reduce((total, row) => {
+    if (row.isFree) {
+      return total;
+    }
     const cost = getMeasurementCost(row);
     return total + (cost ?? 0);
   }, 0) + delivery + installSteam;
@@ -3218,6 +3250,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
           lineCost,
           materialLabel: selectedMaterial.category,
           askingPrice,
+          isFree: Boolean(row.isFree),
         });
       }
       continue;
@@ -3258,6 +3291,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
         lineCost,
         materialLabel: selectedMaterial.category,
         askingPrice,
+        isFree: Boolean(row.isFree),
       });
     }
   }
@@ -3352,7 +3386,8 @@ function hasMeaningfulDraftChanges() {
           row.width !== "" ||
           row.height !== "" ||
           row.materialId ||
-          row.unitQuantity !== "",
+          row.unitQuantity !== "" ||
+          row.isFree,
       ),
   );
 }
@@ -3393,6 +3428,7 @@ function buildCurrentQuoteFingerprint() {
       height: row.height === "" ? "" : String(row.height),
       materialId: row.materialId || "",
       unitQuantity: row.unitQuantity === "" ? "" : String(row.unitQuantity),
+      isFree: Boolean(row.isFree),
     })),
   });
 }
@@ -3645,6 +3681,7 @@ function buildContractPreviewData() {
         width: motorized ? "—" : formatMeasurementDimension(row.width),
         height: motorized ? "—" : formatMeasurementDimension(row.height),
         srp: cost,
+        isFree: Boolean(row.isFree),
       };
     })
     .filter(Boolean);
@@ -4526,7 +4563,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
       { text: item.width, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.height, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       {
-        text: formatPdfPesoAmount(item.srp),
+        text: formatPdfAdditionalChargeDisplay(item.srp, item.isFree),
         font: "Roboto",
         alignment: "center",
         verticalAlignment: "middle",

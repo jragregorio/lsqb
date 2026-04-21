@@ -73,6 +73,7 @@ create table if not exists public.quote_measurements (
   asking_price numeric(12, 2) not null check (asking_price >= 0),
   unit_quantity numeric(12, 4),
   line_cost numeric(12, 2) not null,
+  line_is_free boolean not null default false,
   sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),

@@ -734,7 +734,7 @@ code {
 }
 
 .measurements-table {
-  min-width: 1230px;
+  min-width: 1270px;
   table-layout: fixed;
   width: 100%;
 }
@@ -747,6 +747,27 @@ code {
   padding-left: 0.35rem;
   padding-right: 0.35rem;
   text-align: center;
+}
+
+.measurements-table th.measurement-free-col,
+.measurements-table td.measurement-free-cell {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 3.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.data-table input[type="checkbox"].measurement-free-checkbox {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  min-width: 0.8125rem;
+  min-height: 0.8125rem;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* Room / Section: more space for labels; Width / Height: compact (mm only) */
@@ -903,6 +924,18 @@ tbody tr.measurement-row--drag-over {
   border: 1px solid #ddcec1;
   border-radius: 0.8rem;
   background: #fffdfb;
+}
+
+/* Checkboxes are not text fields — do not stretch to full cell height/width */
+.data-table input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.2rem;
+  background: transparent;
+  vertical-align: middle;
 }
 
 .data-table input::placeholder,
