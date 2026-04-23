@@ -877,6 +877,37 @@ code {
   color: #5a4a3d;
 }
 
+.measurement-reorder-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.measurement-reorder-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.15rem;
+  padding: 0;
+  border: 1px solid rgba(221, 206, 193, 0.9);
+  border-radius: 0.5rem;
+  background: #fffdfb;
+  color: #7a6a5e;
+}
+
+.measurement-reorder-button:hover:not(:disabled) {
+  background: #f0e8df;
+  color: #5a4a3d;
+}
+
+.measurement-reorder-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .measurement-drag-handle:active:not([aria-disabled="true"]) {
   cursor: grabbing;
 }

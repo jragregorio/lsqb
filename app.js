@@ -2289,6 +2289,10 @@ function renderMeasurements() {
   refs.addMeasurementBtn.disabled =
     configuredMaterials.length === 0 || runtime.quoteBusy;
 
+  const preferChevronReorder = Boolean(
+    window.matchMedia?.("(pointer: coarse)")?.matches,
+  );
+
   state.measurementRows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.classList.add("measurement-row");
@@ -2297,22 +2301,68 @@ function renderMeasurements() {
 
     const dragCell = document.createElement("td");
     dragCell.className = "measurement-drag-cell";
-    const dragHandle = document.createElement("div");
-    dragHandle.className = "measurement-drag-handle";
-    dragHandle.setAttribute("role", "button");
-    dragHandle.tabIndex = runtime.quoteBusy ? -1 : 0;
-    dragHandle.setAttribute("aria-label", "Drag to reorder row");
-    dragHandle.setAttribute("data-measurement-drag-handle", "");
-    if (runtime.quoteBusy) {
-      dragHandle.setAttribute("aria-disabled", "true");
+
+    if (preferChevronReorder) {
+      dragCell.classList.add("measurement-reorder-cell");
+      const wrap = document.createElement("div");
+      wrap.className = "measurement-reorder-controls";
+
+      const buildChevronButton = (direction) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "measurement-reorder-button";
+        btn.disabled = runtime.quoteBusy;
+        btn.setAttribute(
+          "aria-label",
+          direction === "up" ? "Move row up" : "Move row down",
+        );
+        btn.innerHTML =
+          direction === "up"
+            ? '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true"><path fill="currentColor" d="M7.41 14.59 12 10l4.59 4.59L18 13.17 12 7.17l-6 6z"/></svg>'
+            : '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true"><path fill="currentColor" d="m7.41 8.41 4.59 4.59 4.59-4.59L18 9.83l-6 6-6-6z"/></svg>';
+
+        btn.addEventListener("click", () => {
+          const idx = state.measurementRows.findIndex((r) => r.id === row.id);
+          if (idx < 0) {
+            return;
+          }
+          const nextIdx = direction === "up" ? idx - 1 : idx + 1;
+          if (nextIdx < 0 || nextIdx >= state.measurementRows.length) {
+            return;
+          }
+          const next = state.measurementRows.slice();
+          const tmp = next[idx];
+          next[idx] = next[nextIdx];
+          next[nextIdx] = tmp;
+          state.measurementRows = next;
+          persistDraftChange();
+          renderMeasurements();
+          renderSummary();
+        });
+
+        return btn;
+      };
+
+      wrap.append(buildChevronButton("up"), buildChevronButton("down"));
+      dragCell.append(wrap);
+    } else {
+      const dragHandle = document.createElement("div");
+      dragHandle.className = "measurement-drag-handle";
+      dragHandle.setAttribute("role", "button");
+      dragHandle.tabIndex = runtime.quoteBusy ? -1 : 0;
+      dragHandle.setAttribute("aria-label", "Drag to reorder row");
+      dragHandle.setAttribute("data-measurement-drag-handle", "");
+      if (runtime.quoteBusy) {
+        dragHandle.setAttribute("aria-disabled", "true");
+      }
+      const dragGlyph = document.createElement("span");
+      dragGlyph.className = "measurement-drag-glyph";
+      dragGlyph.setAttribute("aria-hidden", "true");
+      dragGlyph.textContent = "\u22EE\u22EE";
+      dragHandle.append(dragGlyph);
+      dragCell.append(dragHandle);
+      bindMeasurementRowDragControls(dragHandle, tr, row);
     }
-    const dragGlyph = document.createElement("span");
-    dragGlyph.className = "measurement-drag-glyph";
-    dragGlyph.setAttribute("aria-hidden", "true");
-    dragGlyph.textContent = "\u22EE\u22EE";
-    dragHandle.append(dragGlyph);
-    dragCell.append(dragHandle);
-    bindMeasurementRowDragControls(dragHandle, tr, row);
 
     const roomCell = document.createElement("td");
     const roomInput = buildTextInput({
