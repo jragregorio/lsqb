@@ -140,6 +140,11 @@ const refs = {
   motorQuantityForm: document.querySelector("#motor-quantity-form"),
   motorQuantityInput: document.querySelector("#motor-quantity-input"),
   motorQuantityCancel: document.querySelector("#motor-quantity-cancel"),
+  deleteQuoteDialog: document.querySelector("#delete-quote-dialog"),
+  deleteQuoteForm: document.querySelector("#delete-quote-form"),
+  deleteQuoteCopy: document.querySelector("#delete-quote-copy"),
+  deleteQuoteCancel: document.querySelector("#delete-quote-cancel"),
+  deleteQuoteConfirm: document.querySelector("#delete-quote-confirm"),
 };
 
 const state = loadState();
@@ -174,6 +179,7 @@ let contractPdfAssetsPromise = null;
 let pdfFontsRegistered = false;
 /** Active pointer-drag session for measurement row reorder (HTML5 DnD is unreliable on touch). */
 let measurementPointerDragSession = null;
+let deleteQuoteDialogSession = null;
 
 bootstrap();
 
@@ -1287,7 +1293,8 @@ async function deleteQuoteById(quoteId) {
   const quote = runtime.quoteList.find((item) => item.id === quoteId);
   const quoteName = quote?.client_name || "this quote";
 
-  if (!window.confirm(`Delete ${quoteName}? This cannot be undone.`)) {
+  const ok = await confirmQuoteDeleteWithCountdown(quoteName);
+  if (!ok) {
     return;
   }
 
@@ -1320,6 +1327,90 @@ async function deleteQuoteById(quoteId) {
   saveState();
   render();
   setQuoteStatus("Quote deleted.");
+}
+
+function confirmQuoteDeleteWithCountdown(quoteName, seconds = 5) {
+  if (!refs.deleteQuoteDialog || !refs.deleteQuoteForm || !refs.deleteQuoteConfirm) {
+    return Promise.resolve(
+      window.confirm(`Delete ${quoteName}? This cannot be undone.`),
+    );
+  }
+
+  if (deleteQuoteDialogSession?.cleanup) {
+    deleteQuoteDialogSession.cleanup();
+  }
+
+  const dialog = refs.deleteQuoteDialog;
+  const confirmBtn = refs.deleteQuoteConfirm;
+  const cancelBtn = refs.deleteQuoteCancel;
+  const copyEl = refs.deleteQuoteCopy;
+
+  if (copyEl) {
+    copyEl.textContent = `Delete ${quoteName}? This cannot be undone.`;
+  }
+
+  let remaining = Math.max(1, Number(seconds) || 5);
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = `DELETE (${remaining})`;
+
+  let intervalId = window.setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      window.clearInterval(intervalId);
+      intervalId = 0;
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "DELETE";
+      return;
+    }
+    confirmBtn.textContent = `DELETE (${remaining})`;
+  }, 1000);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    const cleanup = () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = 0;
+      }
+      dialog.removeEventListener("close", onClose);
+      cancelBtn?.removeEventListener("click", onCancel);
+      refs.deleteQuoteForm.removeEventListener("submit", onSubmit);
+      deleteQuoteDialogSession = null;
+    };
+
+    const onCancel = () => {
+      cleanup();
+      dialog.close("cancel");
+      settle(false);
+    };
+
+    const onSubmit = (event) => {
+      event.preventDefault();
+      if (confirmBtn.disabled) {
+        return;
+      }
+      cleanup();
+      dialog.close("delete");
+      settle(true);
+    };
+
+    const onClose = () => {
+      cleanup();
+      settle(false);
+    };
+
+    deleteQuoteDialogSession = { cleanup };
+    cancelBtn?.addEventListener("click", onCancel);
+    refs.deleteQuoteForm.addEventListener("submit", onSubmit);
+    dialog.addEventListener("close", onClose, { once: true });
+    dialog.showModal();
+  });
 }
 
 function render() {
