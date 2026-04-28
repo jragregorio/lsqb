@@ -685,6 +685,51 @@ code {
   background: var(--primary-dark);
 }
 
+.save-reminder-pulse {
+  animation: save-reminder-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes save-reminder-pulse {
+  0%,
+  100% {
+    background: var(--primary);
+    border-color: transparent;
+    box-shadow: 0 0 0 0 rgba(178, 81, 93, 0.14);
+    transform: translateY(0);
+  }
+  50% {
+    background: var(--danger);
+    border-color: #f3c1c6;
+    box-shadow: 0 0 0 6px rgba(178, 81, 93, 0.34);
+    transform: translateY(-1px);
+  }
+}
+
+.save-reminder-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 2200;
+  max-width: min(92vw, 360px);
+  padding: 0.65rem 0.85rem;
+  border: 1px solid #f3c1c6;
+  border-radius: 0.75rem;
+  background: #fff3f1;
+  color: #7f2732;
+  box-shadow: 0 12px 28px rgba(42, 32, 26, 0.2);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.save-reminder-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .secondary-button {
   border-color: var(--panel-border);
   background: var(--surface-alt);

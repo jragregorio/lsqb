@@ -124,6 +124,7 @@ const refs = {
   currentQuoteLabel: document.querySelector("#current-quote-label"),
   quoteSaveIndicator: document.querySelector("#quote-save-indicator"),
   quoteStatus: document.querySelector("#quote-status"),
+  saveReminderToast: document.querySelector("#save-reminder-toast"),
   savedQuotesCount: document.querySelector("#saved-quotes-count"),
   savedQuotesList: document.querySelector("#saved-quotes-list"),
   materialPanel: document.querySelector("#material-setup-panel"),
@@ -152,7 +153,11 @@ const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 /** Wait this long after Add Row before running autosave (debounce reset on each Add Row). */
 const AUTOSAVE_DELAY_MS = 6000;
 /** Debounced Supabase save after Measurements → Add Row (see AUTOSAVE_DELAY_MS). */
-const AUTOSAVE_ENABLED = true;
+const AUTOSAVE_ENABLED = false;
+/** Show save reminder after this long without a manual save. */
+const SAVE_REMINDER_DELAY_MS = 180000;
+/** Repeat save reminder toast while quote remains unsaved. */
+const SAVE_REMINDER_REPEAT_MS = 60000;
 /** Pointer movement before a measurement row drag activates (mouse + touch/tablet). */
 const MEASUREMENT_DRAG_ACTIVATE_PX = 8;
 
@@ -172,6 +177,9 @@ const runtime = {
   exportPdfBusy: false,
   lastDraftEditAtMs: 0,
   autosaveInterval: 0,
+  saveReminderTimer: 0,
+  saveReminderRepeatTimer: 0,
+  saveReminderActive: false,
   recentMeasurementMaterialIds: [],
 };
 
@@ -419,6 +427,7 @@ function handleUnloadQuote() {
   }
 
   clearQueuedAutosave();
+  clearSaveReminder();
   resetQuoteDraft();
   runtime.quoteWorkspaceActive = false;
   saveState();
@@ -620,7 +629,9 @@ function persistDraftChange() {
   saveState();
   runtime.lastDraftEditAtMs = Date.now();
   queueAutosave();
+  scheduleSaveReminder();
   renderQuoteSaveIndicator();
+  renderSaveReminderButtons();
 }
 
 async function handleSignIn() {
@@ -921,6 +932,9 @@ async function handleSaveQuote(options = {}) {
   const { autosave = false } = options;
 
   clearQueuedAutosave();
+  if (!autosave) {
+    clearSaveReminder();
+  }
   syncQuoteMetaFromInputs();
 
   if (!runtime.session) {
@@ -1117,6 +1131,7 @@ async function handleSaveQuote(options = {}) {
     getDiscountInputDisplayValue(savedQuote.discount_value) ||
     getDiscountInputDisplayValue(savedQuote.discount);
   runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
+  clearSaveReminder();
   saveState();
 
   runtime.quoteBusy = false;
@@ -1278,6 +1293,7 @@ async function loadQuoteById(quoteId) {
   runtime.expandedQuoteId = quoteId;
   runtime.loadedQuoteFingerprint = buildCurrentQuoteFingerprint();
   runtime.quoteWorkspaceActive = true;
+  clearSaveReminder();
   setSavedQuotesDrawerOpen(false);
   saveState();
   render();
@@ -1458,6 +1474,7 @@ function renderActiveQuoteBar() {
     refs.activeQuoteSaveBtn.disabled = !runtime.session || runtime.quoteBusy;
     refs.activeQuoteSaveBtn.textContent = runtime.quoteBusy ? "Saving..." : "Save Quote";
   }
+  renderSaveReminderButtons();
   if (refs.activeExportPdfBtn) {
     refs.activeExportPdfBtn.disabled =
       runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
@@ -1539,6 +1556,7 @@ function renderQuoteWorkspace() {
   refs.quoteNotes.disabled = runtime.quoteBusy;
   refs.newQuoteBtn.disabled = runtime.quoteBusy;
   refs.saveQuoteBtn.disabled = !signedIn || runtime.quoteBusy;
+  renderSaveReminderButtons();
   if (refs.saveAsNewQuoteBtn) {
     refs.saveAsNewQuoteBtn.disabled =
       !signedIn || runtime.quoteBusy || !isQuoteWorkspaceActive();
@@ -3496,6 +3514,7 @@ function resetQuoteDraft() {
   state.selectedMaterials = [createMaterialSetupRow()];
   state.measurementRows = [createMeasurementRow()];
   runtime.loadedQuoteFingerprint = "";
+  clearSaveReminder();
   runtime.recentMeasurementMaterialIds = [];
 }
 
@@ -3506,6 +3525,96 @@ function clearQueuedAutosave() {
 
   window.clearTimeout(runtime.autosaveTimer);
   runtime.autosaveTimer = 0;
+}
+
+function clearSaveReminderTimer() {
+  if (!runtime.saveReminderTimer) {
+    return;
+  }
+  window.clearTimeout(runtime.saveReminderTimer);
+  runtime.saveReminderTimer = 0;
+}
+
+function clearSaveReminderRepeatTimer() {
+  if (!runtime.saveReminderRepeatTimer) {
+    return;
+  }
+  window.clearInterval(runtime.saveReminderRepeatTimer);
+  runtime.saveReminderRepeatTimer = 0;
+}
+
+function clearSaveReminder() {
+  clearSaveReminderTimer();
+  clearSaveReminderRepeatTimer();
+  runtime.saveReminderActive = false;
+  hideSaveReminderToast();
+  renderSaveReminderButtons();
+}
+
+function showSaveReminderToast() {
+  if (!refs.saveReminderToast) {
+    return;
+  }
+  refs.saveReminderToast.textContent = "Unsaved changes reminder: tap Save Quote.";
+  refs.saveReminderToast.classList.add("is-visible");
+  window.setTimeout(() => {
+    refs.saveReminderToast?.classList.remove("is-visible");
+  }, 3200);
+}
+
+function hideSaveReminderToast() {
+  refs.saveReminderToast?.classList.remove("is-visible");
+}
+
+function scheduleSaveReminder() {
+  clearSaveReminderTimer();
+  clearSaveReminderRepeatTimer();
+  runtime.saveReminderActive = false;
+
+  if (!runtime.session || runtime.quoteBusy || !hasMeaningfulDraftChanges()) {
+    hideSaveReminderToast();
+    renderSaveReminderButtons();
+    return;
+  }
+
+  runtime.saveReminderTimer = window.setTimeout(() => {
+    runtime.saveReminderTimer = 0;
+    if (!runtime.session || runtime.quoteBusy || !hasMeaningfulDraftChanges()) {
+      hideSaveReminderToast();
+      renderSaveReminderButtons();
+      return;
+    }
+    runtime.saveReminderActive = true;
+    showSaveReminderToast();
+    runtime.saveReminderRepeatTimer = window.setInterval(() => {
+      if (!shouldShowSaveReminder()) {
+        clearSaveReminderRepeatTimer();
+        hideSaveReminderToast();
+        return;
+      }
+      showSaveReminderToast();
+    }, SAVE_REMINDER_REPEAT_MS);
+    renderSaveReminderButtons();
+  }, SAVE_REMINDER_DELAY_MS);
+}
+
+function shouldShowSaveReminder() {
+  return Boolean(runtime.saveReminderActive) &&
+    !runtime.quoteBusy &&
+    Boolean(runtime.session) &&
+    hasMeaningfulDraftChanges();
+}
+
+function renderSaveReminderButtons() {
+  const shouldPulse = shouldShowSaveReminder();
+  refs.saveQuoteBtn?.classList.toggle(
+    "save-reminder-pulse",
+    shouldPulse && !refs.saveQuoteBtn.disabled,
+  );
+  refs.activeQuoteSaveBtn?.classList.toggle(
+    "save-reminder-pulse",
+    shouldPulse && !refs.activeQuoteSaveBtn.disabled,
+  );
 }
 
 function canAutosaveCurrentQuote() {
@@ -3685,11 +3794,11 @@ function getQuoteSaveIndicatorState() {
   if (runtime.quoteBusy) {
     return { text: "Saving...", tone: "" };
   }
-  if (runtime.autosaveTimer) {
-    return { text: "Unsaved changes (autosave queued)", tone: "warning" };
-  }
   if (hasId && unsaved) {
-    return { text: "Unsaved changes", tone: "warning" };
+    return {
+      text: shouldShowSaveReminder() ? "Unsaved changes — please save" : "Unsaved changes",
+      tone: "warning",
+    };
   }
   if (hasId) {
     const timeAgo = formatTimeAgoShort(state.quoteMeta.updatedAt);
