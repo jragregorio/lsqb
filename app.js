@@ -4699,6 +4699,31 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
                 },
                 {
                   text: [
+                    { text: "Online payment via " },
+                    { text: "Metrobank", bold: true },
+                    { text: " is accepted." },
+                  ],
+                  font: "Roboto",
+                },
+                {
+                  text: [
+                    { text: "Account name: " },
+                    {
+                      text: "Jan Robert A Gregorio",
+                      font: "Roboto",
+                      bold: true,
+                      fontSize: 11.5,
+                    },
+                  ],
+                },
+                {
+                  text: [
+                    { text: "Account number: " },
+                    { text: "494 349 462 2220", font: "Roboto", bold: true, fontSize: 11.5 },
+                  ],
+                },
+                {
+                  text: [
                     { text: "Other payment methods such as " },
                     { text: "checks or cash", bold: true },
                     { text: " should be coordinated with the supplier as needed." },
