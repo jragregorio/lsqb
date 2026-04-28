@@ -150,7 +150,7 @@ const refs = {
 const state = loadState();
 const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 /** Wait this long after Add Row before running autosave (debounce reset on each Add Row). */
-const AUTOSAVE_DELAY_MS = 1000;
+const AUTOSAVE_DELAY_MS = 6000;
 /** Debounced Supabase save after Measurements → Add Row (see AUTOSAVE_DELAY_MS). */
 const AUTOSAVE_ENABLED = true;
 /** Pointer movement before a measurement row drag activates (mouse + touch/tablet). */
@@ -2991,6 +2991,9 @@ function renderMeasurements() {
     freeCell.append(freeInput);
 
     const actionCell = document.createElement("td");
+    const actionStack = document.createElement("div");
+    actionStack.className = "measurement-row-actions";
+
     const removeButton = document.createElement("button");
     removeButton.type = "button";
     removeButton.className = "ghost-danger-button measurement-remove-button";
@@ -3017,7 +3020,30 @@ function renderMeasurements() {
       renderMeasurements();
       renderSummary();
     });
-    actionCell.append(removeButton);
+
+    const addBelowButton = document.createElement("button");
+    addBelowButton.type = "button";
+    addBelowButton.className = "secondary-button measurement-add-below-button";
+    addBelowButton.setAttribute("aria-label", "Add row below");
+    addBelowButton.disabled = runtime.quoteBusy;
+    addBelowButton.innerHTML = [
+      '<span class="measurement-add-below-label">Add below</span>',
+      '<span class="measurement-add-below-icon" aria-hidden="true">+</span>',
+    ].join("");
+    addBelowButton.addEventListener("click", () => {
+      const rowIndex = state.measurementRows.findIndex((item) => item.id === row.id);
+      if (rowIndex < 0) {
+        return;
+      }
+      state.measurementRows.splice(rowIndex + 1, 0, createMeasurementRow());
+      persistDraftChange();
+      queueAutosave();
+      renderMeasurements();
+      renderSummary();
+    });
+
+    actionStack.append(removeButton, addBelowButton);
+    actionCell.append(actionStack);
 
     tr.append(
       dragCell,
