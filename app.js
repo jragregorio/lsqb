@@ -4802,6 +4802,7 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
         ],
       },
       {
+        pageBreak: "before",
         stack: [
           buildStyledTermsSection("Section 4. Customer Cancellation of Order", [
             {
