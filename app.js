@@ -4814,36 +4814,37 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
             },
           ]),
           {
-            text: "",
-            margin: [0, 250, 0, 0],
-          },
-          {
-            text: [{ text: "Dated: ", bold: true }, contract.quoteDate],
-            margin: [0, 0, 0, 24],
-          },
-          {
-            columns: [
+            stack: [
               {
-                width: "*",
-                stack: [
-                  { text: "", margin: [0, 0, 0, 26] },
-                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: textColor }] },
-                  { text: "Company Representative", margin: [0, 6, 0, 0] },
-                ],
+                text: [{ text: "Dated: ", bold: true }, contract.quoteDate],
+                margin: [0, 88, 0, 24],
               },
               {
-                width: 24,
-                text: "",
-              },
-              {
-                width: "*",
-                stack: [
-                  { text: "", margin: [0, 0, 0, 26] },
-                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: textColor }] },
-                  { text: "Client Signature", margin: [0, 6, 0, 0] },
+                columns: [
+                  {
+                    width: "*",
+                    stack: [
+                      { text: "", margin: [0, 0, 0, 26] },
+                      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: textColor }] },
+                      { text: "Company Representative", margin: [0, 6, 0, 0] },
+                    ],
+                  },
+                  {
+                    width: 24,
+                    text: "",
+                  },
+                  {
+                    width: "*",
+                    stack: [
+                      { text: "", margin: [0, 0, 0, 26] },
+                      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 1, lineColor: textColor }] },
+                      { text: "Client Signature", margin: [0, 6, 0, 0] },
+                    ],
+                  },
                 ],
               },
             ],
+            unbreakable: true,
           },
         ],
       },
