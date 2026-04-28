@@ -4765,7 +4765,6 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
             },
           ], { topMargin: 8 }),
         ],
-        pageBreak: "after",
       },
       {
         stack: [
@@ -4801,7 +4800,6 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
             },
           ]),
         ],
-        pageBreak: "after",
       },
       {
         stack: [
