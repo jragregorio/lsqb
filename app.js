@@ -146,6 +146,9 @@ const refs = {
   deleteQuoteCopy: document.querySelector("#delete-quote-copy"),
   deleteQuoteCancel: document.querySelector("#delete-quote-cancel"),
   deleteQuoteConfirm: document.querySelector("#delete-quote-confirm"),
+  appShell: document.querySelector("main.app-shell"),
+  materialSqftFooter: document.querySelector("#material-sqft-footer"),
+  materialSqftFooterList: document.querySelector("#material-sqft-footer-list"),
 };
 
 const state = loadState();
@@ -188,6 +191,7 @@ let pdfFontsRegistered = false;
 /** Active pointer-drag session for measurement row reorder (HTML5 DnD is unreliable on touch). */
 let measurementPointerDragSession = null;
 let deleteQuoteDialogSession = null;
+let materialTotalsDockResizeObserver = null;
 
 bootstrap();
 
@@ -212,6 +216,13 @@ async function bootstrap() {
   });
   document.addEventListener("keydown", handleGlobalKeydown);
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
+  window.addEventListener(
+    "resize",
+    () => {
+      syncMaterialTotalsDockShellPadding();
+    },
+    { passive: true },
+  );
   refs.csvInput.addEventListener("change", handleCsvUpload);
   refs.loadSampleBtn.addEventListener("click", handleLoadBundledSample);
   refs.addMaterialBtn.addEventListener("click", handleAddMaterial);
@@ -1776,6 +1787,16 @@ function getSourceMaterialOptionLabel(material) {
     : String(material.category || "");
 }
 
+function getMaterialSetupDisplayLabel(materialRow) {
+  if (!materialRow) {
+    return "";
+  }
+  return getSourceMaterialOptionLabel({
+    category: materialRow.category || "",
+    division: materialRow.division || "",
+  });
+}
+
 function sourceMaterialMatchesSearch(material, query) {
   const q = query.trim().toLowerCase();
   if (!q) {
@@ -3100,6 +3121,118 @@ function renderSummary() {
   document.querySelector("#downpayment-value").textContent = formatCurrency(half);
   document.querySelector("#remaining-value").textContent = formatCurrency(half);
   renderActiveQuoteBar();
+  renderMaterialSqftFooter();
+}
+
+function buildMaterialSqftFooterLines() {
+  const qtyFmt = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 });
+  const lines = [];
+
+  const configuredMaterials = getConfiguredMaterials();
+  if (configuredMaterials.length === 0) {
+    return [];
+  }
+
+  for (const materialRow of configuredMaterials) {
+    const label = getMaterialSetupDisplayLabel(materialRow);
+    if (!label) {
+      continue;
+    }
+
+    const isMotor = isMotorizedCategoryFromMaterial(materialRow);
+    let sqftSum = 0;
+    let motorizedQty = 0;
+
+    for (const mRow of state.measurementRows) {
+      if (mRow.materialId !== materialRow.id) {
+        continue;
+      }
+      if (isMotorizedMaterialRow(mRow)) {
+        const q = parseMotorQuantity(mRow.unitQuantity);
+        if (q !== null) {
+          motorizedQty += q;
+        }
+      } else {
+        const sq = getMeasurementSquareFootage(mRow);
+        if (sq !== null) {
+          sqftSum += sq.rawRounded;
+        }
+      }
+    }
+
+    if (isMotor) {
+      lines.push(`${label} = ${qtyFmt.format(motorizedQty)} total units`);
+    } else {
+      lines.push(`${label} = ${qtyFmt.format(sqftSum)} total sqft`);
+    }
+  }
+
+  return lines;
+}
+
+function syncMaterialTotalsDockShellPadding() {
+  const shell = refs.appShell;
+  const dock = refs.materialSqftFooter;
+  if (!shell || !dock || dock.classList.contains("hidden")) {
+    shell?.style.removeProperty("padding-bottom");
+    return;
+  }
+  const h = dock.getBoundingClientRect().height;
+  shell.style.paddingBottom = `${Math.ceil(h + 16)}px`;
+}
+
+function teardownMaterialTotalsDockObserver() {
+  if (materialTotalsDockResizeObserver) {
+    materialTotalsDockResizeObserver.disconnect();
+    materialTotalsDockResizeObserver = null;
+  }
+  refs.appShell?.style.removeProperty("padding-bottom");
+}
+
+function ensureMaterialTotalsDockObserver() {
+  const dock = refs.materialSqftFooter;
+  if (!dock || typeof ResizeObserver === "undefined") {
+    return;
+  }
+  if (materialTotalsDockResizeObserver) {
+    materialTotalsDockResizeObserver.disconnect();
+  }
+  materialTotalsDockResizeObserver = new ResizeObserver(() => {
+    syncMaterialTotalsDockShellPadding();
+  });
+  materialTotalsDockResizeObserver.observe(dock);
+}
+
+function renderMaterialSqftFooter() {
+  const footer = refs.materialSqftFooter;
+  const list = refs.materialSqftFooterList;
+  if (!footer || !list) {
+    return;
+  }
+
+  const lines = isQuoteWorkspaceActive() ? buildMaterialSqftFooterLines() : [];
+
+  const show = lines.length > 0;
+  footer.classList.toggle("hidden", !show);
+
+  list.replaceChildren();
+  for (const text of lines) {
+    const cell = document.createElement("div");
+    cell.className = "material-totals-cell";
+    cell.setAttribute("role", "listitem");
+    cell.textContent = text;
+    list.append(cell);
+  }
+
+  if (!show) {
+    teardownMaterialTotalsDockObserver();
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    ensureMaterialTotalsDockObserver();
+    syncMaterialTotalsDockShellPadding();
+  });
 }
 
 function getConfiguredMaterials() {

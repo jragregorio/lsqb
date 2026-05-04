@@ -1632,3 +1632,73 @@ tbody tr.measurement-row--drag-over {
     min-width: 0;
   }
 }
+
+/* Material totals: fixed dock (viewport bottom), header-style typography + 5-column grid */
+.material-totals-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 22;
+  border-top: 1px solid #e7dbcf;
+  background: #ffffff;
+  box-shadow: 0 -10px 24px rgba(84, 58, 37, 0.1);
+}
+
+.material-totals-dock-inner {
+  width: min(1440px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 0.5rem 0 calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  max-height: min(40vh, 280px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.material-totals-dock-heading.page-header {
+  margin-bottom: 0;
+  gap: 0.45rem;
+}
+
+.material-totals-dock .material-totals-dock-heading .eyebrow {
+  margin-bottom: 0;
+}
+
+.material-totals-grid-wrap {
+  margin-top: 0.45rem;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Always five columns: 5 materials → one row; 6+ → additional rows (e.g. 6 → 5 + 1). */
+.material-totals-grid {
+  --material-totals-gap: 0.4rem;
+  --material-totals-min-cell: 6.25rem;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(var(--material-totals-min-cell), 1fr));
+  gap: var(--material-totals-gap);
+  width: max(
+    100%,
+    calc(5 * var(--material-totals-min-cell) + 4 * var(--material-totals-gap))
+  );
+}
+
+.material-totals-cell {
+  margin: 0;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid #e8dfd4;
+  border-radius: 0.45rem;
+  background: #fffdf9;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: #3d342c;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .material-totals-cell {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.4rem;
+  }
+}

@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Luxe Shade Quote Builder v4.2.7</title>
+    <title>Luxe Shade Quote Builder v4.2.8</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.2.7" />
+    <link rel="stylesheet" href="./styles.css?v=4.2.8" />
   </head>
   <body>
     <main class="app-shell">
@@ -50,7 +50,7 @@
         </div>
         <div>
           <p class="eyebrow">JRAG</p>
-          <h1>Luxe Shade Quote Builder v4.2.7</h1>
+          <h1>Luxe Shade Quote Builder v4.2.8</h1>
           <p class="page-copy">
             Sign in, load the material catalog, set client-specific asking prices,
             then encode measurements to generate a quote.
@@ -530,8 +530,24 @@
           </article>
         </div>
       </section>
-
     </main>
+
+    <section
+      id="material-sqft-footer"
+      class="material-totals-dock hidden"
+      aria-label="Total square footage by material"
+    >
+      <div class="material-totals-dock-inner">
+        <div class="page-header material-totals-dock-heading">
+          <div>
+            <p class="eyebrow">Material Total SQFT</p>
+          </div>
+          <div class="material-totals-grid-wrap">
+            <div id="material-sqft-footer-list" class="material-totals-grid" role="list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <dialog id="motor-quantity-dialog" class="app-dialog" aria-labelledby="motor-quantity-title">
       <form id="motor-quantity-form">
@@ -590,6 +606,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.2.7"></script>
+    <script type="module" src="./app.js?v=4.2.8"></script>
   </body>
 </html>
