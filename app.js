@@ -356,6 +356,7 @@ function handleGlobalKeydown(event) {
 
 function handleWindowScroll() {
   renderActiveQuoteBar();
+  renderMaterialSqftFooter();
 }
 
 function setSavedQuotesDrawerOpen(isOpen) {
@@ -3222,7 +3223,10 @@ function renderMaterialSqftFooter() {
 
   const lines = isQuoteWorkspaceActive() ? buildMaterialSqftFooterLines() : [];
 
-  const show = lines.length > 0;
+  const hasLoadedQuote = Boolean(state.quoteMeta.id);
+  const show = hasLoadedQuote &&
+    window.scrollY > ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y &&
+    lines.length > 0;
   footer.classList.toggle("hidden", !show);
 
   list.replaceChildren();
