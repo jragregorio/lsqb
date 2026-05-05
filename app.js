@@ -3142,6 +3142,7 @@ function buildMaterialSqftFooterLines() {
     const isMotor = isMotorizedCategoryFromMaterial(materialRow);
     let sqftSum = 0;
     let motorizedQty = 0;
+    let costSum = 0;
 
     for (const mRow of state.measurementRows) {
       if (mRow.materialId !== materialRow.id) {
@@ -3158,13 +3159,22 @@ function buildMaterialSqftFooterLines() {
           sqftSum += sq.rawRounded;
         }
       }
+
+      if (!mRow.isFree) {
+        const cost = getMeasurementCost(mRow);
+        if (cost !== null) {
+          costSum += cost;
+        }
+      }
     }
 
-    if (isMotor) {
-      lines.push(`${label} = ${qtyFmt.format(motorizedQty)} total units`);
-    } else {
-      lines.push(`${label} = ${qtyFmt.format(sqftSum)} total sqft`);
-    }
+    lines.push({
+      label,
+      isMotor,
+      totalSqft: sqftSum,
+      totalUnits: motorizedQty,
+      totalCost: costSum,
+    });
   }
 
   return lines;
@@ -3216,11 +3226,31 @@ function renderMaterialSqftFooter() {
   footer.classList.toggle("hidden", !show);
 
   list.replaceChildren();
-  for (const text of lines) {
+  const qtyFmt = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 });
+  for (const item of lines) {
     const cell = document.createElement("div");
     cell.className = "material-totals-cell";
     cell.setAttribute("role", "listitem");
-    cell.textContent = text;
+
+    const main = document.createElement("div");
+    main.className = "material-totals-cell-main";
+    main.textContent = item.label;
+
+    const meta = document.createElement("div");
+    meta.className = "material-totals-cell-meta";
+
+    const qty = document.createElement("span");
+    qty.className = "material-totals-cell-qty";
+    qty.textContent = item.isMotor
+      ? `${qtyFmt.format(item.totalUnits)} units`
+      : `${qtyFmt.format(item.totalSqft)} sqft`;
+
+    const cost = document.createElement("span");
+    cost.className = "material-totals-cell-cost";
+    cost.textContent = formatCurrency(item.totalCost);
+
+    meta.append(qty, cost);
+    cell.append(main, meta);
     list.append(cell);
   }
 

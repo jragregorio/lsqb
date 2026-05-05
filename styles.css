@@ -1694,6 +1694,31 @@ tbody tr.measurement-row--drag-over {
   color: #3d342c;
   min-width: 0;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.material-totals-cell-main {
+  font-weight: 600;
+  color: #2f2a26;
+}
+
+.material-totals-cell-meta {
+  margin-top: 0.18rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.35rem;
+  color: #5b4f45;
+}
+
+.material-totals-cell-cost {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #4a392d;
 }
 
 @media (max-width: 480px) {
