@@ -93,6 +93,7 @@ const refs = {
   activeQuoteFinalTotal: document.querySelector("#active-quote-final-total"),
   activeQuoteSaveBtn: document.querySelector("#active-save-quote-btn"),
   activeExportPdfBtn: document.querySelector("#active-export-pdf-btn"),
+  activeAcknowledgementReceiptBtn: document.querySelector("#active-acknowledgement-receipt-btn"),
   unloadQuoteBtn: document.querySelector("#unload-quote-btn"),
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
@@ -120,6 +121,7 @@ const refs = {
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
   saveAsNewQuoteBtn: document.querySelector("#save-as-new-quote-btn"),
   exportPdfBtn: document.querySelector("#export-pdf-btn"),
+  acknowledgementReceiptBtn: document.querySelector("#acknowledgement-receipt-btn"),
   refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
   currentQuoteLabel: document.querySelector("#current-quote-label"),
   quoteSaveIndicator: document.querySelector("#quote-save-indicator"),
@@ -178,6 +180,7 @@ const runtime = {
   quoteWorkspaceActive: false,
   autosaveTimer: 0,
   exportPdfBusy: false,
+  acknowledgementReceiptBusy: false,
   lastDraftEditAtMs: 0,
   autosaveInterval: 0,
   saveReminderTimer: 0,
@@ -281,12 +284,18 @@ async function bootstrap() {
   refs.activeExportPdfBtn?.addEventListener("click", () => {
     void handleExportPdf();
   });
+  refs.activeAcknowledgementReceiptBtn?.addEventListener("click", () => {
+    void handleAcknowledgementReceipt();
+  });
   refs.unloadQuoteBtn?.addEventListener("click", handleUnloadQuote);
   refs.saveQuoteBtn.addEventListener("click", () => {
     void handleSaveQuote();
   });
   refs.exportPdfBtn?.addEventListener("click", () => {
     void handleExportPdf();
+  });
+  refs.acknowledgementReceiptBtn?.addEventListener("click", () => {
+    void handleAcknowledgementReceipt();
   });
   refs.refreshQuotesBtn.addEventListener("click", () =>
     refreshSavedQuotes({ showAlertOnFailure: true }),
@@ -1493,6 +1502,16 @@ function renderActiveQuoteBar() {
     refs.activeExportPdfBtn.textContent =
       runtime.exportPdfBusy ? "Preparing PDF..." : "Export PDF";
   }
+  if (refs.activeAcknowledgementReceiptBtn) {
+    refs.activeAcknowledgementReceiptBtn.disabled =
+      runtime.quoteBusy ||
+      runtime.acknowledgementReceiptBusy ||
+      !isQuoteWorkspaceActive();
+    refs.activeAcknowledgementReceiptBtn.textContent =
+      runtime.acknowledgementReceiptBusy
+        ? "Preparing Receipt..."
+        : "Ack Receipt";
+  }
   refs.unloadQuoteBtn.disabled = runtime.quoteBusy;
 }
 
@@ -1576,6 +1595,16 @@ function renderQuoteWorkspace() {
   if (refs.exportPdfBtn) {
     refs.exportPdfBtn.disabled = runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
     refs.exportPdfBtn.textContent = runtime.exportPdfBusy ? "Preparing PDF..." : "Export PDF";
+  }
+  if (refs.acknowledgementReceiptBtn) {
+    refs.acknowledgementReceiptBtn.disabled =
+      runtime.quoteBusy ||
+      runtime.acknowledgementReceiptBusy ||
+      !isQuoteWorkspaceActive();
+    refs.acknowledgementReceiptBtn.textContent =
+      runtime.acknowledgementReceiptBusy
+        ? "Preparing Receipt..."
+        : "Ack Receipt";
   }
   refs.refreshQuotesBtn.disabled =
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
@@ -5082,6 +5111,447 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
   });
 
   return body;
+}
+
+async function handleAcknowledgementReceipt() {
+  syncQuoteMetaFromInputs();
+  const validation = validateQuoteForSave();
+  if (!validation.ok) {
+    setQuoteStatus(validation.message, true);
+    window.alert(validation.message);
+    return;
+  }
+
+  const pdfMake = window.pdfMake;
+  if (!pdfMake?.createPdf) {
+    const message =
+      "PDF export library did not load. Refresh the page and try again.";
+    setQuoteStatus(message, true);
+    window.alert(message);
+    return;
+  }
+
+  registerPdfFonts(pdfMake);
+
+  runtime.acknowledgementReceiptBusy = true;
+  renderQuoteWorkspace();
+  setQuoteStatus("Preparing acknowledgement receipt (1/3)...");
+
+  const popupWindow = window.open("", "_blank");
+
+  try {
+    setQuoteStatus("Loading PDF assets (2/3)...");
+    const contract = buildContractPreviewData();
+    const assets = await loadContractPdfAssets();
+    setQuoteStatus("Rendering receipt (3/3)...");
+    const documentDefinition = buildAcknowledgementReceiptPdfDefinition(
+      contract,
+      assets,
+      { organization: state.pdfOrganization },
+    );
+    const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const fileName = buildAcknowledgementReceiptFileName(
+      contract,
+      state.pdfOrganization,
+    );
+
+    if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
+      popupWindow.focus();
+      setQuoteStatus(
+        "Acknowledgement receipt opened in a new tab. Use Download PDF to save it with the correct filename.",
+      );
+    } else {
+      triggerPdfDownload(pdfUrl, fileName);
+      setQuoteStatus(
+        popupWindow
+          ? "Acknowledgement receipt downloaded."
+          : "Popup blocked by browser. Acknowledgement receipt downloaded instead.",
+      );
+    }
+
+    schedulePdfUrlCleanup(pdfUrl, popupWindow);
+  } catch (error) {
+    console.error(error);
+    if (popupWindow && !popupWindow.closed) {
+      popupWindow.close();
+    }
+    const details = error?.message ? `\n\nDetails: ${error.message}` : "";
+    const message = `Could not generate the acknowledgement receipt.${details}\n\nTry refreshing the page, then try again. If the issue persists, confirm you're signed in and that your internet connection is stable.`;
+    setQuoteStatus(message, true);
+    window.alert(message);
+  } finally {
+    runtime.acknowledgementReceiptBusy = false;
+    renderQuoteWorkspace();
+  }
+}
+
+function buildAcknowledgementReceiptFileName(contract, organization = "luxe") {
+  const clientName = contract.clientName.replace(/\s+/g, " ").trim();
+  const orgPrefix =
+    organization === "nds"
+      ? "NDS"
+      : organization === "kk"
+        ? "KK"
+        : "LuxeShade";
+  const prefix = `${orgPrefix} Acknowledgement Receipt`;
+  const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
+
+  const safeName = rawName
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return `${safeName || prefix}.pdf`;
+}
+
+function buildAcknowledgementReceiptPdfDefinition(
+  contract,
+  assets,
+  { organization = "luxe" } = {},
+) {
+  const pageMargin = 43.2;
+  const summaryTableWidths = [340, 146];
+  const branding = getContractPdfBranding(organization, assets);
+  const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
+
+  const summaryTableLayout = {
+    hLineColor: () => borderColor,
+    vLineColor: () => borderColor,
+    hLineWidth: () => 0.75,
+    vLineWidth: () => 0.75,
+    paddingLeft: () => 10,
+    paddingRight: () => 10,
+    paddingTop: () => 10,
+    paddingBottom: () => 10,
+  };
+  const formFieldLayout = {
+    hLineWidth: (rowIndex) => (rowIndex === 0 ? 0 : 0.75),
+    vLineWidth: () => 0,
+    hLineColor: () => textColor,
+    paddingLeft: () => 0,
+    paddingRight: () => 0,
+    paddingTop: () => 0,
+    paddingBottom: () => 6,
+  };
+  const receiptBlockLayout = {
+    hLineColor: () => borderColor,
+    vLineColor: () => borderColor,
+    hLineWidth: () => 0.75,
+    vLineWidth: () => 0.75,
+    paddingLeft: () => 14,
+    paddingRight: () => 14,
+    paddingTop: () => 12,
+    paddingBottom: () => 14,
+  };
+  const documentHeadingLayout = {
+    hLineWidth: (rowIndex, node) =>
+      rowIndex === node.table.body.length ? 1.1 : 0,
+    vLineWidth: () => 0,
+    hLineColor: () => accentColor,
+    paddingLeft: () => 0,
+    paddingRight: () => 0,
+    paddingTop: () => 0,
+    paddingBottom: () => 6,
+  };
+  const sectionHeadingLayout = {
+    hLineWidth: () => 0,
+    vLineWidth: () => 0,
+    paddingLeft: () => 10,
+    paddingRight: () => 10,
+    paddingTop: () => 5,
+    paddingBottom: () => 5,
+  };
+
+  const buildField = (label, value) => ({
+    table: {
+      widths: [100, "*"],
+      body: [[
+        { text: label, color: textColor, margin: [0, 4, 8, 0] },
+        { text: value, color: textColor, margin: [0, 0, 0, 0] },
+      ]],
+    },
+    layout: formFieldLayout,
+    margin: [0, 0, 0, 10],
+  });
+
+  const buildDocumentHeading = (title) => ({
+    table: {
+      widths: ["*"],
+      body: [[{
+        text: title.toUpperCase(),
+        bold: true,
+        fontSize: 13,
+        characterSpacing: 0.35,
+        color: textColor,
+      }]],
+    },
+    layout: documentHeadingLayout,
+    margin: [0, 0, 0, 10],
+  });
+
+  const buildSectionHeading = (title, { topMargin = 0 } = {}) => ({
+    table: {
+      widths: ["*"],
+      body: [[{
+        text: title.toUpperCase(),
+        bold: true,
+        fontSize: 11,
+        characterSpacing: 0.2,
+        color: textColor,
+        fillColor: lightFill,
+      }]],
+    },
+    layout: sectionHeadingLayout,
+    margin: [0, topMargin, 0, 10],
+  });
+
+  const buildSignatureColumns = () => ({
+    columns: [
+      {
+        width: "*",
+        stack: [
+          { text: "", margin: [0, 0, 0, 26] },
+          {
+            canvas: [{
+              type: "line",
+              x1: 0,
+              y1: 0,
+              x2: 200,
+              y2: 0,
+              lineWidth: 1,
+              lineColor: textColor,
+            }],
+          },
+          { text: "Received By (Company Representative)", margin: [0, 6, 0, 0] },
+        ],
+      },
+      { width: 24, text: "" },
+      {
+        width: "*",
+        stack: [
+          { text: "", margin: [0, 0, 0, 26] },
+          {
+            canvas: [{
+              type: "line",
+              x1: 0,
+              y1: 0,
+              x2: 200,
+              y2: 0,
+              lineWidth: 1,
+              lineColor: textColor,
+            }],
+          },
+          { text: "Acknowledged By (Client)", margin: [0, 6, 0, 0] },
+        ],
+      },
+    ],
+    margin: [0, 4, 0, 0],
+  });
+
+  const buildPaymentReceiptBlock = ({ title, amount, descriptor }) => ({
+    table: {
+      widths: ["*"],
+      body: [[{
+        stack: [
+          {
+            text: title.toUpperCase(),
+            bold: true,
+            fontSize: 11,
+            characterSpacing: 0.25,
+            color: accentColor,
+            margin: [0, 0, 0, 8],
+          },
+          {
+            table: {
+              widths: ["*", "auto"],
+              body: [[
+                { text: "Amount Due", bold: true },
+                {
+                  text: formatPdfPesoAmount(amount),
+                  font: "Roboto",
+                  bold: true,
+                  fontSize: 13,
+                  alignment: "right",
+                  fillColor: accentFill,
+                },
+              ]],
+            },
+            layout: {
+              hLineColor: () => borderColor,
+              vLineColor: () => borderColor,
+              hLineWidth: () => 0.6,
+              vLineWidth: () => 0.6,
+              paddingLeft: () => 8,
+              paddingRight: () => 8,
+              paddingTop: () => 6,
+              paddingBottom: () => 6,
+            },
+            margin: [0, 0, 0, 10],
+          },
+          {
+            text: [
+              { text: "Received from " },
+              { text: contract.clientName, bold: true },
+              { text: " the sum stated above as the " },
+              { text: descriptor, bold: true },
+              { text: " for the project located at " },
+              { text: contract.clientAddress, bold: true },
+              { text: "." },
+            ],
+            margin: [0, 0, 0, 10],
+            lineHeight: 1.3,
+          },
+          {
+            columns: [
+              {
+                width: "*",
+                stack: [
+                  buildField("Date Received", " "),
+                  buildField("Payment Method", " "),
+                ],
+              },
+              { width: 18, text: "" },
+              {
+                width: "*",
+                stack: [
+                  buildField("Reference No.", " "),
+                  buildField("Notes", " "),
+                ],
+              },
+            ],
+            columnGap: 18,
+          },
+          buildSignatureColumns(),
+        ],
+      }]],
+    },
+    layout: receiptBlockLayout,
+    unbreakable: true,
+    margin: [0, 0, 0, 14],
+  });
+
+  return {
+    pageSize: "LETTER",
+    pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
+    background(currentPage, pageSize) {
+      const safePageWidth = pageSize?.width || 612;
+      const safePageHeight = pageSize?.height || 792;
+      return {
+        image: branding.logoDataUrl,
+        width: branding.watermarkWidth,
+        height: branding.watermarkHeight,
+        opacity: branding.watermarkOpacity,
+        absolutePosition: {
+          x: (safePageWidth - branding.watermarkWidth) / 2,
+          y: (safePageHeight - branding.watermarkHeight) / 2,
+        },
+      };
+    },
+    footer(currentPage, pageCount) {
+      return {
+        text: `Page ${currentPage} of ${pageCount}`,
+        alignment: "right",
+        color: accentColor,
+        fontSize: 9,
+        margin: [pageMargin, 12, pageMargin, 22],
+      };
+    },
+    defaultStyle: {
+      font: "TenorSans",
+      fontSize: 10,
+      color: textColor,
+      lineHeight: 1.25,
+    },
+    content: [
+      {
+        image: branding.logoDataUrl,
+        width: 110,
+        alignment: "center",
+        margin: [0, 0, 0, 10],
+      },
+      {
+        text: "ACKNOWLEDGEMENT RECEIPT",
+        alignment: "center",
+        fontSize: 12,
+        characterSpacing: 1.2,
+        margin: [0, 0, 0, 22],
+      },
+      {
+        columns: [
+          {
+            width: "*",
+            stack: [
+              buildField("Date", contract.quoteDate),
+              buildField("Client's Name", contract.clientName),
+              buildField("Contact No.", contract.contactNumber),
+            ],
+          },
+          { width: 18, text: "" },
+          {
+            width: "*",
+            stack: [
+              buildField("Client's Address", contract.clientAddress),
+              buildField("Project Architect", contract.projectArchitect),
+              buildField("Email Address", contract.emailAddress),
+            ],
+          },
+        ],
+        columnGap: 18,
+      },
+      buildSectionHeading("Payment Summary", { topMargin: 8 }),
+      {
+        table: {
+          widths: summaryTableWidths,
+          body: [
+            [
+              { text: "Contract Total", bold: true },
+              {
+                text: formatPdfPesoAmount(contract.finalTotal),
+                font: "Roboto",
+                alignment: "right",
+              },
+            ],
+            [
+              { text: "50% Downpayment", bold: true },
+              {
+                text: formatPdfPesoAmount(contract.downpayment),
+                font: "Roboto",
+                alignment: "right",
+              },
+            ],
+            [
+              {
+                text: "50% Final Payment",
+                bold: true,
+                fillColor: accentFill,
+              },
+              {
+                text: formatPdfPesoAmount(contract.remainingBalance),
+                font: "Roboto",
+                bold: true,
+                alignment: "right",
+                fillColor: accentFill,
+              },
+            ],
+          ],
+        },
+        layout: summaryTableLayout,
+        margin: [0, 0, 0, 18],
+      },
+      buildDocumentHeading("Acknowledgement of Payments"),
+      buildPaymentReceiptBlock({
+        title: "50% Downpayment",
+        amount: contract.downpayment,
+        descriptor: "50% Downpayment",
+      }),
+      buildPaymentReceiptBlock({
+        title: "50% Final Payment",
+        amount: contract.remainingBalance,
+        descriptor: "50% Final Payment",
+      }),
+    ],
+  };
 }
 
 function formatContractDate(value) {
