@@ -385,6 +385,10 @@ code {
   background: #fffdfb;
 }
 
+.admin-pdf-actions {
+  margin-top: 0.8rem;
+}
+
 .quote-toolbar {
   display: flex;
   gap: 1rem;

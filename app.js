@@ -106,6 +106,7 @@ const refs = {
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
+  printCleanBtn: document.querySelector("#print-clean-btn"),
   deliveryAmount: document.querySelector("#delivery-amount"),
   deliveryFree: document.querySelector("#delivery-free"),
   installSteamAmount: document.querySelector("#install-steam-amount"),
@@ -238,6 +239,9 @@ async function bootstrap() {
       persistDraftChange();
     });
   }
+  refs.printCleanBtn?.addEventListener("click", () => {
+    void handlePrintClean();
+  });
   refs.discountType.addEventListener("change", (event) => {
     state.discountType = event.target.value === "percent" ? "percent" : "amount";
     persistDraftChange();
@@ -1605,6 +1609,12 @@ function renderQuoteWorkspace() {
       runtime.acknowledgementReceiptBusy
         ? "Preparing Receipt..."
         : "Ack Receipt";
+  }
+  if (refs.printCleanBtn) {
+    refs.printCleanBtn.disabled =
+      runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
+    refs.printCleanBtn.textContent =
+      runtime.exportPdfBusy ? "Preparing PDF..." : "Print Clean";
   }
   refs.refreshQuotesBtn.disabled =
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
@@ -4017,6 +4027,14 @@ function renderQuoteSaveIndicator() {
 }
 
 async function handleExportPdf() {
+  await exportContractPdf({ hideSrp: false });
+}
+
+async function handlePrintClean() {
+  await exportContractPdf({ hideSrp: true });
+}
+
+async function exportContractPdf({ hideSrp = false } = {}) {
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
@@ -4035,9 +4053,11 @@ async function handleExportPdf() {
 
   registerPdfFonts(pdfMake);
 
+  const pdfLabel = hideSrp ? "clean contract PDF" : "contract PDF";
+
   runtime.exportPdfBusy = true;
   renderQuoteWorkspace();
-  setQuoteStatus("Preparing contract PDF (1/3)...");
+  setQuoteStatus(`Preparing ${pdfLabel} (1/3)...`);
 
   const popupWindow = window.open("", "_blank");
 
@@ -4048,20 +4068,31 @@ async function handleExportPdf() {
     setQuoteStatus("Rendering PDF (3/3)...");
     const documentDefinition = buildContractPdfDefinition(contract, assets, {
       organization: state.pdfOrganization,
+      hideSrp,
     });
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
-    const fileName = buildContractPdfFileName(contract, state.pdfOrganization);
+    const fileName = buildContractPdfFileName(contract, state.pdfOrganization, {
+      hideSrp,
+    });
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
       popupWindow.focus();
-      setQuoteStatus("Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.");
+      setQuoteStatus(
+        hideSrp
+          ? "Clean contract PDF opened in a new tab. Use Download PDF to save it with the correct filename."
+          : "Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
+      );
     } else {
       triggerPdfDownload(pdfUrl, fileName);
       setQuoteStatus(
         popupWindow
-          ? "Contract PDF downloaded."
-          : "Popup blocked by browser. Contract PDF downloaded instead.",
+          ? hideSrp
+            ? "Clean contract PDF downloaded."
+            : "Contract PDF downloaded."
+          : hideSrp
+            ? "Popup blocked by browser. Clean contract PDF downloaded instead."
+            : "Popup blocked by browser. Contract PDF downloaded instead.",
       );
     }
 
@@ -4072,7 +4103,7 @@ async function handleExportPdf() {
       popupWindow.close();
     }
     const details = error?.message ? `\n\nDetails: ${error.message}` : "";
-    const message = `Could not generate the contract PDF.${details}\n\nTry refreshing the page, then export again. If the issue persists, confirm you're signed in and that your internet connection is stable.`;
+    const message = `Could not generate the ${pdfLabel}.${details}\n\nTry refreshing the page, then export again. If the issue persists, confirm you're signed in and that your internet connection is stable.`;
     setQuoteStatus(message, true);
     window.alert(message);
   } finally {
@@ -4419,13 +4450,18 @@ function triggerPdfDownload(pdfUrl, fileName) {
   link.remove();
 }
 
-function buildContractPdfFileName(contract, organization = "luxe") {
+function buildContractPdfFileName(
+  contract,
+  organization = "luxe",
+  { hideSrp = false } = {},
+) {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
-  const prefix = organization === "nds"
+  const basePrefix = organization === "nds"
     ? "NDS Contract"
     : organization === "kk"
       ? "KK Contract"
       : "LuxeShade Contract";
+  const prefix = hideSrp ? `${basePrefix} Clean` : basePrefix;
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
   const safeName = rawName
@@ -4483,9 +4519,15 @@ function getContractPdfBranding(organization, assets) {
   };
 }
 
-function buildContractPdfDefinition(contract, assets, { organization = "luxe" } = {}) {
+function buildContractPdfDefinition(
+  contract,
+  assets,
+  { organization = "luxe", hideSrp = false } = {},
+) {
   const pageMargin = 43.2;
-  const orderTableWidths = [92, 76, 112, 63, 63, 76];
+  const orderTableWidths = hideSrp
+    ? [92, 76, 112, 63, 63]
+    : [92, 76, 112, 63, 63, 76];
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
   const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
@@ -4746,6 +4788,7 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
               widths: orderTableWidths,
               body: buildContractPdfOrderTableBody(contract.lineItems, {
                 headerFill: lightFill,
+                hideSrp,
               }),
             },
             layout: orderTableLayout,
@@ -5047,7 +5090,7 @@ function buildContractPdfDefinition(contract, assets, { organization = "luxe" } 
   };
 }
 
-function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
+function buildContractPdfOrderTableBody(lineItems, { headerFill, hideSrp = false } = {}) {
   const buildHeaderCell = (text) => ({
     text,
     font: "Roboto",
@@ -5060,54 +5103,59 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill }) {
     characterSpacing: 0.2,
   });
 
-  const body = [[
+  const columnCount = hideSrp ? 5 : 6;
+  const headerRow = [
     buildHeaderCell("AREA"),
     buildHeaderCell("TYPE"),
     buildHeaderCell("MATERIAL CODE"),
     buildHeaderCell("WIDTH"),
     buildHeaderCell("HEIGHT"),
-    buildHeaderCell("SRP"),
-  ]];
+  ];
+  if (!hideSrp) {
+    headerRow.push(buildHeaderCell("SRP"));
+  }
+
+  const body = [headerRow];
 
   let previousRoom = "";
   lineItems.forEach((item) => {
     if (item.room && item.room !== previousRoom) {
-      body.push([
-        {
-          text: item.room,
-          colSpan: 6,
-          font: "Roboto",
-          bold: true,
-          color: "#000000",
-          alignment: "left",
-          verticalAlignment: "middle",
-          fontSize: 10,
-          characterSpacing: 0.15,
-          margin: [6, 1, 0, 1],
-        },
-        {},
-        {},
-        {},
-        {},
-        {},
-      ]);
+      const roomRow = [{
+        text: item.room,
+        colSpan: columnCount,
+        font: "Roboto",
+        bold: true,
+        color: "#000000",
+        alignment: "left",
+        verticalAlignment: "middle",
+        fontSize: 10,
+        characterSpacing: 0.15,
+        margin: [6, 1, 0, 1],
+      }];
+      for (let index = 1; index < columnCount; index += 1) {
+        roomRow.push({});
+      }
+      body.push(roomRow);
     }
 
     previousRoom = item.room || previousRoom;
-    body.push([
+    const dataRow = [
       { text: item.label || " ", alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.type, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.materialCode, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.width, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.height, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
-      {
+    ];
+    if (!hideSrp) {
+      dataRow.push({
         text: formatPdfAdditionalChargeDisplay(item.srp, item.isFree),
         font: "Roboto",
         alignment: "center",
         verticalAlignment: "middle",
         fontSize: 9,
-      },
-    ]);
+      });
+    }
+    body.push(dataRow);
   });
 
   return body;
