@@ -386,7 +386,14 @@ code {
 }
 
 .admin-pdf-actions {
-  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 1.15rem;
+}
+
+.admin-pdf-actions .secondary-button {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .quote-toolbar {
