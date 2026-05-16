@@ -4519,6 +4519,19 @@ function getContractPdfBranding(organization, assets) {
   };
 }
 
+const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [92, 76, 112, 63, 63];
+const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
+const PRINT_CLEAN_TABLE_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_COUNT + 2;
+const PRINT_CLEAN_TABLE_LINE_WIDTH = 0.75;
+
+function getPrintCleanOrderTableWidths(pageMargin) {
+  const pageContentWidth = 612 - pageMargin * 2;
+  const dataWidth = PRINT_CLEAN_DATA_COLUMN_WIDTHS.reduce((sum, width) => sum + width, 0);
+  const borderWidth = PRINT_CLEAN_TABLE_LINE_WIDTH * (PRINT_CLEAN_TABLE_COLUMN_COUNT + 1);
+  const sideMargin = Math.max(0, (pageContentWidth - dataWidth - borderWidth) / 2);
+  return [sideMargin, ...PRINT_CLEAN_DATA_COLUMN_WIDTHS, sideMargin];
+}
+
 function buildContractPdfDefinition(
   contract,
   assets,
@@ -4526,7 +4539,7 @@ function buildContractPdfDefinition(
 ) {
   const pageMargin = 43.2;
   const orderTableWidths = printClean
-    ? ["*", 92, 76, 112, 63, 63, "*"]
+    ? getPrintCleanOrderTableWidths(pageMargin)
     : [92, 76, 112, 63, 63, 76];
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
@@ -4534,21 +4547,27 @@ function buildContractPdfDefinition(
   const orderTableLayout = {
     hLineColor: () => borderColor,
     vLineColor: () => borderColor,
-    hLineWidth: () => 0.75,
+    hLineWidth: () => PRINT_CLEAN_TABLE_LINE_WIDTH,
     vLineWidth: (lineIndex) => {
       if (!printClean) {
-        return 0.75;
+        return PRINT_CLEAN_TABLE_LINE_WIDTH;
       }
-      return lineIndex === 0 || lineIndex === orderTableWidths.length ? 0 : 0.75;
+      if (lineIndex === 0 || lineIndex === PRINT_CLEAN_TABLE_COLUMN_COUNT) {
+        return 0;
+      }
+      if (lineIndex === 1 || lineIndex === PRINT_CLEAN_DATA_COLUMN_COUNT + 1) {
+        return 0;
+      }
+      return PRINT_CLEAN_TABLE_LINE_WIDTH;
     },
     paddingLeft: (columnIndex) => {
-      if (printClean && (columnIndex === 0 || columnIndex === orderTableWidths.length - 1)) {
+      if (printClean && (columnIndex === 0 || columnIndex === PRINT_CLEAN_TABLE_COLUMN_COUNT - 1)) {
         return 0;
       }
       return 4;
     },
     paddingRight: (columnIndex) => {
-      if (printClean && (columnIndex === 0 || columnIndex === orderTableWidths.length - 1)) {
+      if (printClean && (columnIndex === 0 || columnIndex === PRINT_CLEAN_TABLE_COLUMN_COUNT - 1)) {
         return 0;
       }
       return 4;
@@ -5127,9 +5146,14 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     characterSpacing: 0.2,
   });
 
-  const buildSideSpacerCell = (options = {}) => ({ text: "", ...options });
+  const buildSideSpacerCell = () => ({
+    text: "",
+    border: [false, false, false, false],
+  });
 
-  const tableColumnCount = printClean ? 7 : 6;
+  const contractColumnCount = printClean ? PRINT_CLEAN_DATA_COLUMN_COUNT : 6;
+  const tableColumnCount = printClean ? PRINT_CLEAN_TABLE_COLUMN_COUNT : contractColumnCount;
+
   const dataHeaderRow = [
     buildHeaderCell("AREA"),
     buildHeaderCell("TYPE"),
@@ -5142,11 +5166,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
   }
 
   const headerRow = printClean
-    ? [
-      buildSideSpacerCell({ fillColor: headerFill }),
-      ...dataHeaderRow,
-      buildSideSpacerCell({ fillColor: headerFill }),
-    ]
+    ? [buildSideSpacerCell(), ...dataHeaderRow, buildSideSpacerCell()]
     : dataHeaderRow;
 
   const body = [headerRow];
@@ -5154,22 +5174,45 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
   let previousRoom = "";
   lineItems.forEach((item) => {
     if (item.room && item.room !== previousRoom) {
-      const roomRow = [{
-        text: item.room,
-        colSpan: tableColumnCount,
-        font: "Roboto",
-        bold: true,
-        color: "#000000",
-        alignment: "left",
-        verticalAlignment: "middle",
-        fontSize: 10,
-        characterSpacing: 0.15,
-        margin: [6, 1, 0, 1],
-      }];
-      for (let index = 1; index < tableColumnCount; index += 1) {
-        roomRow.push({});
+      if (printClean) {
+        body.push([
+          buildSideSpacerCell(),
+          {
+            text: item.room,
+            colSpan: PRINT_CLEAN_DATA_COLUMN_COUNT,
+            font: "Roboto",
+            bold: true,
+            color: "#000000",
+            alignment: "left",
+            verticalAlignment: "middle",
+            fontSize: 10,
+            characterSpacing: 0.15,
+            margin: [6, 1, 0, 1],
+          },
+          {},
+          {},
+          {},
+          {},
+          buildSideSpacerCell(),
+        ]);
+      } else {
+        const roomRow = [{
+          text: item.room,
+          colSpan: tableColumnCount,
+          font: "Roboto",
+          bold: true,
+          color: "#000000",
+          alignment: "left",
+          verticalAlignment: "middle",
+          fontSize: 10,
+          characterSpacing: 0.15,
+          margin: [6, 1, 0, 1],
+        }];
+        for (let index = 1; index < tableColumnCount; index += 1) {
+          roomRow.push({});
+        }
+        body.push(roomRow);
       }
-      body.push(roomRow);
     }
 
     previousRoom = item.room || previousRoom;
