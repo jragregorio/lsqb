@@ -4520,27 +4520,10 @@ function getContractPdfBranding(organization, assets) {
 }
 
 const CONTRACT_TABLE_LINE_WIDTH = 0.75;
-const CONTRACT_ORDER_TABLE_WIDTHS = [92, 76, 112, 63, 63, 76];
-// Wider right-hand amount column for better visual balance under SRP totals.
-const CONTRACT_TOTALS_AMOUNT_WIDTH = 170;
-
-function getContractTableOuterWidth(columnWidths, lineWidth = CONTRACT_TABLE_LINE_WIDTH) {
-  const contentWidth = columnWidths.reduce((sum, width) => sum + width, 0);
-  return contentWidth + lineWidth * (columnWidths.length + 1);
-}
-
-function getContractTotalsTableWidths(
-  orderColumnWidths,
-  amountWidth = CONTRACT_TOTALS_AMOUNT_WIDTH,
-  lineWidth = CONTRACT_TABLE_LINE_WIDTH,
-) {
-  const orderOuterWidth = getContractTableOuterWidth(orderColumnWidths, lineWidth);
-  const totalsColumnCount = 2;
-  const totalsContentWidth = orderOuterWidth - lineWidth * (totalsColumnCount + 1);
-  return [totalsContentWidth - amountWidth, amountWidth];
-}
-
-const CONTRACT_TOTALS_TABLE_WIDTHS = getContractTotalsTableWidths(CONTRACT_ORDER_TABLE_WIDTHS);
+const CONTRACT_ORDER_TABLE_WIDTHS = [92, 76, 112, 60, 60, 70];
+// Totals table widths: [label column, amount column]
+// Keep this explicit for easier tuning against ORDER DETAILS table.
+const CONTRACT_TOTALS_TABLE_WIDTHS = [300, 181];
 
 const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [92, 76, 112, 63, 63];
 const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
@@ -4851,47 +4834,54 @@ function buildContractPdfDefinition(
                 table: {
                   widths: totalsTableWidths,
                   body: (() => {
-                    const rows = [
-                      [
-                        { text: "Sub Total", bold: true },
-                        {
-                          text: formatPdfPesoAmount(contract.subtotal),
-                          font: "Roboto",
-                          alignment: "right",
-                        },
-                      ],
+                    const buildTotalsRow = (label, value, { isTotal = false } = {}) => [
+                      {
+                        text: label,
+                        bold: true,
+                        ...(isTotal ? { fontSize: 14, fillColor: accentFill } : {}),
+                      },
+                      {
+                        text: value,
+                        font: "Roboto",
+                        alignment: "right",
+                        ...(isTotal
+                          ? {
+                              bold: true,
+                              fontSize: 14,
+                              fillColor: accentFill,
+                            }
+                          : {}),
+                      },
                     ];
+
+                    const rows = [buildTotalsRow("Sub Total", formatPdfPesoAmount(contract.subtotal))];
 
                     const shouldShowDelivery =
                       Boolean(contract.deliveryIsFree) || Number(contract.deliveryAmount) > 0;
                     if (shouldShowDelivery) {
-                      rows.push([
-                        { text: "Delivery", bold: true },
-                        {
-                          text: formatPdfAdditionalChargeDisplay(
+                      rows.push(
+                        buildTotalsRow(
+                          "Delivery",
+                          formatPdfAdditionalChargeDisplay(
                             contract.deliveryAmount,
                             contract.deliveryIsFree,
                           ),
-                          font: "Roboto",
-                          alignment: "right",
-                        },
-                      ]);
+                        ),
+                      );
                     }
 
                     const shouldShowInstallSteam =
                       Boolean(contract.installSteamIsFree) || Number(contract.installSteamAmount) > 0;
                     if (shouldShowInstallSteam) {
-                      rows.push([
-                        { text: "Installation and Steam", bold: true },
-                        {
-                          text: formatPdfAdditionalChargeDisplay(
+                      rows.push(
+                        buildTotalsRow(
+                          "Installation and Steam",
+                          formatPdfAdditionalChargeDisplay(
                             contract.installSteamAmount,
                             contract.installSteamIsFree,
                           ),
-                          font: "Roboto",
-                          alignment: "right",
-                        },
-                      ]);
+                        ),
+                      );
                     }
 
                     if (contract.hasDiscount) {
@@ -4899,27 +4889,19 @@ function buildContractPdfDefinition(
                         contract.discountType === "percent" && Number(contract.discountPercent) > 0
                           ? ` (${Number(contract.discountPercent)}%)`
                           : "";
-                      rows.push([
-                        { text: "Discount", bold: true },
-                        {
-                          text: `${formatPdfPesoAmount(contract.discountAmount)}${discountSuffix}`,
-                          font: "Roboto",
-                          alignment: "right",
-                        },
-                      ]);
+                      rows.push(
+                        buildTotalsRow(
+                          "Discount",
+                          `${formatPdfPesoAmount(contract.discountAmount)}${discountSuffix}`,
+                        ),
+                      );
                     }
 
-                    rows.push([
-                      { text: "Total", bold: true, fontSize: 14, fillColor: accentFill },
-                      {
-                        text: formatPdfPesoAmount(contract.finalTotal),
-                        font: "Roboto",
-                        bold: true,
-                        fontSize: 14,
-                        alignment: "right",
-                        fillColor: accentFill,
-                      },
-                    ]);
+                    rows.push(
+                      buildTotalsRow("Total", formatPdfPesoAmount(contract.finalTotal), {
+                        isTotal: true,
+                      }),
+                    );
 
                     return rows;
                   })(),
