@@ -4519,21 +4519,32 @@ function getContractPdfBranding(organization, assets) {
   };
 }
 
+const CONTRACT_TABLE_LINE_WIDTH = 0.75;
 const CONTRACT_ORDER_TABLE_WIDTHS = [92, 76, 112, 63, 63, 76];
-const CONTRACT_ORDER_TABLE_WIDTH = CONTRACT_ORDER_TABLE_WIDTHS.reduce(
-  (sum, width) => sum + width,
-  0,
-);
 const CONTRACT_TOTALS_AMOUNT_WIDTH = 146;
-const CONTRACT_TOTALS_TABLE_WIDTHS = [
-  CONTRACT_ORDER_TABLE_WIDTH - CONTRACT_TOTALS_AMOUNT_WIDTH,
-  CONTRACT_TOTALS_AMOUNT_WIDTH,
-];
+
+function getContractTableOuterWidth(columnWidths, lineWidth = CONTRACT_TABLE_LINE_WIDTH) {
+  const contentWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+  return contentWidth + lineWidth * (columnWidths.length + 1);
+}
+
+function getContractTotalsTableWidths(
+  orderColumnWidths,
+  amountWidth = CONTRACT_TOTALS_AMOUNT_WIDTH,
+  lineWidth = CONTRACT_TABLE_LINE_WIDTH,
+) {
+  const orderOuterWidth = getContractTableOuterWidth(orderColumnWidths, lineWidth);
+  const totalsColumnCount = 2;
+  const totalsContentWidth = orderOuterWidth - lineWidth * (totalsColumnCount + 1);
+  return [totalsContentWidth - amountWidth, amountWidth];
+}
+
+const CONTRACT_TOTALS_TABLE_WIDTHS = getContractTotalsTableWidths(CONTRACT_ORDER_TABLE_WIDTHS);
 
 const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [92, 76, 112, 63, 63];
 const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
 const PRINT_CLEAN_TABLE_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_COUNT + 2;
-const PRINT_CLEAN_TABLE_LINE_WIDTH = 0.75;
+const PRINT_CLEAN_TABLE_LINE_WIDTH = CONTRACT_TABLE_LINE_WIDTH;
 
 function buildContractPdfDefinition(
   contract,
@@ -4579,8 +4590,8 @@ function buildContractPdfDefinition(
   const totalsTableLayout = {
     hLineColor: () => borderColor,
     vLineColor: () => borderColor,
-    hLineWidth: () => 0.75,
-    vLineWidth: () => 0.75,
+    hLineWidth: () => CONTRACT_TABLE_LINE_WIDTH,
+    vLineWidth: () => CONTRACT_TABLE_LINE_WIDTH,
     paddingLeft: () => 10,
     paddingRight: () => 10,
     paddingTop: () => 10,
