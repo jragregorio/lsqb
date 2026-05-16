@@ -4525,14 +4525,21 @@ function buildContractPdfDefinition(
   { organization = "luxe", printClean = false } = {},
 ) {
   const pageMargin = 43.2;
-  const pageContentWidth = 612 - pageMargin * 2;
   const orderTableWidths = printClean
     ? [92, 76, 112, 63, 63]
     : [92, 76, 112, 63, 63, 76];
-  const orderTableWidth = orderTableWidths.reduce((sum, width) => sum + width, 0);
-  const orderTableCenterMargin = printClean
-    ? Math.max(0, (pageContentWidth - orderTableWidth) / 2)
-    : 0;
+  const orderTableLineWidth = 0.75;
+  const orderTableWidth =
+    orderTableWidths.reduce((sum, width) => sum + width, 0) +
+    orderTableLineWidth * (orderTableWidths.length + 1);
+  const buildPrintCleanCenteredTable = (tableNode) => ({
+    columns: [
+      { width: "*", text: "" },
+      { width: orderTableWidth, ...tableNode },
+      { width: "*", text: "" },
+    ],
+    columnGap: 0,
+  });
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
   const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
@@ -4690,6 +4697,20 @@ function buildContractPdfDefinition(
     margin: [0, 0, 0, 10],
   });
 
+  const orderDetailsTableNode = {
+    table: {
+      headerRows: 1,
+      dontBreakRows: true,
+      keepWithHeaderRows: 1,
+      widths: orderTableWidths,
+      body: buildContractPdfOrderTableBody(contract.lineItems, {
+        headerFill: lightFill,
+        printClean,
+      }),
+    },
+    layout: orderTableLayout,
+  };
+
   return {
     pageSize: "LETTER",
     pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
@@ -4786,22 +4807,9 @@ function buildContractPdfDefinition(
             alignment: printClean ? "center" : "left",
             margin: [0, 26, 0, 10],
           },
-          {
-            table: {
-              headerRows: 1,
-              dontBreakRows: true,
-              keepWithHeaderRows: 1,
-              widths: orderTableWidths,
-              body: buildContractPdfOrderTableBody(contract.lineItems, {
-                headerFill: lightFill,
-                printClean,
-              }),
-            },
-            layout: orderTableLayout,
-            ...(printClean
-              ? { margin: [orderTableCenterMargin, 0, orderTableCenterMargin, 0] }
-              : {}),
-          },
+          ...(printClean
+            ? [buildPrintCleanCenteredTable(orderDetailsTableNode)]
+            : [orderDetailsTableNode]),
           ...(printClean
             ? []
             : [{
