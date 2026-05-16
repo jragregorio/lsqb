@@ -4027,14 +4027,14 @@ function renderQuoteSaveIndicator() {
 }
 
 async function handleExportPdf() {
-  await exportContractPdf({ hideSrp: false });
+  await exportContractPdf({ printClean: false });
 }
 
 async function handlePrintClean() {
-  await exportContractPdf({ hideSrp: true });
+  await exportContractPdf({ printClean: true });
 }
 
-async function exportContractPdf({ hideSrp = false } = {}) {
+async function exportContractPdf({ printClean = false } = {}) {
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
@@ -4053,7 +4053,7 @@ async function exportContractPdf({ hideSrp = false } = {}) {
 
   registerPdfFonts(pdfMake);
 
-  const pdfLabel = hideSrp ? "clean contract PDF" : "contract PDF";
+  const pdfLabel = printClean ? "clean contract PDF" : "contract PDF";
 
   runtime.exportPdfBusy = true;
   renderQuoteWorkspace();
@@ -4068,18 +4068,18 @@ async function exportContractPdf({ hideSrp = false } = {}) {
     setQuoteStatus("Rendering PDF (3/3)...");
     const documentDefinition = buildContractPdfDefinition(contract, assets, {
       organization: state.pdfOrganization,
-      hideSrp,
+      printClean,
     });
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const fileName = buildContractPdfFileName(contract, state.pdfOrganization, {
-      hideSrp,
+      printClean,
     });
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
       popupWindow.focus();
       setQuoteStatus(
-        hideSrp
+        printClean
           ? "Clean contract PDF opened in a new tab. Use Download PDF to save it with the correct filename."
           : "Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
       );
@@ -4087,10 +4087,10 @@ async function exportContractPdf({ hideSrp = false } = {}) {
       triggerPdfDownload(pdfUrl, fileName);
       setQuoteStatus(
         popupWindow
-          ? hideSrp
+          ? printClean
             ? "Clean contract PDF downloaded."
             : "Contract PDF downloaded."
-          : hideSrp
+          : printClean
             ? "Popup blocked by browser. Clean contract PDF downloaded instead."
             : "Popup blocked by browser. Contract PDF downloaded instead.",
       );
@@ -4453,7 +4453,7 @@ function triggerPdfDownload(pdfUrl, fileName) {
 function buildContractPdfFileName(
   contract,
   organization = "luxe",
-  { hideSrp = false } = {},
+  { printClean = false } = {},
 ) {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
   const basePrefix = organization === "nds"
@@ -4461,7 +4461,7 @@ function buildContractPdfFileName(
     : organization === "kk"
       ? "KK Contract"
       : "LuxeShade Contract";
-  const prefix = hideSrp ? `${basePrefix} Clean` : basePrefix;
+  const prefix = printClean ? `${basePrefix} Clean` : basePrefix;
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
   const safeName = rawName
@@ -4522,12 +4522,17 @@ function getContractPdfBranding(organization, assets) {
 function buildContractPdfDefinition(
   contract,
   assets,
-  { organization = "luxe", hideSrp = false } = {},
+  { organization = "luxe", printClean = false } = {},
 ) {
   const pageMargin = 43.2;
-  const orderTableWidths = hideSrp
+  const pageContentWidth = 612 - pageMargin * 2;
+  const orderTableWidths = printClean
     ? [92, 76, 112, 63, 63]
     : [92, 76, 112, 63, 63, 76];
+  const orderTableWidth = orderTableWidths.reduce((sum, width) => sum + width, 0);
+  const orderTableCenterMargin = printClean
+    ? Math.max(0, (pageContentWidth - orderTableWidth) / 2)
+    : 0;
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
   const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
@@ -4778,6 +4783,7 @@ function buildContractPdfDefinition(
             bold: true,
             characterSpacing: 1.2,
             color: accentColor,
+            alignment: printClean ? "center" : "left",
             margin: [0, 26, 0, 10],
           },
           {
@@ -4788,12 +4794,17 @@ function buildContractPdfDefinition(
               widths: orderTableWidths,
               body: buildContractPdfOrderTableBody(contract.lineItems, {
                 headerFill: lightFill,
-                hideSrp,
+                printClean,
               }),
             },
             layout: orderTableLayout,
+            ...(printClean
+              ? { margin: [orderTableCenterMargin, 0, orderTableCenterMargin, 0] }
+              : {}),
           },
-          {
+          ...(printClean
+            ? []
+            : [{
             stack: [
               {
                 table: {
@@ -4878,9 +4889,12 @@ function buildContractPdfDefinition(
             unbreakable: true,
             margin: [0, 14, 0, 0],
             pageBreak: "after",
-          },
+          }]),
         ],
       },
+      ...(printClean
+        ? []
+        : [
       {
         stack: [
           buildStyledTermsDocumentHeading("Terms of Contract"),
@@ -5086,11 +5100,12 @@ function buildContractPdfDefinition(
           },
         ],
       },
+      ]),
     ],
   };
 }
 
-function buildContractPdfOrderTableBody(lineItems, { headerFill, hideSrp = false } = {}) {
+function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = false } = {}) {
   const buildHeaderCell = (text) => ({
     text,
     font: "Roboto",
@@ -5103,7 +5118,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, hideSrp = false
     characterSpacing: 0.2,
   });
 
-  const columnCount = hideSrp ? 5 : 6;
+  const columnCount = printClean ? 5 : 6;
   const headerRow = [
     buildHeaderCell("AREA"),
     buildHeaderCell("TYPE"),
@@ -5111,7 +5126,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, hideSrp = false
     buildHeaderCell("WIDTH"),
     buildHeaderCell("HEIGHT"),
   ];
-  if (!hideSrp) {
+  if (!printClean) {
     headerRow.push(buildHeaderCell("SRP"));
   }
 
@@ -5146,7 +5161,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, hideSrp = false
       { text: item.width, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.height, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
     ];
-    if (!hideSrp) {
+    if (!printClean) {
       dataRow.push({
         text: formatPdfAdditionalChargeDisplay(item.srp, item.isFree),
         font: "Roboto",
