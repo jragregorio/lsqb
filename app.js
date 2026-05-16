@@ -4524,14 +4524,6 @@ const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
 const PRINT_CLEAN_TABLE_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_COUNT + 2;
 const PRINT_CLEAN_TABLE_LINE_WIDTH = 0.75;
 
-function getPrintCleanOrderTableWidths(pageMargin) {
-  const pageContentWidth = 612 - pageMargin * 2;
-  const dataWidth = PRINT_CLEAN_DATA_COLUMN_WIDTHS.reduce((sum, width) => sum + width, 0);
-  const borderWidth = PRINT_CLEAN_TABLE_LINE_WIDTH * (PRINT_CLEAN_TABLE_COLUMN_COUNT + 1);
-  const sideMargin = Math.max(0, (pageContentWidth - dataWidth - borderWidth) / 2);
-  return [sideMargin, ...PRINT_CLEAN_DATA_COLUMN_WIDTHS, sideMargin];
-}
-
 function buildContractPdfDefinition(
   contract,
   assets,
@@ -4539,7 +4531,7 @@ function buildContractPdfDefinition(
 ) {
   const pageMargin = 43.2;
   const orderTableWidths = printClean
-    ? getPrintCleanOrderTableWidths(pageMargin)
+    ? ["*", ...PRINT_CLEAN_DATA_COLUMN_WIDTHS, "*"]
     : [92, 76, 112, 63, 63, 76];
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
