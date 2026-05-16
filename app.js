@@ -4526,20 +4526,8 @@ function buildContractPdfDefinition(
 ) {
   const pageMargin = 43.2;
   const orderTableWidths = printClean
-    ? [92, 76, 112, 63, 63]
+    ? ["*", 92, 76, 112, 63, 63, "*"]
     : [92, 76, 112, 63, 63, 76];
-  const orderTableLineWidth = 0.75;
-  const orderTableWidth =
-    orderTableWidths.reduce((sum, width) => sum + width, 0) +
-    orderTableLineWidth * (orderTableWidths.length + 1);
-  const buildPrintCleanCenteredTable = (tableNode) => ({
-    columns: [
-      { width: "*", text: "" },
-      { width: orderTableWidth, ...tableNode },
-      { width: "*", text: "" },
-    ],
-    columnGap: 0,
-  });
   const totalsTableWidths = [340, 146];
   const branding = getContractPdfBranding(organization, assets);
   const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
@@ -4547,9 +4535,24 @@ function buildContractPdfDefinition(
     hLineColor: () => borderColor,
     vLineColor: () => borderColor,
     hLineWidth: () => 0.75,
-    vLineWidth: () => 0.75,
-    paddingLeft: () => 4,
-    paddingRight: () => 4,
+    vLineWidth: (lineIndex) => {
+      if (!printClean) {
+        return 0.75;
+      }
+      return lineIndex === 0 || lineIndex === orderTableWidths.length ? 0 : 0.75;
+    },
+    paddingLeft: (columnIndex) => {
+      if (printClean && (columnIndex === 0 || columnIndex === orderTableWidths.length - 1)) {
+        return 0;
+      }
+      return 4;
+    },
+    paddingRight: (columnIndex) => {
+      if (printClean && (columnIndex === 0 || columnIndex === orderTableWidths.length - 1)) {
+        return 0;
+      }
+      return 4;
+    },
     paddingTop: () => 6,
     paddingBottom: () => 6,
   };
@@ -4807,9 +4810,7 @@ function buildContractPdfDefinition(
             alignment: printClean ? "center" : "left",
             margin: [0, 26, 0, 10],
           },
-          ...(printClean
-            ? [buildPrintCleanCenteredTable(orderDetailsTableNode)]
-            : [orderDetailsTableNode]),
+          orderDetailsTableNode,
           ...(printClean
             ? []
             : [{
@@ -5126,8 +5127,10 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     characterSpacing: 0.2,
   });
 
-  const columnCount = printClean ? 5 : 6;
-  const headerRow = [
+  const buildSideSpacerCell = (options = {}) => ({ text: "", ...options });
+
+  const tableColumnCount = printClean ? 7 : 6;
+  const dataHeaderRow = [
     buildHeaderCell("AREA"),
     buildHeaderCell("TYPE"),
     buildHeaderCell("MATERIAL CODE"),
@@ -5135,8 +5138,16 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     buildHeaderCell("HEIGHT"),
   ];
   if (!printClean) {
-    headerRow.push(buildHeaderCell("SRP"));
+    dataHeaderRow.push(buildHeaderCell("SRP"));
   }
+
+  const headerRow = printClean
+    ? [
+      buildSideSpacerCell({ fillColor: headerFill }),
+      ...dataHeaderRow,
+      buildSideSpacerCell({ fillColor: headerFill }),
+    ]
+    : dataHeaderRow;
 
   const body = [headerRow];
 
@@ -5145,7 +5156,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     if (item.room && item.room !== previousRoom) {
       const roomRow = [{
         text: item.room,
-        colSpan: columnCount,
+        colSpan: tableColumnCount,
         font: "Roboto",
         bold: true,
         color: "#000000",
@@ -5155,7 +5166,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
         characterSpacing: 0.15,
         margin: [6, 1, 0, 1],
       }];
-      for (let index = 1; index < columnCount; index += 1) {
+      for (let index = 1; index < tableColumnCount; index += 1) {
         roomRow.push({});
       }
       body.push(roomRow);
@@ -5178,7 +5189,9 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
         fontSize: 9,
       });
     }
-    body.push(dataRow);
+    body.push(
+      printClean ? [buildSideSpacerCell(), ...dataRow, buildSideSpacerCell()] : dataRow,
+    );
   });
 
   return body;
