@@ -4521,7 +4521,8 @@ function getContractPdfBranding(organization, assets) {
 
 const CONTRACT_TABLE_LINE_WIDTH = 0.75;
 const CONTRACT_ORDER_TABLE_WIDTHS = [92, 76, 112, 63, 63, 76];
-const CONTRACT_TOTALS_AMOUNT_WIDTH = 146;
+// Wider right-hand amount column for better visual balance under SRP totals.
+const CONTRACT_TOTALS_AMOUNT_WIDTH = 170;
 
 function getContractTableOuterWidth(columnWidths, lineWidth = CONTRACT_TABLE_LINE_WIDTH) {
   const contentWidth = columnWidths.reduce((sum, width) => sum + width, 0);
