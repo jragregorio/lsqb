@@ -4552,10 +4552,8 @@ function buildContractPdfDefinition(
       if (!printClean) {
         return PRINT_CLEAN_TABLE_LINE_WIDTH;
       }
+      // Hide only the outer gutter edges; keep left/right borders on the data block.
       if (lineIndex === 0 || lineIndex === PRINT_CLEAN_TABLE_COLUMN_COUNT) {
-        return 0;
-      }
-      if (lineIndex === 1 || lineIndex === PRINT_CLEAN_DATA_COLUMN_COUNT + 1) {
         return 0;
       }
       return PRINT_CLEAN_TABLE_LINE_WIDTH;
