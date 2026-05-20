@@ -86,6 +86,7 @@ const refs = {
   adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
   activeQuoteBar: document.querySelector("#active-quote-bar"),
+  activeQuoteBarLabel: document.querySelector("#active-quote-bar-label"),
   activeQuoteTitle: document.querySelector("#active-quote-title"),
   activeQuoteDpValue: document.querySelector("#active-quote-dp-value"),
   activeQuoteDiscountLabel: document.querySelector("#active-quote-discount-label"),
@@ -118,6 +119,7 @@ const refs = {
   quoteContactNumber: document.querySelector("#quote-contact-number"),
   quoteEmailAddress: document.querySelector("#quote-email-address"),
   quoteNotes: document.querySelector("#quote-notes"),
+  quoteWorkspaceHeading: document.querySelector("#quote-workspace-heading"),
   newQuoteBtn: document.querySelector("#new-quote-btn"),
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
   saveAsNewQuoteBtn: document.querySelector("#save-as-new-quote-btn"),
@@ -237,6 +239,7 @@ async function bootstrap() {
       const next = String(event.target.value || "").toLowerCase();
       state.pdfOrganization = next === "nds" || next === "kk" ? next : "luxe";
       persistDraftChange();
+      renderQuoteWorkspace();
     });
   }
   refs.printCleanBtn?.addEventListener("click", () => {
@@ -1480,6 +1483,9 @@ function renderActiveQuoteBar() {
     ? `${discountInputValue ?? 0}% Discount`
     : `${formatCurrency(discountAmount)} Discount`;
   refs.activeQuoteBar.classList.toggle("hidden", !shouldShow);
+  if (refs.activeQuoteBarLabel) {
+    refs.activeQuoteBarLabel.textContent = `Viewing Quote - ${getPdfOrganizationLabel()}`;
+  }
   refs.activeQuoteTitle.textContent = hasLoadedQuote
     ? buildActiveQuoteTitle()
     : "-";
@@ -1556,6 +1562,9 @@ function renderSourceStatus() {
 }
 
 function renderQuoteWorkspace() {
+  if (refs.quoteWorkspaceHeading) {
+    refs.quoteWorkspaceHeading.textContent = `Quote Workspace - ${getPdfOrganizationLabel()}`;
+  }
   refs.quoteClientName.value = state.quoteMeta.clientName;
   refs.quoteProjectName.value = state.quoteMeta.projectName;
   refs.quoteDate.value = state.quoteMeta.quoteDate;
@@ -5689,6 +5698,16 @@ function formatContractDate(value) {
   }
 
   return contractDateFormatter.format(parsedDate);
+}
+
+function getPdfOrganizationLabel() {
+  if (state.pdfOrganization === "nds") {
+    return "NDS Trading";
+  }
+  if (state.pdfOrganization === "kk") {
+    return "Kurtina Kultura";
+  }
+  return "Luxe Shade";
 }
 
 function formatMeasurementDimension(value) {
