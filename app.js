@@ -1949,12 +1949,19 @@ function renderSavedQuotesList() {
       }
     });
 
+    const headerText = document.createElement("div");
+    headerText.className = "saved-quote-heading";
+
     const title = document.createElement("strong");
     title.className = "saved-quote-title";
     title.textContent =
       sanitizeOptionalText(quote.project_name) ||
       sanitizeOptionalText(quote.client_name) ||
       "Untitled quote";
+
+    const clientLabel = document.createElement("span");
+    clientLabel.className = "saved-quote-client";
+    clientLabel.textContent = sanitizeOptionalText(quote.client_name) || "Unnamed client";
 
     const chevron = document.createElement("span");
     chevron.className = "saved-quote-chevron";
@@ -1983,7 +1990,8 @@ function renderSavedQuotesList() {
     });
 
     actions.append(loadButton, deleteButton);
-    header.append(title, chevron);
+    headerText.append(title, clientLabel);
+    header.append(headerText, chevron);
 
     const details = document.createElement("div");
     details.className = "saved-quote-details";
