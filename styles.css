@@ -84,9 +84,9 @@ code {
   position: sticky;
   top: 0;
   z-index: 18;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  width: 100dvw;
+  margin-left: calc(50% - 50dvw);
+  margin-right: calc(50% - 50dvw);
   display: flex;
   margin-bottom: 1.25rem;
   padding: 0.2rem 0;
