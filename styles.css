@@ -60,26 +60,92 @@ code {
 .app-shell {
   width: min(1440px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: 2rem 0 3rem;
+  padding: 0 0 3rem;
 }
 
 .page-header {
+  width: 100dvw;
+  margin-left: calc(50% - 50dvw);
+  margin-right: calc(50% - 50dvw);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0;
   margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  box-shadow: 0 8px 20px rgba(84, 58, 37, 0.08);
+}
+
+.page-header-shell {
+  width: min(1440px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 0.65rem 0;
 }
 
 .page-header-toolbar {
   display: flex;
-  gap: 1rem;
+  gap: 1.2rem;
   align-items: center;
   justify-content: space-between;
+  padding: 0.1rem 0;
 }
 
-.page-header h1 {
-  margin: 0 0 0.5rem;
-  font-size: clamp(2rem, 3.5vw, 2.8rem);
+.app-brand .eyebrow {
+  margin-bottom: 0.2rem;
+}
+
+.app-brand-title {
+  margin: 0;
+  display: block;
+  font-size: 1rem;
+  color: #1f1b18;
+  line-height: 1.2;
+}
+
+.app-brand-version {
+  margin: 0.12rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 1 1 auto;
+}
+
+.app-nav-button {
+  min-height: 2.4rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+.app-nav-button-passive {
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.app-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  min-width: 7.5rem;
+  text-align: right;
+}
+
+.app-status span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.app-status strong {
+  color: var(--success);
+  font-size: 0.95rem;
 }
 
 .active-quote-bar {
@@ -168,8 +234,8 @@ code {
 
 .header-menu-button {
   flex-shrink: 0;
-  gap: 0.7rem;
-  min-width: 156px;
+  gap: 0.45rem;
+  min-width: auto;
 }
 
 .header-menu-icon {
@@ -1392,16 +1458,51 @@ tbody tr.measurement-row--drag-over {
 @media (max-width: 720px) {
   .app-shell {
     width: min(100vw - 1rem, 1440px);
-    padding-top: 1rem;
+    padding-top: 0;
   }
 
   .page-header {
-    align-items: stretch;
+    margin-bottom: 1rem;
+  }
+
+  .page-header-shell {
+    width: min(100vw - 1rem, 1440px);
+    padding: 0.5rem 0;
   }
 
   .page-header-toolbar {
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.1rem 0;
+  }
+
+  .app-brand,
+  .app-status {
+    width: 100%;
+  }
+
+  .app-status {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .app-nav {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  .app-nav-button {
+    width: auto;
+    min-width: 0;
+    padding: 0.42rem 0.72rem;
+    font-size: 0.85rem;
+  }
+
+  .app-brand-title {
+    font-size: 0.95rem;
   }
 
   .active-quote-bar {
@@ -1482,6 +1583,10 @@ tbody tr.measurement-row--drag-over {
   .secondary-button,
   .file-picker {
     width: 100%;
+  }
+
+  .app-nav .secondary-button {
+    width: auto;
   }
 
   /* Quote header actions: keep buttons in a row. */

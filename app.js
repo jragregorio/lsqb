@@ -82,6 +82,7 @@ const refs = {
   savedQuotesDrawerBackdrop: document.querySelector("#saved-quotes-drawer-backdrop"),
   savedQuotesDrawerCloseBtn: document.querySelector("#saved-quotes-drawer-close-btn"),
   adminMenuBtn: document.querySelector("#admin-menu-btn"),
+  catalogMenuBtn: document.querySelector("#catalog-menu-btn"),
   adminDrawer: document.querySelector("#admin-tools-drawer"),
   adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
@@ -212,6 +213,9 @@ async function bootstrap() {
     setSavedQuotesDrawerOpen(false);
   });
   refs.adminMenuBtn?.addEventListener("click", () => {
+    setAdminDrawerOpen(!runtime.adminDrawerOpen);
+  });
+  refs.catalogMenuBtn?.addEventListener("click", () => {
     setAdminDrawerOpen(!runtime.adminDrawerOpen);
   });
   refs.adminDrawerCloseBtn?.addEventListener("click", () => {
@@ -422,14 +426,12 @@ function setAdminDrawerOpen(isOpen) {
 }
 
 function renderAdminDrawer() {
-  if (!refs.adminDrawer || !refs.adminDrawerBackdrop || !refs.adminMenuBtn) {
+  if (!refs.adminDrawer || !refs.adminDrawerBackdrop) {
     return;
   }
 
-  refs.adminMenuBtn.setAttribute(
-    "aria-expanded",
-    runtime.adminDrawerOpen ? "true" : "false",
-  );
+  refs.adminMenuBtn?.setAttribute("aria-expanded", runtime.adminDrawerOpen ? "true" : "false");
+  refs.catalogMenuBtn?.setAttribute("aria-expanded", runtime.adminDrawerOpen ? "true" : "false");
   refs.adminDrawer.setAttribute(
     "aria-hidden",
     runtime.adminDrawerOpen ? "false" : "true",

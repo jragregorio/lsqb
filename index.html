@@ -6,55 +6,69 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Luxe Shade Quote Builder v4.6.6</title>
+    <title>Luxe Shade Quote Builder v4.6.7</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.6.6" />
+    <link rel="stylesheet" href="./styles.css?v=4.6.7" />
   </head>
   <body>
     <main class="app-shell">
       <header class="page-header">
-        <div class="page-header-toolbar">
-          <button
-            id="saved-quotes-menu-btn"
-            class="secondary-button header-menu-button"
-            type="button"
-            aria-expanded="false"
-            aria-controls="saved-quotes-drawer"
-          >
-            <span class="header-menu-icon" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-            </span>
-            <span>Saved Quotes</span>
-          </button>
-          <button
-            id="admin-menu-btn"
-            class="secondary-button header-menu-button"
-            type="button"
-            aria-expanded="false"
-            aria-controls="admin-tools-drawer"
-          >
-            <span class="header-menu-icon" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-            </span>
-            <span>Admin Tools</span>
-          </button>
-        </div>
-        <div>
-          <p class="eyebrow">JRAG</p>
-          <h1>Luxe Shade Quote Builder v4.6.6</h1>
-          <p class="page-copy">
-            Sign in, load the material catalog, set client-specific asking prices,
-            then encode measurements to generate a quote.
-          </p>
+        <div class="page-header-shell">
+          <div class="page-header-toolbar">
+            <div class="app-brand">
+              <p class="eyebrow">Luxe Shade</p>
+              <h1 class="app-brand-title">Luxe Shade Quote Builder</h1>
+              <p class="app-brand-version">v4.6.7</p>
+            </div>
+            <nav class="app-nav" aria-label="Main tools">
+              <button
+                id="saved-quotes-menu-btn"
+                class="secondary-button header-menu-button app-nav-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="saved-quotes-drawer"
+              >
+                <span class="header-menu-icon" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
+                <span>Saved Quotes</span>
+              </button>
+              <button
+                id="admin-menu-btn"
+                class="secondary-button header-menu-button app-nav-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="admin-tools-drawer"
+              >
+                <span class="header-menu-icon" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
+                <span>Admin Tools</span>
+              </button>
+              <button
+                id="catalog-menu-btn"
+                class="secondary-button app-nav-button app-nav-button-passive"
+                type="button"
+                aria-expanded="false"
+                aria-controls="admin-tools-drawer"
+              >
+                <span>Catalog</span>
+              </button>
+            </nav>
+            <div class="app-status" aria-live="polite">
+              <span>Status</span>
+              <strong>Ready</strong>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -625,6 +639,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.6.6"></script>
+    <script type="module" src="./app.js?v=4.6.7"></script>
   </body>
 </html>
