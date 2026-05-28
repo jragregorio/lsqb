@@ -82,6 +82,7 @@ const refs = {
   topAppMenu: document.querySelector("#top-app-menu"),
   savedQuotesMenuItemBtn: document.querySelector("#saved-quotes-menu-item-btn"),
   adminToolsMenuItemBtn: document.querySelector("#admin-tools-menu-item-btn"),
+  quoteStepPills: Array.from(document.querySelectorAll(".quote-step-pill")),
   savedQuotesDrawer: document.querySelector("#saved-quotes-drawer"),
   savedQuotesDrawerBackdrop: document.querySelector("#saved-quotes-drawer-backdrop"),
   savedQuotesDrawerCloseBtn: document.querySelector("#saved-quotes-drawer-close-btn"),
@@ -171,6 +172,7 @@ const SAVE_REMINDER_DELAY_MS = 180000;
 const SAVE_REMINDER_REPEAT_MS = 60000;
 /** Pointer movement before a measurement row drag activates (mouse + touch/tablet). */
 const MEASUREMENT_DRAG_ACTIVATE_PX = 8;
+const QUOTE_STEP_ACTIVATION_OFFSET_PX = 170;
 
 const runtime = {
   session: null,
@@ -226,6 +228,9 @@ async function bootstrap() {
   });
   refs.adminDrawerBackdrop?.addEventListener("click", () => {
     setAdminDrawerOpen(false);
+  });
+  refs.quoteStepPills.forEach((pill) => {
+    pill.addEventListener("click", handleQuoteStepPillClick);
   });
   document.addEventListener("keydown", handleGlobalKeydown);
   document.addEventListener("click", handleDocumentClick);
@@ -383,8 +388,151 @@ function handleGlobalKeydown(event) {
 }
 
 function handleWindowScroll() {
+  renderQuoteStepPills();
   renderActiveQuoteBar();
   renderMaterialSqftFooter();
+}
+
+function handleQuoteStepPillClick(event) {
+  const pill = event.currentTarget;
+  if (!(pill instanceof HTMLElement)) {
+    return;
+  }
+
+  const scrollPanelIntoView = (panel, behavior = "smooth") => {
+    const stickyBarHeight = refs.activeQuoteBar
+      ? !refs.activeQuoteBar.classList.contains("hidden")
+        ? refs.activeQuoteBar.getBoundingClientRect().height
+        // When jumping from top, the sticky bar appears during scroll.
+        : state.quoteMeta.id
+          ? 74
+          : 0
+      : 0;
+    const topOffset = stickyBarHeight + 14;
+    const desiredTop = window.scrollY + panel.getBoundingClientRect().top - topOffset;
+    const maxScrollY = Math.max(
+      0,
+      Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) -
+        window.innerHeight,
+    );
+    const top = Math.max(0, Math.min(desiredTop, maxScrollY));
+    window.scrollTo({ top, behavior });
+  };
+
+  const settleScrollToPanel = (panel) => {
+    // First smooth scroll, then corrective passes after sticky bars/spacing settle.
+    scrollPanelIntoView(panel, "smooth");
+    window.setTimeout(() => {
+      scrollPanelIntoView(panel, "auto");
+    }, 220);
+    window.setTimeout(() => {
+      scrollPanelIntoView(panel, "auto");
+    }, 520);
+  };
+
+  const isFinalizationPill = refs.quoteStepPills.length > 0 &&
+    pill === refs.quoteStepPills[refs.quoteStepPills.length - 1];
+  if (isFinalizationPill) {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    const summaryPanel = refs.summaryPanel;
+    if (!(summaryPanel instanceof HTMLElement)) {
+      return;
+    }
+    settleScrollToPanel(summaryPanel);
+    return;
+  }
+
+  const targetSelector = String(pill.dataset.stepTarget || "").trim();
+  if (!targetSelector) {
+    return;
+  }
+  const target = document.querySelector(targetSelector);
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  // Prevent focused form controls from pulling the viewport back to themselves.
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  settleScrollToPanel(target);
+}
+
+function getQuoteStepTargets() {
+  return refs.quoteStepPills
+    .map((pill) => {
+      const selector = String(pill.dataset.stepTarget || "").trim();
+      if (!selector) {
+        return null;
+      }
+      const panel = document.querySelector(selector);
+      if (!(panel instanceof HTMLElement)) {
+        return null;
+      }
+      if (panel.classList.contains("hidden")) {
+        return null;
+      }
+      return { pill, panel };
+    })
+    .filter(Boolean);
+}
+
+function renderQuoteStepPills() {
+  if (!refs.quoteStepPills.length) {
+    return;
+  }
+
+  // In empty state, only Client Info is relevant: keep step 1 active.
+  if (!isQuoteWorkspaceActive()) {
+    refs.quoteStepPills.forEach((pill, index) => {
+      const isActive = index === 0;
+      pill.classList.toggle("is-active", isActive);
+      pill.setAttribute("aria-current", isActive ? "step" : "false");
+    });
+    return;
+  }
+
+  const stepTargets = getQuoteStepTargets();
+  if (!stepTargets.length) {
+    refs.quoteStepPills.forEach((pill, index) => {
+      const isActive = index === 0;
+      pill.classList.toggle("is-active", isActive);
+      pill.setAttribute("aria-current", isActive ? "step" : "false");
+    });
+    return;
+  }
+
+  const maxScrollY = Math.max(
+    0,
+    Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) -
+      window.innerHeight,
+  );
+  const isNearPageBottom = maxScrollY > 120 && window.scrollY >= maxScrollY - 8;
+  if (isNearPageBottom) {
+    refs.quoteStepPills.forEach((pill, index) => {
+      const isActive = index === refs.quoteStepPills.length - 1;
+      pill.classList.toggle("is-active", isActive);
+      pill.setAttribute("aria-current", isActive ? "step" : "false");
+    });
+    return;
+  }
+
+  let activePill = stepTargets[0].pill;
+  for (const entry of stepTargets) {
+    if (entry.panel.getBoundingClientRect().top <= QUOTE_STEP_ACTIVATION_OFFSET_PX) {
+      activePill = entry.pill;
+    } else {
+      break;
+    }
+  }
+
+  for (const entry of stepTargets) {
+    const isActive = entry.pill === activePill;
+    entry.pill.classList.toggle("is-active", isActive);
+    entry.pill.setAttribute("aria-current", isActive ? "step" : "false");
+  }
 }
 
 function handleDocumentClick(event) {
@@ -1492,6 +1640,7 @@ function confirmQuoteDeleteWithCountdown(quoteName, seconds = 5) {
 
 function render() {
   renderTopAppMenu();
+  renderQuoteStepPills();
   renderSavedQuotesDrawer();
   renderAdminDrawer();
   renderAuth();
@@ -5028,7 +5177,7 @@ function buildContractPdfDefinition(
                   text: [
                     { text: "Account name: " },
                     {
-                      text: "Jan Robert A Gregorio",
+                      text: "Monique Lorenzo Gregorio",
                       font: "Roboto",
                       bold: true,
                       fontSize: 11.5,
@@ -5038,7 +5187,8 @@ function buildContractPdfDefinition(
                 {
                   text: [
                     { text: "Account number: " },
-                    { text: "494 349 462 2220", font: "Roboto", bold: true, fontSize: 11.5 },
+                    { text: "494 349 463 4199", font: "Roboto", bold: true, fontSize: 11.5 },
+               
                   ],
                 },
                 {

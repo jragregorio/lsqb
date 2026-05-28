@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Luxe Shade Quote Builder v4.6.9</title>
+    <title>Luxe Shade Quote Builder v4.6.10</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.6.9" />
+    <link rel="stylesheet" href="./styles.css?v=4.6.10" />
   </head>
   <body>
     <main class="app-shell">
@@ -23,7 +23,7 @@
             <div class="app-brand">
               <p class="eyebrow">Luxe Shade</p>
               <h1 class="app-brand-title">Luxe Shade Quote Builder</h1>
-              <p class="app-brand-version">v4.6.9</p>
+              <p class="app-brand-version">v4.6.10</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -64,6 +64,29 @@
           </div>
         </div>
       </header>
+
+      <aside class="quote-step-float" aria-label="Quote workflow">
+        <div class="quote-step-float-card">
+          <p class="quote-step-float-title">Quote Flow</p>
+          <button
+            type="button"
+            class="quote-step-pill is-active"
+            data-step-target="#quote-workspace-panel"
+            aria-current="step"
+          >
+            Client Info
+          </button>
+          <button type="button" class="quote-step-pill" data-step-target="#material-setup-panel">
+            Materials
+          </button>
+          <button type="button" class="quote-step-pill" data-step-target="#measurements-panel">
+            Measurements
+          </button>
+          <button type="button" class="quote-step-pill" data-step-target="#charges-panel">
+            Finalization
+          </button>
+        </div>
+      </aside>
 
       <section id="active-quote-bar" class="active-quote-bar hidden">
         <div class="active-quote-bar-inner">
@@ -265,7 +288,7 @@
         </div>
       </aside>
 
-      <section class="panel">
+      <section id="quote-workspace-panel" class="panel">
         <div class="panel-heading">
           <div>
             <h2 id="quote-workspace-heading">Quote Workspace</h2>
@@ -499,7 +522,7 @@
         </div>
       </section>
 
-      <section class="panel summary-panel">
+      <section id="review-export-panel" class="panel summary-panel">
         <div class="panel-heading">
           <div>
             <h2>Summary</h2>
@@ -632,6 +655,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.6.9"></script>
+    <script type="module" src="./app.js?v=4.6.10"></script>
   </body>
 </html>

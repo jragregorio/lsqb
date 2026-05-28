@@ -150,6 +150,51 @@ code {
   border-radius: 0.65rem;
 }
 
+.quote-step-float {
+  position: fixed;
+  left: 0.5rem;
+  top: 8.2rem;
+  z-index: 16;
+  width: 8.1rem;
+}
+
+.quote-step-float-card {
+  display: grid;
+  gap: 0.38rem;
+  padding: 0.52rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--panel-bg) 96%, #ffffff 4%);
+  box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
+}
+
+.quote-step-float-title {
+  margin: 0 0 0.12rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.quote-step-pill {
+  width: 100%;
+  text-align: left;
+  min-height: 1.9rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--panel-bg);
+  color: #4a3b2f;
+  font-size: 0.74rem;
+  line-height: 1.2;
+}
+
+.quote-step-pill.is-active {
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--panel-border) 38%);
+  background: color-mix(in srgb, var(--accent) 20%, #ffffff 80%);
+  color: #2f251d;
+}
+
 .active-quote-bar {
   position: sticky;
   top: 0;
@@ -1500,6 +1545,10 @@ tbody tr.measurement-row--drag-over {
     font-size: 0.95rem;
   }
 
+  .quote-step-float {
+    display: none;
+  }
+
   .active-quote-bar {
     top: 0;
     padding: 0;
@@ -1756,6 +1805,12 @@ tbody tr.measurement-row--drag-over {
   /* Cost cell helper wraps nicely */
   #measurements-panel .money-cell {
     min-width: 0;
+  }
+}
+
+@media (max-width: 1200px) {
+  .quote-step-float {
+    display: none;
   }
 }
 
