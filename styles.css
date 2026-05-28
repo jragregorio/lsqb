@@ -557,6 +557,11 @@ code {
   display: flex;
   gap: 0.8rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+#export-pdf-btn {
+  margin-left: auto;
 }
 
 .quote-badge {
@@ -838,6 +843,7 @@ code {
 .file-picker,
 .primary-button,
 .secondary-button,
+.tertiary-button,
 .ghost-danger-button {
   display: inline-flex;
   align-items: center;
@@ -914,6 +920,23 @@ code {
   border-color: var(--panel-border);
   background: var(--panel-bg);
   color: #3f352c;
+}
+
+.tertiary-button {
+  border-color: color-mix(in srgb, var(--panel-border) 88%, #ffffff 12%);
+  background: transparent;
+  color: #7b6a5b;
+  box-shadow: none;
+}
+
+.tertiary-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--panel-border) 74%, var(--accent) 26%);
+  background: color-mix(in srgb, var(--surface-alt) 45%, #ffffff 55%);
+  color: #5d4f44;
+}
+
+.tertiary-button:disabled {
+  opacity: 0.55;
 }
 
 .status-text.is-success,
@@ -1676,6 +1699,7 @@ tbody tr.measurement-row--drag-over {
 
   .primary-button,
   .secondary-button,
+  .tertiary-button,
   .file-picker {
     width: 100%;
   }
@@ -1691,10 +1715,15 @@ tbody tr.measurement-row--drag-over {
 
   /* Quote header actions: keep buttons in a row. */
   .quote-toolbar-actions .primary-button,
-  .quote-toolbar-actions .secondary-button {
+  .quote-toolbar-actions .secondary-button,
+  .quote-toolbar-actions .tertiary-button {
     width: calc(50% - 0.25rem);
     min-height: 2.55rem;
     padding: 0.6rem 0.75rem;
+  }
+
+  #export-pdf-btn {
+    margin-left: 0;
   }
 
   /* Save button can stay prominent across the row if needed. */
