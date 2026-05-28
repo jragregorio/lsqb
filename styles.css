@@ -194,6 +194,14 @@ code {
   color: var(--muted);
 }
 
+.quote-step-float-title-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
 .quote-step-float-hide,
 .quote-step-float-restore {
   min-width: 1.45rem;
@@ -215,6 +223,14 @@ code {
 
 .quote-step-float.is-collapsed {
   width: auto;
+}
+
+.quote-step-float.is-collapsed .quote-step-float-restore {
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.2rem;
 }
 
 .quote-step-float.is-collapsed .quote-step-float-card {

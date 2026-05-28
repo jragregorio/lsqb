@@ -82,6 +82,7 @@ const refs = {
   topAppMenu: document.querySelector("#top-app-menu"),
   quoteStepFloat: document.querySelector(".quote-step-float"),
   quoteStepFloatCard: document.querySelector(".quote-step-float-card"),
+  quoteStepFloatTitleBtn: document.querySelector("#quote-step-float-title-btn"),
   quoteStepFloatHideBtn: document.querySelector("#quote-step-float-hide-btn"),
   quoteStepFloatRestoreBtn: document.querySelector("#quote-step-float-restore-btn"),
   savedQuotesMenuItemBtn: document.querySelector("#saved-quotes-menu-item-btn"),
@@ -235,6 +236,9 @@ async function bootstrap() {
     setAdminDrawerOpen(false);
   });
   refs.quoteStepFloatHideBtn?.addEventListener("click", () => {
+    setQuoteStepPanelCollapsed(true);
+  });
+  refs.quoteStepFloatTitleBtn?.addEventListener("click", () => {
     setQuoteStepPanelCollapsed(true);
   });
   refs.quoteStepFloatRestoreBtn?.addEventListener("click", () => {
@@ -1222,6 +1226,12 @@ async function handleSaveQuote(options = {}) {
       window.alert(validation.message);
     }
     return false;
+  }
+
+  const shouldRefreshQuoteDateOnSave =
+    Boolean(state.quoteMeta.id) && hasLoadedQuoteUnsavedChanges();
+  if (shouldRefreshQuoteDateOnSave) {
+    state.quoteMeta.quoteDate = getCurrentDateInputValue();
   }
 
   runtime.quoteBusy = true;
@@ -4400,6 +4410,12 @@ function sanitizeOptionalText(value) {
 function sanitizeOptionalDate(value) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function getCurrentDateInputValue() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
 function syncQuoteMetaFromInputs() {
