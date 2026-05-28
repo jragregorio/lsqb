@@ -243,6 +243,7 @@ async function bootstrap() {
   refs.quoteStepPills.forEach((pill) => {
     pill.addEventListener("click", handleQuoteStepPillClick);
   });
+  document.addEventListener("input", handleForceUppercaseInput, true);
   document.addEventListener("keydown", handleGlobalKeydown);
   document.addEventListener("click", handleDocumentClick);
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
@@ -402,6 +403,33 @@ function handleWindowScroll() {
   renderQuoteStepPills();
   renderActiveQuoteBar();
   renderMaterialSqftFooter();
+}
+
+function handleForceUppercaseInput(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
+    return;
+  }
+
+  if (target instanceof HTMLInputElement) {
+    const supportedTypes = new Set(["text", "email", "search", "tel"]);
+    if (!supportedTypes.has(target.type)) {
+      return;
+    }
+  }
+
+  const current = target.value;
+  const upper = current.toUpperCase();
+  if (current === upper) {
+    return;
+  }
+
+  const start = target.selectionStart;
+  const end = target.selectionEnd;
+  target.value = upper;
+  if (typeof start === "number" && typeof end === "number") {
+    target.setSelectionRange(start, end);
+  }
 }
 
 function handleQuoteStepPillClick(event) {

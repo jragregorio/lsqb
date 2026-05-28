@@ -42,6 +42,14 @@ select {
   font: inherit;
 }
 
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="tel"],
+textarea {
+  text-transform: uppercase;
+}
+
 button {
   cursor: pointer;
 }
