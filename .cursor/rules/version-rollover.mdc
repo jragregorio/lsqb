@@ -1,0 +1,16 @@
+---
+description: Enforce project version rollover convention
+alwaysApply: true
+---
+
+# Version Rollover Rule
+
+When updating app version strings (title, asset query params, visible version labels), use this rollover convention:
+
+- Version format is `major.minor.patch`.
+- Patch is base-10 rollover into minor.
+- Example: `0.0.11` must be written as `0.1.1`.
+- Equivalent carry rule: `minor += floor(patch / 10)`, `patch = patch % 10`.
+- If minor reaches 10+, carry to major using the same base-10 logic.
+
+Before finalizing a version bump, normalize the version to this convention in all version references.
