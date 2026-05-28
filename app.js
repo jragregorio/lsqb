@@ -77,12 +77,14 @@ const QUOTE_SELECT_COLUMNS = [
 ].join(", ");
 
 const refs = {
-  savedQuotesMenuBtn: document.querySelector("#saved-quotes-menu-btn"),
+  topAppMenuShell: document.querySelector(".top-app-menu-shell"),
+  topAppMenuBtn: document.querySelector("#top-app-menu-btn"),
+  topAppMenu: document.querySelector("#top-app-menu"),
+  savedQuotesMenuItemBtn: document.querySelector("#saved-quotes-menu-item-btn"),
+  adminToolsMenuItemBtn: document.querySelector("#admin-tools-menu-item-btn"),
   savedQuotesDrawer: document.querySelector("#saved-quotes-drawer"),
   savedQuotesDrawerBackdrop: document.querySelector("#saved-quotes-drawer-backdrop"),
   savedQuotesDrawerCloseBtn: document.querySelector("#saved-quotes-drawer-close-btn"),
-  adminMenuBtn: document.querySelector("#admin-menu-btn"),
-  catalogMenuBtn: document.querySelector("#catalog-menu-btn"),
   adminDrawer: document.querySelector("#admin-tools-drawer"),
   adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
@@ -178,6 +180,7 @@ const runtime = {
   quoteListBusy: false,
   quoteList: [],
   expandedQuoteId: "",
+  topAppMenuOpen: false,
   savedQuotesDrawerOpen: false,
   adminDrawerOpen: false,
   loadedQuoteFingerprint: "",
@@ -203,20 +206,20 @@ let materialTotalsDockResizeObserver = null;
 bootstrap();
 
 async function bootstrap() {
-  refs.savedQuotesMenuBtn?.addEventListener("click", () => {
-    setSavedQuotesDrawerOpen(!runtime.savedQuotesDrawerOpen);
+  refs.topAppMenuBtn?.addEventListener("click", () => {
+    setTopAppMenuOpen(!runtime.topAppMenuOpen);
+  });
+  refs.savedQuotesMenuItemBtn?.addEventListener("click", () => {
+    setSavedQuotesDrawerOpen(true);
+  });
+  refs.adminToolsMenuItemBtn?.addEventListener("click", () => {
+    setAdminDrawerOpen(true);
   });
   refs.savedQuotesDrawerCloseBtn?.addEventListener("click", () => {
     setSavedQuotesDrawerOpen(false);
   });
   refs.savedQuotesDrawerBackdrop?.addEventListener("click", () => {
     setSavedQuotesDrawerOpen(false);
-  });
-  refs.adminMenuBtn?.addEventListener("click", () => {
-    setAdminDrawerOpen(!runtime.adminDrawerOpen);
-  });
-  refs.catalogMenuBtn?.addEventListener("click", () => {
-    setAdminDrawerOpen(!runtime.adminDrawerOpen);
   });
   refs.adminDrawerCloseBtn?.addEventListener("click", () => {
     setAdminDrawerOpen(false);
@@ -225,6 +228,7 @@ async function bootstrap() {
     setAdminDrawerOpen(false);
   });
   document.addEventListener("keydown", handleGlobalKeydown);
+  document.addEventListener("click", handleDocumentClick);
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
   window.addEventListener(
     "resize",
@@ -365,6 +369,10 @@ function handleGlobalKeydown(event) {
     return;
   }
 
+  if (runtime.topAppMenuOpen) {
+    setTopAppMenuOpen(false);
+  }
+
   if (runtime.savedQuotesDrawerOpen) {
     setSavedQuotesDrawerOpen(false);
   }
@@ -379,28 +387,50 @@ function handleWindowScroll() {
   renderMaterialSqftFooter();
 }
 
+function handleDocumentClick(event) {
+  if (!runtime.topAppMenuOpen || !refs.topAppMenuShell) {
+    return;
+  }
+
+  const target = event.target;
+  if (target instanceof Node && refs.topAppMenuShell.contains(target)) {
+    return;
+  }
+
+  setTopAppMenuOpen(false);
+}
+
+function setTopAppMenuOpen(isOpen) {
+  runtime.topAppMenuOpen = Boolean(isOpen);
+  renderTopAppMenu();
+}
+
+function renderTopAppMenu() {
+  if (!refs.topAppMenuBtn || !refs.topAppMenu) {
+    return;
+  }
+
+  refs.topAppMenuBtn.setAttribute("aria-expanded", runtime.topAppMenuOpen ? "true" : "false");
+  refs.topAppMenu.classList.toggle("hidden", !runtime.topAppMenuOpen);
+}
+
 function setSavedQuotesDrawerOpen(isOpen) {
   runtime.savedQuotesDrawerOpen = Boolean(isOpen);
   if (runtime.savedQuotesDrawerOpen) {
+    runtime.topAppMenuOpen = false;
+  }
+  if (runtime.savedQuotesDrawerOpen) {
     runtime.adminDrawerOpen = false;
   }
+  renderTopAppMenu();
   renderSavedQuotesDrawer();
   renderAdminDrawer();
 }
 
 function renderSavedQuotesDrawer() {
-  if (
-    !refs.savedQuotesDrawer ||
-    !refs.savedQuotesDrawerBackdrop ||
-    !refs.savedQuotesMenuBtn
-  ) {
+  if (!refs.savedQuotesDrawer || !refs.savedQuotesDrawerBackdrop) {
     return;
   }
-
-  refs.savedQuotesMenuBtn.setAttribute(
-    "aria-expanded",
-    runtime.savedQuotesDrawerOpen ? "true" : "false",
-  );
   refs.savedQuotesDrawer.setAttribute(
     "aria-hidden",
     runtime.savedQuotesDrawerOpen ? "false" : "true",
@@ -419,8 +449,12 @@ function renderSavedQuotesDrawer() {
 function setAdminDrawerOpen(isOpen) {
   runtime.adminDrawerOpen = Boolean(isOpen);
   if (runtime.adminDrawerOpen) {
+    runtime.topAppMenuOpen = false;
+  }
+  if (runtime.adminDrawerOpen) {
     runtime.savedQuotesDrawerOpen = false;
   }
+  renderTopAppMenu();
   renderSavedQuotesDrawer();
   renderAdminDrawer();
 }
@@ -429,9 +463,6 @@ function renderAdminDrawer() {
   if (!refs.adminDrawer || !refs.adminDrawerBackdrop) {
     return;
   }
-
-  refs.adminMenuBtn?.setAttribute("aria-expanded", runtime.adminDrawerOpen ? "true" : "false");
-  refs.catalogMenuBtn?.setAttribute("aria-expanded", runtime.adminDrawerOpen ? "true" : "false");
   refs.adminDrawer.setAttribute(
     "aria-hidden",
     runtime.adminDrawerOpen ? "false" : "true",
@@ -1460,6 +1491,7 @@ function confirmQuoteDeleteWithCountdown(quoteName, seconds = 5) {
 }
 
 function render() {
+  renderTopAppMenu();
   renderSavedQuotesDrawer();
   renderAdminDrawer();
   renderAuth();
