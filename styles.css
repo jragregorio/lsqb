@@ -168,12 +168,46 @@ code {
   box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
 }
 
+.quote-step-float-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
 .quote-step-float-title {
-  margin: 0 0 0.12rem;
+  margin: 0;
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.quote-step-float-hide,
+.quote-step-float-restore {
+  min-width: 1.45rem;
+  min-height: 1.45rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: var(--panel-bg);
+  color: #4a3b2f;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.quote-step-float-restore {
+  box-shadow: 0 8px 20px rgba(84, 58, 37, 0.14);
+}
+
+.quote-step-float.is-collapsed {
+  width: auto;
+}
+
+.quote-step-float.is-collapsed .quote-step-float-card {
+  display: none;
 }
 
 .quote-step-pill {

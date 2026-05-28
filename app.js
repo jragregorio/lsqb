@@ -80,6 +80,10 @@ const refs = {
   topAppMenuShell: document.querySelector(".top-app-menu-shell"),
   topAppMenuBtn: document.querySelector("#top-app-menu-btn"),
   topAppMenu: document.querySelector("#top-app-menu"),
+  quoteStepFloat: document.querySelector(".quote-step-float"),
+  quoteStepFloatCard: document.querySelector(".quote-step-float-card"),
+  quoteStepFloatHideBtn: document.querySelector("#quote-step-float-hide-btn"),
+  quoteStepFloatRestoreBtn: document.querySelector("#quote-step-float-restore-btn"),
   savedQuotesMenuItemBtn: document.querySelector("#saved-quotes-menu-item-btn"),
   adminToolsMenuItemBtn: document.querySelector("#admin-tools-menu-item-btn"),
   quoteStepPills: Array.from(document.querySelectorAll(".quote-step-pill")),
@@ -182,6 +186,7 @@ const runtime = {
   quoteListBusy: false,
   quoteList: [],
   expandedQuoteId: "",
+  quoteStepPanelCollapsed: false,
   topAppMenuOpen: false,
   savedQuotesDrawerOpen: false,
   adminDrawerOpen: false,
@@ -228,6 +233,12 @@ async function bootstrap() {
   });
   refs.adminDrawerBackdrop?.addEventListener("click", () => {
     setAdminDrawerOpen(false);
+  });
+  refs.quoteStepFloatHideBtn?.addEventListener("click", () => {
+    setQuoteStepPanelCollapsed(true);
+  });
+  refs.quoteStepFloatRestoreBtn?.addEventListener("click", () => {
+    setQuoteStepPanelCollapsed(false);
   });
   refs.quoteStepPills.forEach((pill) => {
     pill.addEventListener("click", handleQuoteStepPillClick);
@@ -560,6 +571,21 @@ function renderTopAppMenu() {
 
   refs.topAppMenuBtn.setAttribute("aria-expanded", runtime.topAppMenuOpen ? "true" : "false");
   refs.topAppMenu.classList.toggle("hidden", !runtime.topAppMenuOpen);
+}
+
+function setQuoteStepPanelCollapsed(isCollapsed) {
+  runtime.quoteStepPanelCollapsed = Boolean(isCollapsed);
+  renderQuoteStepPanel();
+}
+
+function renderQuoteStepPanel() {
+  if (!refs.quoteStepFloat || !refs.quoteStepFloatCard || !refs.quoteStepFloatRestoreBtn) {
+    return;
+  }
+
+  refs.quoteStepFloat.classList.toggle("is-collapsed", runtime.quoteStepPanelCollapsed);
+  refs.quoteStepFloatCard.classList.toggle("hidden", runtime.quoteStepPanelCollapsed);
+  refs.quoteStepFloatRestoreBtn.classList.toggle("hidden", !runtime.quoteStepPanelCollapsed);
 }
 
 function setSavedQuotesDrawerOpen(isOpen) {
@@ -1640,6 +1666,7 @@ function confirmQuoteDeleteWithCountdown(quoteName, seconds = 5) {
 
 function render() {
   renderTopAppMenu();
+  renderQuoteStepPanel();
   renderQuoteStepPills();
   renderSavedQuotesDrawer();
   renderAdminDrawer();
