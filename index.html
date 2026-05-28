@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Luxe Shade Quote Builder v4.7.7</title>
+    <title>Luxe Shade Quote Builder v4.7.8</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.7.7" />
+    <link rel="stylesheet" href="./styles.css?v=4.7.8" />
   </head>
   <body>
     <main class="app-shell">
@@ -23,7 +23,7 @@
             <div class="app-brand">
               <p class="eyebrow">Luxe Shade</p>
               <h1 class="app-brand-title">Luxe Shade Quote Builder</h1>
-              <p class="app-brand-version">v4.7.7</p>
+              <p class="app-brand-version">v4.7.8</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -219,6 +219,33 @@
           <section class="panel admin-panel">
             <div class="panel-heading">
               <div>
+                <h2>PDF Branding</h2>
+                <p class="section-copy">
+                  This only changes the contract PDF output (logo, watermark, and colors).
+                </p>
+              </div>
+            </div>
+
+            <div class="admin-form-row">
+              <label for="pdf-org-select">
+                <span>Select Organization</span>
+              </label>
+              <select id="pdf-org-select">
+                <option value="luxe">Luxe Shade</option>
+                <option value="nds">NDS Trading</option>
+                <option value="kk">Kurtina Kultura</option>
+              </select>
+            </div>
+            <div class="admin-pdf-actions">
+              <button id="print-clean-btn" class="secondary-button" type="button">
+                Print Clean
+              </button>
+            </div>
+          </section>
+
+          <section class="panel admin-panel">
+            <div class="panel-heading">
+              <div>
                 <h2>Supabase Access</h2>
                 <p class="section-copy">
                   Sign in with your approved user account to load the live
@@ -285,33 +312,6 @@
             <p id="csv-status" class="status-text">
               No source file loaded yet.
             </p>
-          </section>
-
-          <section class="panel admin-panel">
-            <div class="panel-heading">
-              <div>
-                <h2>PDF Branding</h2>
-                <p class="section-copy">
-                  This only changes the contract PDF output (logo, watermark, and colors).
-                </p>
-              </div>
-            </div>
-
-            <div class="admin-form-row">
-              <label for="pdf-org-select">
-                <span>Select Organization</span>
-              </label>
-              <select id="pdf-org-select">
-                <option value="luxe">Luxe Shade</option>
-                <option value="nds">NDS Trading</option>
-                <option value="kk">Kurtina Kultura</option>
-              </select>
-            </div>
-            <div class="admin-pdf-actions">
-              <button id="print-clean-btn" class="secondary-button" type="button">
-                Print Clean
-              </button>
-            </div>
           </section>
         </div>
       </aside>
@@ -677,6 +677,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.7.7"></script>
+    <script type="module" src="./app.js?v=4.7.8"></script>
   </body>
 </html>
