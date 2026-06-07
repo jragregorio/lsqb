@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>Luxe Shade Quote Builder v4.7.10</title>
+    <title>Luxe Shade Quote Builder v4.7.11</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.7.10" />
+    <link rel="stylesheet" href="./styles.css?v=4.7.11" />
   </head>
   <body>
     <main class="app-shell">
@@ -23,7 +23,7 @@
             <div class="app-brand">
               <p class="eyebrow">Luxe Shade</p>
               <h1 class="app-brand-title">Luxe Shade Quote Builder</h1>
-              <p class="app-brand-version">v4.7.10</p>
+              <p class="app-brand-version">v4.7.11</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -554,10 +554,55 @@
           <div>
             <h2>Summary</h2>
             <p class="section-copy">
-              Review the totals and optionally apply a discount.
+              Review the totals, material requirements, and optionally apply a
+              discount.
             </p>
           </div>
         </div>
+
+        <section
+          id="summary-material-section"
+          class="summary-material-section hidden"
+          aria-label="Material requirements"
+        >
+          <div class="summary-material-heading">
+            <h3>Material Requirements</h3>
+            <p class="section-copy">
+              Billed quantities and cost breakdown from measurements. Free rows
+              are excluded from amounts.
+            </p>
+          </div>
+
+          <div class="table-shell summary-material-table-shell">
+            <table class="data-table summary-material-table">
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Qty</th>
+                  <th>Retail Cost</th>
+                  <th>Asking Revenue</th>
+                  <th>Pocket</th>
+                </tr>
+              </thead>
+              <tbody id="summary-material-body"></tbody>
+            </table>
+          </div>
+
+          <div class="summary-material-totals">
+            <article class="summary-card">
+              <span>Total Retail Cost</span>
+              <strong id="summary-material-retail-total">PHP 0.00</strong>
+            </article>
+            <article class="summary-card">
+              <span>Total Material Revenue</span>
+              <strong id="summary-material-asking-total">PHP 0.00</strong>
+            </article>
+            <article class="summary-card accent-card">
+              <span>Total Material Pocket</span>
+              <strong id="summary-material-pocket-total">PHP 0.00</strong>
+            </article>
+          </div>
+        </section>
 
         <div class="summary-grid">
           <label class="summary-card summary-input-card">
@@ -684,6 +729,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.7.10"></script>
+    <script type="module" src="./app.js?v=4.7.11"></script>
   </body>
 </html>

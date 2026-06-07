@@ -158,6 +158,11 @@ const refs = {
   discountType: document.querySelector("#discount-type"),
   discountValue: document.querySelector("#discount-value"),
   summaryPanel: document.querySelector(".summary-panel"),
+  summaryMaterialSection: document.querySelector("#summary-material-section"),
+  summaryMaterialBody: document.querySelector("#summary-material-body"),
+  summaryMaterialRetailTotal: document.querySelector("#summary-material-retail-total"),
+  summaryMaterialAskingTotal: document.querySelector("#summary-material-asking-total"),
+  summaryMaterialPocketTotal: document.querySelector("#summary-material-pocket-total"),
   motorQuantityDialog: document.querySelector("#motor-quantity-dialog"),
   motorQuantityForm: document.querySelector("#motor-quantity-form"),
   motorQuantityInput: document.querySelector("#motor-quantity-input"),
@@ -3531,64 +3536,136 @@ function renderSummary() {
     formatCurrency(finalTotal);
   document.querySelector("#downpayment-value").textContent = formatCurrency(half);
   document.querySelector("#remaining-value").textContent = formatCurrency(half);
+  renderSummaryMaterialBreakdown();
   renderActiveQuoteBar();
   renderMaterialSqftFooter();
 }
 
-function buildMaterialSqftFooterLines() {
-  const qtyFmt = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 });
+function buildMaterialRollupLines() {
   const lines = [];
 
-  const configuredMaterials = getConfiguredMaterials();
-  if (configuredMaterials.length === 0) {
-    return [];
-  }
-
-  for (const materialRow of configuredMaterials) {
+  for (const materialRow of getConfiguredMaterials()) {
     const label = getMaterialSetupDisplayLabel(materialRow);
     if (!label) {
       continue;
     }
 
     const isMotor = isMotorizedCategoryFromMaterial(materialRow);
-    let sqftSum = 0;
-    let motorizedQty = 0;
-    let costSum = 0;
+    let billedSqft = 0;
+    let billedUnits = 0;
+    let retailCost = 0;
+    let askingRevenue = 0;
 
     for (const mRow of state.measurementRows) {
       if (mRow.materialId !== materialRow.id) {
         continue;
       }
+
       if (isMotorizedMaterialRow(mRow)) {
-        const q = parseMotorQuantity(mRow.unitQuantity);
-        if (q !== null) {
-          motorizedQty += q;
+        const quantity = parseMotorQuantity(mRow.unitQuantity);
+        if (quantity !== null) {
+          billedUnits += quantity;
         }
       } else {
-        const sq = getMeasurementSquareFootage(mRow);
-        if (sq !== null) {
-          sqftSum += sq.rawRounded;
+        const squareFootage = getMeasurementSquareFootage(mRow);
+        if (squareFootage !== null) {
+          billedSqft += squareFootage.billed;
         }
       }
 
       if (!mRow.isFree) {
-        const cost = getMeasurementCost(mRow);
-        if (cost !== null) {
-          costSum += cost;
+        const retail = getMeasurementRetailCost(mRow);
+        const asking = getMeasurementCost(mRow);
+        if (retail !== null) {
+          retailCost += retail;
+        }
+        if (asking !== null) {
+          askingRevenue += asking;
         }
       }
+    }
+
+    const hasQuantity = isMotor ? billedUnits > 0 : billedSqft > 0;
+    if (!hasQuantity) {
+      continue;
     }
 
     lines.push({
       label,
       isMotor,
-      totalSqft: sqftSum,
-      totalUnits: motorizedQty,
-      totalCost: costSum,
+      billedSqft,
+      billedUnits,
+      retailCost,
+      askingRevenue,
+      pocket: askingRevenue - retailCost,
     });
   }
 
   return lines;
+}
+
+function renderSummaryMaterialBreakdown() {
+  if (
+    !refs.summaryMaterialSection ||
+    !refs.summaryMaterialBody ||
+    !refs.summaryMaterialRetailTotal ||
+    !refs.summaryMaterialAskingTotal ||
+    !refs.summaryMaterialPocketTotal
+  ) {
+    return;
+  }
+
+  const lines = isQuoteWorkspaceActive() ? buildMaterialRollupLines() : [];
+  refs.summaryMaterialSection.classList.toggle("hidden", lines.length === 0);
+  refs.summaryMaterialBody.replaceChildren();
+
+  const qtyFmt = new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 });
+  let retailTotal = 0;
+  let askingTotal = 0;
+
+  for (const line of lines) {
+    const tr = document.createElement("tr");
+
+    const materialCell = document.createElement("td");
+    materialCell.textContent = line.label;
+
+    const qtyCell = document.createElement("td");
+    qtyCell.textContent = line.isMotor
+      ? `${qtyFmt.format(line.billedUnits)} units`
+      : `${qtyFmt.format(line.billedSqft)} sqft`;
+
+    const retailCell = document.createElement("td");
+    retailCell.className = "money-cell";
+    retailCell.textContent = formatCurrency(line.retailCost);
+
+    const askingCell = document.createElement("td");
+    askingCell.className = "money-cell";
+    askingCell.textContent = formatCurrency(line.askingRevenue);
+
+    const pocketCell = document.createElement("td");
+    pocketCell.className = "money-cell";
+    pocketCell.textContent = formatCurrency(line.pocket);
+
+    tr.append(materialCell, qtyCell, retailCell, askingCell, pocketCell);
+    refs.summaryMaterialBody.append(tr);
+
+    retailTotal += line.retailCost;
+    askingTotal += line.askingRevenue;
+  }
+
+  refs.summaryMaterialRetailTotal.textContent = formatCurrency(retailTotal);
+  refs.summaryMaterialAskingTotal.textContent = formatCurrency(askingTotal);
+  refs.summaryMaterialPocketTotal.textContent = formatCurrency(askingTotal - retailTotal);
+}
+
+function buildMaterialSqftFooterLines() {
+  return buildMaterialRollupLines().map((line) => ({
+    label: line.label,
+    isMotor: line.isMotor,
+    totalSqft: line.billedSqft,
+    totalUnits: line.billedUnits,
+    totalCost: line.askingRevenue,
+  }));
 }
 
 function syncMaterialTotalsDockShellPadding() {
@@ -3823,6 +3900,34 @@ function getMeasurementCost(row) {
   }
 
   return squareFootage.billed * askingPrice;
+}
+
+function getMeasurementRetailCost(row) {
+  if (row.isFree) {
+    return 0;
+  }
+
+  const material = getMeasurementMaterialForRow(row);
+  const retailPrice = parseCurrencyLikeNumber(material?.retailPrice);
+
+  if (retailPrice === null) {
+    return null;
+  }
+
+  if (isMotorizedMaterialRow(row)) {
+    const qty = parseMotorQuantity(row.unitQuantity);
+    if (qty === null) {
+      return null;
+    }
+    return qty * retailPrice;
+  }
+
+  const squareFootage = getMeasurementSquareFootage(row);
+  if (squareFootage === null) {
+    return null;
+  }
+
+  return squareFootage.billed * retailPrice;
 }
 
 function getSubtotal() {

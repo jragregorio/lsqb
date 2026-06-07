@@ -1607,6 +1607,34 @@ tbody tr.measurement-row--drag-over {
   position: relative;
 }
 
+.summary-material-section {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-material-heading h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  color: #1f1b18;
+}
+
+.summary-material-table-shell {
+  overflow-x: auto;
+}
+
+.summary-material-table th:nth-child(n + 2),
+.summary-material-table td:nth-child(n + 2) {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.summary-material-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
