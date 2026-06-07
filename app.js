@@ -184,7 +184,6 @@ const SAVE_REMINDER_DELAY_MS = 180000;
 const SAVE_REMINDER_REPEAT_MS = 60000;
 /** Pointer movement before a measurement row drag activates (mouse + touch/tablet). */
 const MEASUREMENT_DRAG_ACTIVATE_PX = 8;
-const QUOTE_STEP_ACTIVATION_OFFSET_PX = 170;
 
 const runtime = {
   session: null,
@@ -261,6 +260,7 @@ async function bootstrap() {
   window.addEventListener(
     "resize",
     () => {
+      syncQuoteStickyStack();
       syncMaterialTotalsDockShellPadding();
     },
     { passive: true },
@@ -417,6 +417,7 @@ function handleGlobalKeydown(event) {
 }
 
 function handleWindowScroll() {
+  syncQuoteStickyStack();
   renderQuoteStepPills();
   renderActiveQuoteBar();
   renderMaterialSqftFooter();
@@ -456,15 +457,7 @@ function handleQuoteStepPillClick(event) {
   }
 
   const scrollPanelIntoView = (panel, behavior = "smooth") => {
-    const stickyBarHeight = refs.activeQuoteBar
-      ? !refs.activeQuoteBar.classList.contains("hidden")
-        ? refs.activeQuoteBar.getBoundingClientRect().height
-        // When jumping from top, the sticky bar appears during scroll.
-        : state.quoteMeta.id
-          ? 74
-          : 0
-      : 0;
-    const topOffset = stickyBarHeight + 14;
+    const topOffset = getQuoteStepActivationOffsetPx();
     const desiredTop = window.scrollY + panel.getBoundingClientRect().top - topOffset;
     const maxScrollY = Math.max(
       0,
@@ -575,20 +568,50 @@ function renderQuoteStepPills() {
     return;
   }
 
-  let activePill = stepTargets[0].pill;
-  for (const entry of stepTargets) {
-    if (entry.panel.getBoundingClientRect().top <= QUOTE_STEP_ACTIVATION_OFFSET_PX) {
-      activePill = entry.pill;
-    } else {
-      break;
-    }
-  }
+  const activePill = pickActiveQuoteStepPill(stepTargets);
 
   for (const entry of stepTargets) {
     const isActive = entry.pill === activePill;
     entry.pill.classList.toggle("is-active", isActive);
     entry.pill.setAttribute("aria-current", isActive ? "step" : "false");
   }
+}
+
+function pickActiveQuoteStepPill(stepTargets) {
+  const activationTop = getQuoteStepActivationOffsetPx();
+  const contentAreaHeight = Math.max(0, window.innerHeight - activationTop);
+  const probeY = activationTop + contentAreaHeight * 0.25;
+
+  const panelsToCheck = stepTargets.map((entry) => ({
+    pill: entry.pill,
+    panel: entry.panel,
+  }));
+
+  const lastEntry = stepTargets[stepTargets.length - 1];
+  if (
+    lastEntry &&
+    refs.summaryPanel &&
+    !refs.summaryPanel.classList.contains("hidden")
+  ) {
+    panelsToCheck.push({
+      pill: lastEntry.pill,
+      panel: refs.summaryPanel,
+    });
+  }
+
+  for (let index = panelsToCheck.length - 1; index >= 0; index -= 1) {
+    const { pill, panel } = panelsToCheck[index];
+    const rect = panel.getBoundingClientRect();
+    if (rect.top <= probeY && rect.bottom > probeY) {
+      return pill;
+    }
+  }
+
+  if (probeY < stepTargets[0].panel.getBoundingClientRect().top) {
+    return stepTargets[0].pill;
+  }
+
+  return stepTargets[stepTargets.length - 1].pill;
 }
 
 function handleDocumentClick(event) {
@@ -623,14 +646,60 @@ function setQuoteStepPanelCollapsed(isCollapsed) {
   renderQuoteStepPanel();
 }
 
+function syncQuoteStickyStack() {
+  const root = document.documentElement;
+
+  if (!refs.quoteStepFloat) {
+    root.style.removeProperty("--active-quote-bar-offset");
+    return;
+  }
+
+  const activeBarVisible =
+    refs.activeQuoteBar && !refs.activeQuoteBar.classList.contains("hidden");
+  const activeBarHeight = activeBarVisible
+    ? refs.activeQuoteBar.getBoundingClientRect().height
+    : 0;
+
+  if (activeBarVisible && activeBarHeight > 0) {
+    root.style.setProperty("--active-quote-bar-offset", `${Math.ceil(activeBarHeight)}px`);
+  } else {
+    root.style.removeProperty("--active-quote-bar-offset");
+  }
+}
+
+function getQuoteStepActivationOffsetPx() {
+  let offset = 14;
+
+  if (refs.quoteStepFloat) {
+    const navRect = refs.quoteStepFloat.getBoundingClientRect();
+    if (navRect.height > 0) {
+      offset = Math.max(offset, navRect.bottom);
+    }
+  }
+
+  if (refs.activeQuoteBar && !refs.activeQuoteBar.classList.contains("hidden")) {
+    const barRect = refs.activeQuoteBar.getBoundingClientRect();
+    if (barRect.height > 0) {
+      offset = Math.max(offset, barRect.bottom);
+    }
+  } else if (state.quoteMeta.id) {
+    offset += 74;
+  }
+
+  return offset;
+}
+
 function renderQuoteStepPanel() {
   if (!refs.quoteStepFloat || !refs.quoteStepFloatCard || !refs.quoteStepFloatRestoreBtn) {
     return;
   }
 
-  refs.quoteStepFloat.classList.toggle("is-collapsed", runtime.quoteStepPanelCollapsed);
+  runtime.quoteStepPanelCollapsed = false;
+
+  refs.quoteStepFloat.classList.toggle("is-collapsed", false);
   refs.quoteStepFloatCard.classList.toggle("hidden", runtime.quoteStepPanelCollapsed);
   refs.quoteStepFloatRestoreBtn.classList.toggle("hidden", !runtime.quoteStepPanelCollapsed);
+  syncQuoteStickyStack();
 }
 
 function setSavedQuotesDrawerOpen(isOpen) {
@@ -1801,6 +1870,7 @@ function renderActiveQuoteBar() {
         : "Ack Receipt";
   }
   refs.unloadQuoteBtn.disabled = runtime.quoteBusy;
+  syncQuoteStickyStack();
 }
 
 function renderQuoteDetailPanels() {

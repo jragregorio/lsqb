@@ -81,10 +81,10 @@ code {
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 82%, #ffffff 18%);
-  background: color-mix(in srgb, var(--panel-bg) 92%, #ffffff 8%);
-  box-shadow: 0 6px 16px rgba(71, 46, 29, 0.07);
+  margin-bottom: 0;
+  border-bottom: 0;
+  background: var(--panel-bg);
+  box-shadow: none;
 }
 
 .page-header-shell {
@@ -161,22 +161,63 @@ code {
   border-radius: 0.65rem;
 }
 
+.quote-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.quote-layout-main {
+  min-width: 0;
+}
+
+.quote-step-nav,
 .quote-step-float {
-  position: fixed;
-  left: 0.5rem;
-  top: 8.2rem;
-  z-index: 16;
-  width: 8.1rem;
+  position: sticky;
+  top: var(--active-quote-bar-offset, 0px);
+  z-index: 19;
+  width: 100dvw;
+  margin-left: calc(50% - 50dvw);
+  margin-right: calc(50% - 50dvw);
+  margin-bottom: 1.25rem;
+  padding: 0;
+  background: var(--panel-bg);
+  border-top: 0;
+  border-bottom: 1px solid var(--panel-border);
+  box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
+}
+
+.quote-layout:not(:has(.active-quote-bar:not(.hidden))) .quote-step-float-card {
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 82%, #ffffff 18%);
+}
+
+.quote-layout:has(.active-quote-bar:not(.hidden)) .quote-step-nav,
+.quote-layout:has(.active-quote-bar:not(.hidden)) .quote-step-float {
+  border-top: 0;
+}
+
+.quote-layout:has(.active-quote-bar:not(.hidden)) .quote-step-float-card {
+  border-top: 0;
+}
+
+.active-quote-bar:not(.hidden) {
+  margin-bottom: 0;
+  border-bottom: 0;
+  box-shadow: none;
 }
 
 .quote-step-float-card {
-  display: grid;
-  gap: 0.38rem;
-  padding: 0.52rem;
-  border: 1px solid var(--panel-border);
-  border-radius: 0.8rem;
-  background: color-mix(in srgb, var(--panel-bg) 96%, #ffffff 4%);
-  box-shadow: 0 10px 24px rgba(84, 58, 37, 0.1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.38rem 0.45rem;
+  width: min(1440px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 0.55rem 0 0.65rem;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .quote-step-float-header {
@@ -184,6 +225,7 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 0.35rem;
+  flex: 0 0 auto;
 }
 
 .quote-step-float-title {
@@ -199,47 +241,20 @@ code {
   padding: 0;
   background: transparent;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
+  pointer-events: none;
 }
 
 .quote-step-float-hide,
 .quote-step-float-restore {
-  min-width: 1.45rem;
-  min-height: 1.45rem;
-  width: 1.45rem;
-  height: 1.45rem;
-  padding: 0;
-  border: 1px solid var(--panel-border);
-  border-radius: 999px;
-  background: var(--panel-bg);
-  color: #4a3b2f;
-  font-size: 0.95rem;
-  line-height: 1;
-}
-
-.quote-step-float-restore {
-  box-shadow: 0 8px 20px rgba(84, 58, 37, 0.14);
-}
-
-.quote-step-float.is-collapsed {
-  width: auto;
-}
-
-.quote-step-float.is-collapsed .quote-step-float-restore {
-  min-width: 2.2rem;
-  min-height: 2.2rem;
-  width: 2.2rem;
-  height: 2.2rem;
-  font-size: 1.2rem;
-}
-
-.quote-step-float.is-collapsed .quote-step-float-card {
-  display: none;
+  display: none !important;
 }
 
 .quote-step-pill {
-  width: 100%;
-  text-align: left;
+  flex: 1 1 7.5rem;
+  width: auto;
+  min-width: 0;
+  text-align: center;
   min-height: 1.9rem;
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--panel-border);
@@ -259,7 +274,7 @@ code {
 .active-quote-bar {
   position: sticky;
   top: 0;
-  z-index: 18;
+  z-index: 20;
   width: 100dvw;
   margin-left: calc(50% - 50dvw);
   margin-right: calc(50% - 50dvw);
@@ -1671,7 +1686,7 @@ tbody tr.measurement-row--drag-over {
   }
 
   .page-header {
-    margin-bottom: 1rem;
+    margin-bottom: 0;
   }
 
   .page-header-shell {
@@ -1707,12 +1722,7 @@ tbody tr.measurement-row--drag-over {
     font-size: 0.95rem;
   }
 
-  .quote-step-float {
-    display: none;
-  }
-
   .active-quote-bar {
-    top: 0;
     padding: 0;
   }
 
@@ -1976,9 +1986,18 @@ tbody tr.measurement-row--drag-over {
   }
 }
 
-@media (max-width: 1200px) {
-  .quote-step-float {
-    display: none;
+@media (max-width: 720px) {
+  .quote-step-float-card {
+    width: min(100vw - 1rem, 1440px);
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .quote-step-pill {
+    flex: 0 0 auto;
+    min-width: 6.4rem;
   }
 }
 
