@@ -26,6 +26,8 @@ create table if not exists public.quotes (
   project_name text,
   quote_date date,
   project_architect text,
+  project_professional_role text not null default 'architect'
+    check (project_professional_role in ('architect', 'interior_designer')),
   contact_number text,
   email_address text,
   quote_reference text,

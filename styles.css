@@ -669,7 +669,8 @@ code {
 }
 
 .quote-meta-grid input,
-.quote-meta-grid textarea {
+.quote-meta-grid textarea,
+.quote-meta-grid select {
   width: 100%;
   min-height: 2.7rem;
   padding: 0.62rem 0.72rem;
@@ -678,6 +679,18 @@ code {
   background: #fffefc;
   box-shadow: inset 0 1px 1px rgba(84, 58, 37, 0.03);
   resize: vertical;
+}
+
+.quote-project-professional-field select {
+  margin-bottom: 0.3rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #7a6758;
+  font-weight: 600;
+  min-height: 2.2rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
 }
 
 .quote-meta-grid-client {

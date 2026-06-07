@@ -52,12 +52,15 @@ const MEASUREMENT_TYPE_OPTIONS = [
 /** Must match the configured material category in Material Setup (e.g. pricelist row). */
 const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized";
 
-const QUOTE_SELECT_COLUMNS = [
+const PROJECT_PROFESSIONAL_ROLE_COLUMN = "project_professional_role";
+
+const QUOTE_SELECT_COLUMN_LIST = [
   "id",
   "client_name",
   "project_name",
   "quote_date",
   "project_architect",
+  PROJECT_PROFESSIONAL_ROLE_COLUMN,
   "contact_number",
   "email_address",
   "quote_reference",
@@ -74,7 +77,10 @@ const QUOTE_SELECT_COLUMNS = [
   "final_total_amount",
   "created_at",
   "updated_at",
-].join(", ");
+];
+
+let supportsProjectProfessionalRoleColumn = false;
+let quoteSchemaSupportChecked = false;
 
 const refs = {
   topAppMenuShell: document.querySelector(".top-app-menu-shell"),
@@ -124,6 +130,7 @@ const refs = {
   quoteClientName: document.querySelector("#quote-client-name"),
   quoteProjectName: document.querySelector("#quote-project-name"),
   quoteDate: document.querySelector("#quote-date"),
+  quoteProjectProfessionalRole: document.querySelector("#quote-project-professional-role"),
   quoteProjectArchitect: document.querySelector("#quote-project-architect"),
   quoteContactNumber: document.querySelector("#quote-contact-number"),
   quoteEmailAddress: document.querySelector("#quote-email-address"),
@@ -361,6 +368,12 @@ async function bootstrap() {
   });
   refs.quoteDate?.addEventListener("input", (event) => {
     state.quoteMeta.quoteDate = event.target.value;
+    persistDraftChange();
+  });
+  refs.quoteProjectProfessionalRole?.addEventListener("change", (event) => {
+    state.quoteMeta.projectProfessionalRole = normalizeProjectProfessionalRole(
+      event.target.value,
+    );
     persistDraftChange();
   });
   refs.quoteProjectArchitect?.addEventListener("input", (event) => {
@@ -736,6 +749,7 @@ async function initializeAuth() {
   });
 
   if (session) {
+    await ensureQuoteSchemaSupport();
     // Always refetch: localStorage may hold a stale catalog count after DB rows change.
     await loadMaterialsFromSupabase({ showAlertOnFailure: false });
     await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
@@ -751,6 +765,8 @@ async function handleAuthSessionChange(event, sessionState) {
     return;
   }
 
+  await ensureQuoteSchemaSupport();
+
   if (!isSupabaseSourceLoaded()) {
     await loadMaterialsFromSupabase({ showAlertOnFailure: false });
   }
@@ -762,6 +778,8 @@ function applySession(session) {
   runtime.session = session;
 
   if (!session) {
+    supportsProjectProfessionalRoleColumn = false;
+    quoteSchemaSupportChecked = false;
     clearQueuedAutosave();
     runtime.authBusy = false;
     runtime.sourceBusy = false;
@@ -833,6 +851,7 @@ function getDefaultQuoteMeta() {
     projectName: "",
     quoteDate: "",
     projectArchitect: "",
+    projectProfessionalRole: "architect",
     contactNumber: "",
     emailAddress: "",
     quoteReference: "",
@@ -1204,6 +1223,8 @@ async function handleSaveQuote(options = {}) {
   }
   syncQuoteMetaFromInputs();
 
+  await ensureQuoteSchemaSupport();
+
   if (!runtime.session) {
     setQuoteStatus(
       autosave
@@ -1262,18 +1283,19 @@ async function handleSaveQuote(options = {}) {
     applied_discount_amount: summaryTotals.discountAmount,
     final_total_amount: summaryTotals.finalTotal,
   };
+  applyOptionalQuotePayloadFields(quotePayload);
 
   const quoteQuery = state.quoteMeta.id
     ? supabase
         .from("quotes")
         .update(quotePayload)
         .eq("id", state.quoteMeta.id)
-        .select(QUOTE_SELECT_COLUMNS)
+        .select(getQuoteSelectColumns())
         .single()
     : supabase
         .from("quotes")
         .insert(quotePayload)
-        .select(QUOTE_SELECT_COLUMNS)
+        .select(getQuoteSelectColumns())
         .single();
 
   const { data: savedQuote, error: quoteError } = await quoteQuery;
@@ -1388,6 +1410,9 @@ async function handleSaveQuote(options = {}) {
     projectName: savedQuote.project_name || "",
     quoteDate: savedQuote.quote_date || "",
     projectArchitect: savedQuote.project_architect || "",
+    projectProfessionalRole: normalizeProjectProfessionalRole(
+      savedQuote.project_professional_role,
+    ),
     contactNumber: savedQuote.contact_number || "",
     emailAddress: savedQuote.email_address || "",
     quoteReference: savedQuote.quote_reference || "",
@@ -1469,10 +1494,12 @@ async function loadQuoteById(quoteId) {
   render();
   setQuoteStatus("Loading quote...");
 
+  await ensureQuoteSchemaSupport();
+
   const [quoteResult, materialsResult, measurementsResult] = await Promise.all([
     supabase
       .from("quotes")
-      .select(QUOTE_SELECT_COLUMNS)
+      .select(getQuoteSelectColumns())
       .eq("id", quoteId)
       .single(),
     supabase
@@ -1506,6 +1533,9 @@ async function loadQuoteById(quoteId) {
     projectName: quoteResult.data.project_name || "",
     quoteDate: quoteResult.data.quote_date || "",
     projectArchitect: quoteResult.data.project_architect || "",
+    projectProfessionalRole: normalizeProjectProfessionalRole(
+      quoteResult.data.project_professional_role,
+    ),
     contactNumber: quoteResult.data.contact_number || "",
     emailAddress: quoteResult.data.email_address || "",
     quoteReference: quoteResult.data.quote_reference || "",
@@ -1816,6 +1846,12 @@ function renderQuoteWorkspace() {
   refs.quoteClientName.value = state.quoteMeta.clientName;
   refs.quoteProjectName.value = state.quoteMeta.projectName;
   refs.quoteDate.value = state.quoteMeta.quoteDate;
+  if (refs.quoteProjectProfessionalRole) {
+    refs.quoteProjectProfessionalRole.value = normalizeProjectProfessionalRole(
+      state.quoteMeta.projectProfessionalRole,
+    );
+    refs.quoteProjectProfessionalRole.disabled = runtime.quoteBusy;
+  }
   refs.quoteProjectArchitect.value = state.quoteMeta.projectArchitect;
   refs.quoteContactNumber.value = state.quoteMeta.contactNumber;
   refs.quoteEmailAddress.value = state.quoteMeta.emailAddress;
@@ -4162,6 +4198,9 @@ function buildCurrentQuoteFingerprint() {
     projectName: state.quoteMeta.projectName.trim(),
     quoteDate: state.quoteMeta.quoteDate,
     projectArchitect: state.quoteMeta.projectArchitect.trim(),
+    projectProfessionalRole: normalizeProjectProfessionalRole(
+      state.quoteMeta.projectProfessionalRole,
+    ),
     contactNumber: state.quoteMeta.contactNumber.trim(),
     emailAddress: state.quoteMeta.emailAddress.trim(),
     notes: state.quoteMeta.notes.trim(),
@@ -4435,6 +4474,9 @@ function syncQuoteMetaFromInputs() {
   state.quoteMeta.projectName = refs.quoteProjectName.value;
   state.quoteMeta.quoteDate = refs.quoteDate.value;
   state.quoteMeta.projectArchitect = refs.quoteProjectArchitect.value;
+  state.quoteMeta.projectProfessionalRole = normalizeProjectProfessionalRole(
+    refs.quoteProjectProfessionalRole?.value,
+  );
   state.quoteMeta.contactNumber = refs.quoteContactNumber.value;
   state.quoteMeta.emailAddress = refs.quoteEmailAddress.value;
   state.quoteMeta.notes = refs.quoteNotes.value;
@@ -4482,6 +4524,9 @@ function buildContractPreviewData() {
     clientAddress: state.quoteMeta.projectName.trim() || "-",
     quoteDate: formatContractDate(state.quoteMeta.quoteDate),
     projectArchitect: state.quoteMeta.projectArchitect.trim() || "-",
+    projectProfessionalLabel: getProjectProfessionalLabel(
+      state.quoteMeta.projectProfessionalRole,
+    ),
     contactNumber: state.quoteMeta.contactNumber.trim() || "-",
     emailAddress: state.quoteMeta.emailAddress.trim() || "-",
     notes: state.quoteMeta.notes.trim(),
@@ -5066,7 +5111,7 @@ function buildContractPdfDefinition(
                 width: "*",
                 stack: [
                   buildField("Client's Address", contract.clientAddress),
-                  buildField("Project Architect", contract.projectArchitect),
+                  buildField(contract.projectProfessionalLabel, contract.projectArchitect),
                   buildField("Email Address", contract.emailAddress),
                 ],
               },
@@ -5886,7 +5931,7 @@ function buildAcknowledgementReceiptPdfDefinition(
             width: "*",
             stack: [
               buildField("Client's Address", contract.clientAddress),
-              buildField("Project Architect", contract.projectArchitect),
+              buildField(contract.projectProfessionalLabel, contract.projectArchitect),
               buildField("Email Address", contract.emailAddress),
             ],
           },
@@ -5971,6 +6016,55 @@ function getPdfOrganizationLabel() {
     return "Kurtina Kultura";
   }
   return "Luxe Shade";
+}
+
+function getQuoteSelectColumns() {
+  const columns = supportsProjectProfessionalRoleColumn
+    ? QUOTE_SELECT_COLUMN_LIST
+    : QUOTE_SELECT_COLUMN_LIST.filter((column) => column !== PROJECT_PROFESSIONAL_ROLE_COLUMN);
+
+  return columns.join(", ");
+}
+
+async function ensureQuoteSchemaSupport() {
+  if (!runtime.session) {
+    supportsProjectProfessionalRoleColumn = false;
+    quoteSchemaSupportChecked = false;
+    return;
+  }
+
+  if (quoteSchemaSupportChecked) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("quotes")
+    .select(PROJECT_PROFESSIONAL_ROLE_COLUMN)
+    .limit(1);
+
+  supportsProjectProfessionalRoleColumn = !error;
+  quoteSchemaSupportChecked = true;
+}
+
+function applyOptionalQuotePayloadFields(payload) {
+  if (!supportsProjectProfessionalRoleColumn) {
+    return payload;
+  }
+
+  payload[PROJECT_PROFESSIONAL_ROLE_COLUMN] = normalizeProjectProfessionalRole(
+    state.quoteMeta.projectProfessionalRole,
+  );
+  return payload;
+}
+
+function normalizeProjectProfessionalRole(value) {
+  return value === "interior_designer" ? "interior_designer" : "architect";
+}
+
+function getProjectProfessionalLabel(role) {
+  return normalizeProjectProfessionalRole(role) === "interior_designer"
+    ? "Project Interior Designer"
+    : "Project Architect";
 }
 
 function formatMeasurementDimension(value) {
