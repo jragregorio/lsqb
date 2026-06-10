@@ -1,4 +1,4 @@
-# LuxeShade Quote Builder
+# LUXESHADE Quote Builder
 
 Tablet-friendly web app for Part 1 of the quotation workflow:
 

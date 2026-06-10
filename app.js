@@ -4730,15 +4730,81 @@ function loadContractPdfAssets() {
   const ndsLogoUrl = new URL("./assets/nds-trading-logo.png", window.location.href).href;
   const kkLogoUrl = new URL("./assets/kurtina-kultura-logo.png", window.location.href).href;
   contractPdfAssetsPromise = Promise.all([
-    fileUrlToDataUrl(luxeLogoUrl),
-    fileUrlToDataUrl(ndsLogoUrl),
-    fileUrlToDataUrl(kkLogoUrl),
-  ]).then(([luxeLogoDataUrl, ndsLogoDataUrl, kkLogoDataUrl]) => ({
-    luxeLogoDataUrl,
-    ndsLogoDataUrl,
-    kkLogoDataUrl,
+    loadPdfImageAsset(luxeLogoUrl),
+    loadPdfImageAsset(ndsLogoUrl),
+    loadPdfImageAsset(kkLogoUrl),
+  ]).then(([luxeLogo, ndsLogo, kkLogo]) => ({
+    luxeLogoDataUrl: luxeLogo.dataUrl,
+    luxeLogoWidth: luxeLogo.width,
+    luxeLogoHeight: luxeLogo.height,
+    ndsLogoDataUrl: ndsLogo.dataUrl,
+    ndsLogoWidth: ndsLogo.width,
+    ndsLogoHeight: ndsLogo.height,
+    kkLogoDataUrl: kkLogo.dataUrl,
+    kkLogoWidth: kkLogo.width,
+    kkLogoHeight: kkLogo.height,
   }));
   return contractPdfAssetsPromise;
+}
+
+async function loadPdfImageAsset(url) {
+  const dataUrl = await fileUrlToDataUrl(url);
+  return await normalizePdfImageDataUrl(dataUrl);
+}
+
+function normalizePdfImageDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        reject(new Error("Could not prepare image for PDF export."));
+        return;
+      }
+
+      context.drawImage(image, 0, 0);
+
+      resolve({
+        dataUrl: canvas.toDataURL("image/png"),
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+    };
+    image.onerror = () => reject(new Error("Could not prepare image for PDF export."));
+    image.src = dataUrl;
+  });
+}
+
+function scaleImageToWidth(naturalWidth, naturalHeight, targetWidth) {
+  if (!naturalWidth || !naturalHeight) {
+    return { width: targetWidth, height: targetWidth };
+  }
+
+  return {
+    width: targetWidth,
+    height: Math.max(1, Math.round((targetWidth / naturalWidth) * naturalHeight)),
+  };
+}
+
+function detectImageMimeType(bytes) {
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return "image/png";
+  }
+
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+
+  return "";
 }
 
 async function fileUrlToDataUrl(url) {
@@ -4747,7 +4813,12 @@ async function fileUrlToDataUrl(url) {
     throw new Error(`Failed to load asset: ${url}`);
   }
 
-  const blob = await response.blob();
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const detectedMimeType = detectImageMimeType(bytes);
+  const blob = new Blob([bytes], {
+    type: detectedMimeType || response.headers.get("content-type") || "application/octet-stream",
+  });
+
   return await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result);
@@ -4951,7 +5022,7 @@ function buildContractPdfFileName(
     ? "NDS Contract"
     : organization === "kk"
       ? "KK Contract"
-      : "LuxeShade Contract";
+      : "LUXESHADE Contract";
   const prefix = printClean ? `${basePrefix} Clean` : basePrefix;
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
@@ -4965,12 +5036,14 @@ function buildContractPdfFileName(
 
 function getContractPdfBranding(organization, assets) {
   if (organization === "kk") {
-    const kkAspectRatio = 585 / 1024;
-    const watermarkWidth = 250;
+    const headerSize = scaleImageToWidth(assets.kkLogoWidth, assets.kkLogoHeight, 110);
+    const watermarkSize = scaleImageToWidth(assets.kkLogoWidth, assets.kkLogoHeight, 250);
     return {
       logoDataUrl: assets.kkLogoDataUrl,
-      watermarkWidth,
-      watermarkHeight: Math.round(watermarkWidth * kkAspectRatio),
+      logoWidth: headerSize.width,
+      logoHeight: headerSize.height,
+      watermarkWidth: watermarkSize.width,
+      watermarkHeight: watermarkSize.height,
       watermarkOpacity: 0.12,
       borderColor: "#d9d2cd",
       accentColor: "#111111",
@@ -4980,12 +5053,14 @@ function getContractPdfBranding(organization, assets) {
     };
   }
   if (organization === "nds") {
-    const ndsAspectRatio = 125 / 425;
-    const watermarkWidth = 260;
+    const headerSize = scaleImageToWidth(assets.ndsLogoWidth, assets.ndsLogoHeight, 110);
+    const watermarkSize = scaleImageToWidth(assets.ndsLogoWidth, assets.ndsLogoHeight, 260);
     return {
       logoDataUrl: assets.ndsLogoDataUrl,
-      watermarkWidth,
-      watermarkHeight: Math.round(watermarkWidth * ndsAspectRatio),
+      logoWidth: headerSize.width,
+      logoHeight: headerSize.height,
+      watermarkWidth: watermarkSize.width,
+      watermarkHeight: watermarkSize.height,
       watermarkOpacity: 0.14,
       borderColor: "#e4c7c6",
       accentColor: "#8d2a24",
@@ -4995,12 +5070,14 @@ function getContractPdfBranding(organization, assets) {
     };
   }
 
-  const luxeAspectRatio = 872 / 1024;
-  const watermarkWidth = 220;
+  const headerSize = scaleImageToWidth(assets.luxeLogoWidth, assets.luxeLogoHeight, 110);
+  const watermarkSize = scaleImageToWidth(assets.luxeLogoWidth, assets.luxeLogoHeight, 220);
   return {
     logoDataUrl: assets.luxeLogoDataUrl,
-    watermarkWidth,
-    watermarkHeight: Math.round(watermarkWidth * luxeAspectRatio),
+    logoWidth: headerSize.width,
+    logoHeight: headerSize.height,
+    watermarkWidth: watermarkSize.width,
+    watermarkHeight: watermarkSize.height,
     watermarkOpacity: 0.16,
     borderColor: "#e6d8ca",
     accentColor: "#9e7149",
@@ -5257,7 +5334,8 @@ function buildContractPdfDefinition(
         stack: [
           {
             image: branding.logoDataUrl,
-            width: 110,
+            width: branding.logoWidth,
+            height: branding.logoHeight,
             alignment: "center",
             margin: [0, 0, 0, 10],
           },
@@ -5807,7 +5885,7 @@ function buildAcknowledgementReceiptFileName(contract, organization = "luxe") {
       ? "NDS"
       : organization === "kk"
         ? "KK"
-        : "LuxeShade";
+        : "LUXESHADE";
   const prefix = `${orgPrefix} Acknowledgement Receipt`;
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
@@ -6080,7 +6158,8 @@ function buildAcknowledgementReceiptPdfDefinition(
     content: [
       {
         image: branding.logoDataUrl,
-        width: 110,
+        width: branding.logoWidth,
+        height: branding.logoHeight,
         alignment: "center",
         margin: [0, 0, 0, 10],
       },
@@ -6190,7 +6269,7 @@ function getPdfOrganizationLabel() {
   if (state.pdfOrganization === "kk") {
     return "Kurtina Kultura";
   }
-  return "Luxe Shade";
+  return "LUXESHADE";
 }
 
 function getQuoteSelectColumns() {
