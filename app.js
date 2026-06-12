@@ -5525,26 +5525,6 @@ function buildContractPdfDefinition(
                 {
                   text: [
                     { text: "Online payment via " },
-                    { text: "BDO", bold: true },
-                    { text: " is accepted." },
-                  ],
-                  font: "Roboto",
-                },
-                {
-                  text: [
-                    { text: "Account name: " },
-                    { text: "Ma. Elena Bernardo", font: "Roboto", bold: true, fontSize: 11.5 },
-                  ],
-                },
-                {
-                  text: [
-                    { text: "Account number: " },
-                    { text: "0110 1002 1573", font: "Roboto", bold: true, fontSize: 11.5 },
-                  ],
-                },
-                {
-                  text: [
-                    { text: "Online payment via " },
                     { text: "Metrobank", bold: true },
                     { text: " is accepted." },
                   ],
@@ -5554,7 +5534,7 @@ function buildContractPdfDefinition(
                   text: [
                     { text: "Account name: " },
                     {
-                      text: "Monique Lorenzo Gregorio",
+                      text: "LUXEHADE CURTAINS & WINDOW BLINDS INSTALLATION SERVICES",
                       font: "Roboto",
                       bold: true,
                       fontSize: 11.5,
@@ -5564,8 +5544,7 @@ function buildContractPdfDefinition(
                 {
                   text: [
                     { text: "Account number: " },
-                    { text: "494 349 463 4199", font: "Roboto", bold: true, fontSize: 11.5 },
-               
+                    { text: "494-3-49463610-8", font: "Roboto", bold: true, fontSize: 11.5 },
                   ],
                 },
                 {
