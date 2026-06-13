@@ -6,14 +6,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LUXESHADE Quote Builder v4.8.4</title>
+    <title>LUXESHADE Quote Builder v4.8.5</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.8.4" />
+    <link rel="stylesheet" href="./styles.css?v=4.8.5" />
   </head>
   <body>
     <main class="app-shell">
@@ -23,7 +23,7 @@
             <div class="app-brand">
               <p class="eyebrow">LUXESHADE</p>
               <h1 class="app-brand-title">LUXESHADE Quote Builder</h1>
-              <p class="app-brand-version">v4.8.4</p>
+              <p class="app-brand-version">v4.8.5</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -145,22 +145,32 @@
             </div>
           </div>
           <div class="active-quote-bar-actions">
-            <button id="active-save-quote-btn" class="primary-button" type="button">
-              Save Quote
-            </button>
-            <button id="active-export-pdf-btn" class="secondary-button" type="button">
-              Export PDF
-            </button>
-            <button
-              id="active-acknowledgement-receipt-btn"
-              class="tertiary-button"
-              type="button"
-            >
-              Ack Receipt
-            </button>
-            <button id="unload-quote-btn" class="secondary-button" type="button">
-              Unload
-            </button>
+            <div class="quote-toolbar-group">
+              <p class="quote-toolbar-group-label">Quote</p>
+              <div class="quote-toolbar-group-actions">
+                <button id="active-save-quote-btn" class="primary-button" type="button">
+                  Save Quote
+                </button>
+                <button id="unload-quote-btn" class="secondary-button" type="button">
+                  Unload
+                </button>
+              </div>
+            </div>
+            <div class="quote-toolbar-group quote-toolbar-group-documents">
+              <p class="quote-toolbar-group-label">Documents</p>
+              <div class="quote-toolbar-group-actions">
+                <button id="active-export-pdf-btn" class="accent-button" type="button">
+                  Export PDF
+                </button>
+                <button
+                  id="active-acknowledgement-receipt-btn"
+                  class="accent-button"
+                  type="button"
+                >
+                  Ack Receipt
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -330,26 +340,36 @@
         </div>
 
         <div class="quote-toolbar">
-          <div class="quote-toolbar-actions">
-            <button id="new-quote-btn" class="secondary-button" type="button">
-              New Quote
-            </button>
-            <button id="save-quote-btn" class="primary-button" type="button">
-              Save Quote
-            </button>
-            <button id="save-as-new-quote-btn" class="tertiary-button" type="button">
-              Save as New
-            </button>
-            <button id="export-pdf-btn" class="secondary-button" type="button">
-              Export PDF
-            </button>
-            <button
-              id="acknowledgement-receipt-btn"
-              class="tertiary-button"
-              type="button"
-            >
-              Ack Receipt
-            </button>
+          <div class="quote-toolbar-groups">
+            <div class="quote-toolbar-group">
+              <p class="quote-toolbar-group-label">Quote</p>
+              <div class="quote-toolbar-group-actions">
+                <button id="new-quote-btn" class="secondary-button" type="button">
+                  New Quote
+                </button>
+                <button id="save-quote-btn" class="primary-button" type="button">
+                  Save Quote
+                </button>
+                <button id="save-as-new-quote-btn" class="accent-button" type="button">
+                  Save as New
+                </button>
+              </div>
+            </div>
+            <div class="quote-toolbar-group quote-toolbar-group-documents">
+              <p class="quote-toolbar-group-label">Documents</p>
+              <div class="quote-toolbar-group-actions">
+                <button id="export-pdf-btn" class="accent-button" type="button">
+                  Export PDF
+                </button>
+                <button
+                  id="acknowledgement-receipt-btn"
+                  class="accent-button"
+                  type="button"
+                >
+                  Ack Receipt
+                </button>
+              </div>
+            </div>
           </div>
 
           <article class="quote-badge">
@@ -729,6 +749,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.8.4"></script>
+    <script type="module" src="./app.js?v=4.8.5"></script>
   </body>
 </html>

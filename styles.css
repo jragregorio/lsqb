@@ -337,9 +337,10 @@ code {
 
 .active-quote-bar-actions {
   display: flex;
-  gap: 0.75rem;
-  align-items: center;
+  gap: 1.25rem;
+  align-items: flex-end;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .active-quote-bar-label {
@@ -618,19 +619,42 @@ code {
 .quote-toolbar {
   display: flex;
   gap: 1rem;
-  align-items: stretch;
+  align-items: flex-end;
   justify-content: space-between;
   margin-bottom: 1rem;
 }
 
-.quote-toolbar-actions {
+.quote-toolbar-groups {
+  display: flex;
+  flex: 1;
+  gap: 1.25rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.quote-toolbar-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.quote-toolbar-group-label {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.quote-toolbar-group-actions {
   display: flex;
   gap: 0.8rem;
   flex-wrap: wrap;
   align-items: center;
 }
 
-#export-pdf-btn {
+.quote-toolbar-group-documents {
   margin-left: auto;
 }
 
@@ -974,6 +998,7 @@ code {
 .file-picker,
 .primary-button,
 .secondary-button,
+.accent-button,
 .tertiary-button,
 .ghost-danger-button {
   display: inline-flex;
@@ -1051,6 +1076,29 @@ code {
   border-color: var(--panel-border);
   background: var(--panel-bg);
   color: #3f352c;
+}
+
+.accent-button {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--panel-border) 42%);
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel-bg) 78%);
+  color: #2a2119;
+  box-shadow: 0 4px 12px rgba(71, 46, 29, 0.08);
+  font-weight: 600;
+}
+
+.accent-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--primary) 32%);
+  background: color-mix(in srgb, var(--accent) 34%, #ffffff 66%);
+  color: #1f1b18;
+}
+
+.accent-button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(71, 46, 29, 0.08);
+}
+
+.accent-button:disabled {
+  opacity: 0.6;
 }
 
 .tertiary-button {
@@ -1813,11 +1861,21 @@ tbody tr.measurement-row--drag-over {
 
   .quote-toolbar {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .quote-toolbar-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
+  .quote-toolbar-groups {
+    flex-direction: column;
+    width: 100%;
+    align-items: stretch;
+    gap: 0.85rem;
+  }
+
+  .quote-toolbar-group-documents {
+    margin-left: 0;
+  }
+
+  .quote-toolbar-group-actions {
     gap: 0.5rem;
   }
 
@@ -1854,6 +1912,7 @@ tbody tr.measurement-row--drag-over {
 
   .primary-button,
   .secondary-button,
+  .accent-button,
   .tertiary-button,
   .file-picker {
     width: 100%;
@@ -1868,38 +1927,43 @@ tbody tr.measurement-row--drag-over {
     left: 0;
   }
 
-  /* Quote header actions: keep buttons in a row. */
-  .quote-toolbar-actions .primary-button,
-  .quote-toolbar-actions .secondary-button,
-  .quote-toolbar-actions .tertiary-button {
-    width: calc(50% - 0.25rem);
+  /* Quote header actions: keep buttons in a row within each group. */
+  .quote-toolbar-group-actions .primary-button,
+  .quote-toolbar-group-actions .secondary-button,
+  .quote-toolbar-group-actions .accent-button,
+  .quote-toolbar-group-actions .tertiary-button {
+    flex: 1 1 calc(50% - 0.25rem);
     min-height: 2.55rem;
     padding: 0.6rem 0.75rem;
   }
 
-  #export-pdf-btn {
-    margin-left: 0;
-  }
-
-  /* Save button can stay prominent across the row if needed. */
   #save-quote-btn {
-    width: 100%;
+    flex-basis: 100%;
   }
 
-  /* Active quote bar actions (top sticky header): row layout on mobile. */
+  /* Active quote bar actions (top sticky header): grouped layout on mobile. */
   .active-quote-bar-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .active-quote-bar-actions .quote-toolbar-group-actions .primary-button,
+  .active-quote-bar-actions .quote-toolbar-group-actions .secondary-button,
+  .active-quote-bar-actions .quote-toolbar-group-actions .accent-button {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-height: 2.55rem;
+    padding: 0.6rem 0.75rem;
   }
 
   #active-save-quote-btn {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
   }
 
   #active-export-pdf-btn,
   #unload-quote-btn {
-    width: 100%;
     min-height: 2.55rem;
     padding: 0.6rem 0.75rem;
   }
@@ -1909,13 +1973,7 @@ tbody tr.measurement-row--drag-over {
   .saved-quotes-drawer-close,
   #active-save-quote-btn,
   #unload-quote-btn {
-    width: 100%;
-  }
-
-  .active-quote-bar-actions {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    width: auto;
   }
 
   .saved-quotes-drawer-header,
