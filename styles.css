@@ -766,13 +766,16 @@ code {
   box-shadow: inset 0 1px 1px rgba(84, 58, 37, 0.03);
 }
 
-.admin-pdf-actions {
+.admin-pdf-actions,
+.admin-gov-doc-actions {
   display: grid;
   grid-template-columns: 1fr;
+  gap: 0.65rem;
   margin-top: 1.15rem;
 }
 
-.admin-pdf-actions .secondary-button {
+.admin-pdf-actions .secondary-button,
+.admin-gov-doc-actions .secondary-button {
   width: 100%;
   box-sizing: border-box;
 }

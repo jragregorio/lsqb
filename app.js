@@ -164,6 +164,8 @@ const refs = {
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
+  dtiCertificateBtn: document.querySelector("#dti-certificate-btn"),
+  dtiOfficialReceiptBtn: document.querySelector("#dti-official-receipt-btn"),
   deliveryAmount: document.querySelector("#delivery-amount"),
   deliveryFree: document.querySelector("#delivery-free"),
   installSteamAmount: document.querySelector("#install-steam-amount"),
@@ -236,6 +238,11 @@ const SAVE_REMINDER_REPEAT_MS = 60000;
 const MEASUREMENT_DRAG_ACTIVATE_PX = 8;
 /** Auto-hide Current Quote name tooltip after tap. */
 const QUOTE_BADGE_TOOLTIP_AUTO_HIDE_MS = 2000;
+
+const GOVERNMENT_DOC_URLS = {
+  dtiCertificate: "./docs/LUXESHADE-BNRS-Certificate.pdf",
+  dtiOfficialReceipt: "./docs/LUXESHADE-BNRS-Official Receipt.pdf",
+};
 
 const runtime = {
   session: null,
@@ -339,6 +346,12 @@ async function bootstrap() {
   }
   refs.printCleanBtn?.addEventListener("click", () => {
     void handlePrintClean();
+  });
+  refs.dtiCertificateBtn?.addEventListener("click", () => {
+    openGovernmentDoc(GOVERNMENT_DOC_URLS.dtiCertificate);
+  });
+  refs.dtiOfficialReceiptBtn?.addEventListener("click", () => {
+    openGovernmentDoc(GOVERNMENT_DOC_URLS.dtiOfficialReceipt);
   });
   refs.discountType.addEventListener("change", (event) => {
     state.discountType = event.target.value === "percent" ? "percent" : "amount";
@@ -456,6 +469,11 @@ async function bootstrap() {
   ensureStarterRows();
   render();
   await initializeAuth();
+}
+
+function openGovernmentDoc(relativePath) {
+  const url = new URL(relativePath, window.location.href).href;
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function handleGlobalKeydown(event) {
