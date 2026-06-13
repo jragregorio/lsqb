@@ -1292,7 +1292,7 @@ async function refreshSavedQuotes({
 
   const { data, error } = await supabase
     .from("quotes")
-    .select("id, client_name, project_name, quote_reference, final_total_amount, created_at, updated_at")
+    .select("id, client_name, project_name, notes, quote_reference, final_total_amount, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
   runtime.quoteListBusy = false;
@@ -2274,7 +2274,9 @@ function renderSavedQuotesList() {
 
     const clientLabel = document.createElement("span");
     clientLabel.className = "saved-quote-client";
-    clientLabel.textContent = sanitizeOptionalText(quote.client_name) || "Unnamed client";
+    const clientName = sanitizeOptionalText(quote.client_name) || "Unnamed client";
+    const notes = sanitizeOptionalText(quote.notes);
+    clientLabel.textContent = notes ? `${clientName} - ${notes}` : clientName;
 
     const chevron = document.createElement("span");
     chevron.className = "saved-quote-chevron";
