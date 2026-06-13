@@ -617,7 +617,14 @@ function pickActiveQuoteStepPill(stepTargets) {
     return stepTargets[0].pill;
   }
 
-  return stepTargets[stepTargets.length - 1].pill;
+  let activePill = stepTargets[0].pill;
+  for (const entry of stepTargets) {
+    if (entry.panel.getBoundingClientRect().top <= probeY) {
+      activePill = entry.pill;
+    }
+  }
+
+  return activePill;
 }
 
 function handleDocumentClick(event) {
