@@ -711,6 +711,12 @@ code {
   margin-left: auto;
 }
 
+.quote-toolbar-groups.is-workspace-idle .accent-button:disabled,
+.active-quote-bar-actions.is-workspace-idle .accent-button:disabled {
+  opacity: 0.42;
+  box-shadow: none;
+}
+
 .quote-badge {
   min-width: 240px;
   padding: 0.9rem 1rem;
@@ -1080,6 +1086,14 @@ code {
   color: #fff;
 }
 
+@media (hover: none), (pointer: coarse) {
+  .primary-button {
+    border-color: var(--primary-dark);
+    background: var(--primary);
+    color: #fff;
+  }
+}
+
 .save-reminder-pulse {
   animation: save-reminder-pulse 1.2s ease-in-out infinite;
 }
@@ -1136,7 +1150,6 @@ code {
   background: color-mix(in srgb, var(--accent) 22%, var(--panel-bg) 78%);
   color: #2a2119;
   box-shadow: 0 4px 12px rgba(71, 46, 29, 0.08);
-  font-weight: 600;
 }
 
 .accent-button:hover:not(:disabled) {

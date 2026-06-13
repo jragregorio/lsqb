@@ -101,6 +101,7 @@ const refs = {
   adminDrawerBackdrop: document.querySelector("#admin-drawer-backdrop"),
   adminDrawerCloseBtn: document.querySelector("#admin-drawer-close-btn"),
   activeQuoteBar: document.querySelector("#active-quote-bar"),
+  activeQuoteBarActions: document.querySelector(".active-quote-bar-actions"),
   activeQuoteBarLabel: document.querySelector("#active-quote-bar-label"),
   activeQuoteTitle: document.querySelector("#active-quote-title"),
   activeQuoteDpValue: document.querySelector("#active-quote-dp-value"),
@@ -139,6 +140,7 @@ const refs = {
   newQuoteBtn: document.querySelector("#new-quote-btn"),
   saveQuoteBtn: document.querySelector("#save-quote-btn"),
   saveAsNewQuoteBtn: document.querySelector("#save-as-new-quote-btn"),
+  quoteToolbarGroups: document.querySelector(".quote-toolbar-groups"),
   exportPdfBtn: document.querySelector("#export-pdf-btn"),
   acknowledgementReceiptBtn: document.querySelector("#acknowledgement-receipt-btn"),
   refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
@@ -1959,6 +1961,9 @@ function renderQuoteWorkspace() {
   }
 
   const signedIn = Boolean(runtime.session);
+  const workspaceIdle = !isQuoteWorkspaceActive();
+  refs.quoteToolbarGroups?.classList.toggle("is-workspace-idle", workspaceIdle);
+  refs.activeQuoteBarActions?.classList.toggle("is-workspace-idle", workspaceIdle);
   refs.quoteClientName.disabled = runtime.quoteBusy;
   refs.quoteProjectName.disabled = runtime.quoteBusy;
   refs.quoteDate.disabled = runtime.quoteBusy;
