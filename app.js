@@ -185,6 +185,9 @@ const refs = {
   acknowledgementReceiptBtn: document.querySelector("#acknowledgement-receipt-btn"),
   refreshQuotesBtn: document.querySelector("#refresh-quotes-btn"),
   currentQuoteLabel: document.querySelector("#current-quote-label"),
+  currentQuoteStatus: document.querySelector("#current-quote-status"),
+  quoteBadge: document.querySelector("#current-quote-badge"),
+  currentQuoteTooltip: document.querySelector("#current-quote-tooltip"),
   quoteSaveIndicator: document.querySelector("#quote-save-indicator"),
   quoteStatus: document.querySelector("#quote-status"),
   saveReminderToast: document.querySelector("#save-reminder-toast"),
@@ -231,6 +234,8 @@ const SAVE_REMINDER_DELAY_MS = 180000;
 const SAVE_REMINDER_REPEAT_MS = 60000;
 /** Pointer movement before a measurement row drag activates (mouse + touch/tablet). */
 const MEASUREMENT_DRAG_ACTIVATE_PX = 8;
+/** Auto-hide Current Quote name tooltip after tap. */
+const QUOTE_BADGE_TOOLTIP_AUTO_HIDE_MS = 2000;
 
 const runtime = {
   session: null,
@@ -254,6 +259,8 @@ const runtime = {
   saveReminderTimer: 0,
   saveReminderRepeatTimer: 0,
   saveReminderActive: false,
+  quoteBadgeTooltipOpen: false,
+  quoteBadgeTooltipTimer: 0,
   recentMeasurementMaterialIds: [],
 };
 
@@ -305,6 +312,8 @@ async function bootstrap() {
   document.addEventListener("input", handleForceUppercaseInput, true);
   document.addEventListener("keydown", handleGlobalKeydown);
   document.addEventListener("click", handleDocumentClick);
+  refs.quoteBadge?.addEventListener("click", handleQuoteBadgeClick);
+  refs.quoteBadge?.addEventListener("keydown", handleQuoteBadgeKeydown);
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
   window.addEventListener(
     "resize",
@@ -464,6 +473,10 @@ function handleGlobalKeydown(event) {
 
   if (runtime.adminDrawerOpen) {
     setAdminDrawerOpen(false);
+  }
+
+  if (runtime.quoteBadgeTooltipOpen) {
+    closeQuoteBadgeTooltip();
   }
 }
 
@@ -673,16 +686,120 @@ function pickActiveQuoteStepPill(stepTargets) {
 }
 
 function handleDocumentClick(event) {
+  const target = event.target;
+
+  if (runtime.quoteBadgeTooltipOpen && refs.quoteBadge) {
+    if (!(target instanceof Node) || !refs.quoteBadge.contains(target)) {
+      closeQuoteBadgeTooltip();
+    }
+  }
+
   if (!runtime.topAppMenuOpen || !refs.topAppMenuShell) {
     return;
   }
 
-  const target = event.target;
   if (target instanceof Node && refs.topAppMenuShell.contains(target)) {
     return;
   }
 
   setTopAppMenuOpen(false);
+}
+
+function isQuoteBadgeTooltipAvailable() {
+  return Boolean(state.quoteMeta.clientName.trim());
+}
+
+function clearQuoteBadgeTooltipTimer() {
+  if (runtime.quoteBadgeTooltipTimer) {
+    window.clearTimeout(runtime.quoteBadgeTooltipTimer);
+    runtime.quoteBadgeTooltipTimer = 0;
+  }
+}
+
+function openQuoteBadgeTooltip() {
+  if (!refs.quoteBadge || !refs.currentQuoteTooltip || !isQuoteBadgeTooltipAvailable()) {
+    return;
+  }
+
+  clearQuoteBadgeTooltipTimer();
+  refs.currentQuoteTooltip.textContent = state.quoteMeta.clientName.trim();
+  refs.currentQuoteTooltip.classList.add("is-visible");
+  refs.quoteBadge.classList.add("is-tooltip-open");
+  refs.quoteBadge.setAttribute("aria-expanded", "true");
+  runtime.quoteBadgeTooltipOpen = true;
+  runtime.quoteBadgeTooltipTimer = window.setTimeout(() => {
+    runtime.quoteBadgeTooltipTimer = 0;
+    closeQuoteBadgeTooltip();
+  }, QUOTE_BADGE_TOOLTIP_AUTO_HIDE_MS);
+}
+
+function closeQuoteBadgeTooltip() {
+  clearQuoteBadgeTooltipTimer();
+  if (!refs.quoteBadge || !refs.currentQuoteTooltip) {
+    runtime.quoteBadgeTooltipOpen = false;
+    return;
+  }
+
+  refs.currentQuoteTooltip.classList.remove("is-visible");
+  refs.currentQuoteTooltip.textContent = "";
+  refs.quoteBadge.classList.remove("is-tooltip-open");
+  refs.quoteBadge.setAttribute("aria-expanded", "false");
+  runtime.quoteBadgeTooltipOpen = false;
+}
+
+function handleQuoteBadgeClick(event) {
+  if (!isQuoteBadgeTooltipAvailable()) {
+    return;
+  }
+
+  event.stopPropagation();
+  if (runtime.quoteBadgeTooltipOpen) {
+    closeQuoteBadgeTooltip();
+    return;
+  }
+
+  openQuoteBadgeTooltip();
+}
+
+function handleQuoteBadgeKeydown(event) {
+  if (!isQuoteBadgeTooltipAvailable()) {
+    return;
+  }
+
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    if (runtime.quoteBadgeTooltipOpen) {
+      closeQuoteBadgeTooltip();
+    } else {
+      openQuoteBadgeTooltip();
+    }
+  }
+}
+
+function renderCurrentQuoteBadge() {
+  const badge = getCurrentQuoteBadgeParts();
+  const hasClientName = Boolean(state.quoteMeta.clientName.trim());
+
+  closeQuoteBadgeTooltip();
+
+  if (refs.currentQuoteLabel) {
+    refs.currentQuoteLabel.textContent = badge.name;
+    refs.currentQuoteLabel.title = badge.title;
+  }
+  if (refs.currentQuoteStatus) {
+    refs.currentQuoteStatus.textContent = badge.status;
+    refs.currentQuoteStatus.classList.toggle("hidden", !badge.showStatus);
+  }
+  if (refs.quoteBadge) {
+    refs.quoteBadge.classList.toggle("is-tooltip-enabled", hasClientName);
+    refs.quoteBadge.tabIndex = hasClientName ? 0 : -1;
+    refs.quoteBadge.setAttribute(
+      "aria-label",
+      hasClientName
+        ? "Show full current quote name"
+        : "Current quote",
+    );
+  }
 }
 
 function setTopAppMenuOpen(isOpen) {
@@ -1894,6 +2011,7 @@ function renderActiveQuoteBar() {
   refs.activeQuoteTitle.textContent = hasLoadedQuote
     ? buildActiveQuoteTitle()
     : "-";
+  refs.activeQuoteTitle.title = hasLoadedQuote ? buildActiveQuoteTitle() : "";
   if (refs.activeQuoteDpValue) {
     refs.activeQuoteDpValue.textContent = formatCurrency(half);
   }
@@ -2051,7 +2169,7 @@ function renderQuoteWorkspace() {
 }
 
 function renderQuoteStatus() {
-  refs.currentQuoteLabel.textContent = getCurrentQuoteLabel();
+  renderCurrentQuoteBadge();
 
   if (!refs.quoteStatus.classList.contains("is-error")) {
     if (state.quoteMeta.id) {
@@ -4466,18 +4584,39 @@ function buildActiveQuoteTitle() {
   return parts.join(" • ") || "Saved quote";
 }
 
-function getCurrentQuoteLabel() {
-  if (state.quoteMeta.clientName.trim()) {
-    return state.quoteMeta.id
-      ? `${state.quoteMeta.clientName} (saved)`
-      : `${state.quoteMeta.clientName} (draft)`;
+function getCurrentQuoteBadgeParts() {
+  const clientName = state.quoteMeta.clientName.trim();
+  if (clientName) {
+    const status = state.quoteMeta.id ? "(saved)" : "(draft)";
+    return {
+      name: clientName,
+      status,
+      title: `${clientName} ${status}`,
+      showStatus: true,
+    };
   }
 
   if (state.quoteMeta.id) {
-    return "Saved quote";
+    return {
+      name: "Saved quote",
+      status: "",
+      title: "Saved quote",
+      showStatus: false,
+    };
   }
 
-  return hasMeaningfulDraftChanges() ? "Unsaved draft" : "No quote selected";
+  const fallback = hasMeaningfulDraftChanges() ? "Unsaved draft" : "No quote selected";
+  return {
+    name: fallback,
+    status: "",
+    title: fallback,
+    showStatus: false,
+  };
+}
+
+function getCurrentQuoteLabel() {
+  const badge = getCurrentQuoteBadgeParts();
+  return badge.showStatus ? `${badge.name} ${badge.status}` : badge.name;
 }
 
 function buildQuoteCardSubtitle(quote) {

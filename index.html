@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LUXESHADE Quote Builder v4.9.4</title>
+    <title>LUXESHADE Quote Builder v4.9.5</title>
     <link rel="icon" href="./assets/LogoOnly.jpg" type="image/jpeg" />
     <link rel="apple-touch-icon" href="./assets/LogoOnly.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.9.4" />
+    <link rel="stylesheet" href="./styles.css?v=4.9.5" />
   </head>
   <body>
     <main class="app-shell">
@@ -25,7 +25,7 @@
             <div class="app-brand">
               <p class="eyebrow">JRAG</p>
               <h1 class="app-brand-title">LUXESHADE Quote Builder</h1>
-              <p class="app-brand-version">v4.9.4</p>
+              <p class="app-brand-version">v4.9.5</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -377,10 +377,19 @@
             </div>
           </div>
 
-          <article class="quote-badge">
-            <span>Current Quote</span>
-            <strong id="current-quote-label">Unsaved draft</strong>
+          <article
+            id="current-quote-badge"
+            class="quote-badge"
+            tabindex="-1"
+            role="button"
+            aria-expanded="false"
+            aria-label="Show full current quote name"
+          >
+            <span class="quote-badge-label">Current Quote</span>
+            <strong id="current-quote-label" class="quote-badge-name">Unsaved draft</strong>
+            <span id="current-quote-status" class="quote-badge-status hidden"></span>
             <span id="quote-save-indicator" class="quote-save-indicator" aria-live="polite"></span>
+            <span id="current-quote-tooltip" class="quote-badge-tooltip" role="tooltip"></span>
           </article>
         </div>
 
@@ -754,6 +763,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.9.4"></script>
+    <script type="module" src="./app.js?v=4.9.5"></script>
   </body>
 </html>
