@@ -4754,7 +4754,7 @@ function loadContractPdfAssets() {
     return contractPdfAssetsPromise;
   }
 
-  const luxeLogoUrl = new URL("./assets/luxeshade-logo.png", window.location.href).href;
+  const luxeLogoUrl = new URL("./assets/luxeshade-logoNEW.png", window.location.href).href;
   const ndsLogoUrl = new URL("./assets/nds-trading-logo.png", window.location.href).href;
   const kkLogoUrl = new URL("./assets/kurtina-kultura-logo.png", window.location.href).href;
   contractPdfAssetsPromise = Promise.all([
