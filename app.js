@@ -2069,7 +2069,7 @@ function renderQuoteStatus() {
 }
 
 function renderSavedQuotesList() {
-  refs.savedQuotesCount.textContent = `${runtime.quoteList.length} quote${runtime.quoteList.length === 1 ? "" : "s"}`;
+  refs.savedQuotesCount.textContent = ` - ${runtime.quoteList.length} quote${runtime.quoteList.length === 1 ? "" : "s"}`;
   refs.savedQuotesList.innerHTML = "";
 
   if (!runtime.session) {
