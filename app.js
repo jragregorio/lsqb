@@ -4650,10 +4650,24 @@ function formatTimeAgoShort(isoValue) {
   if (!Number.isFinite(delta) || delta < 0) {
     return "";
   }
-  if (delta < 10_000) return "just now";
-  if (delta < 60_000) return `${Math.round(delta / 1000)}s ago`;
-  if (delta < 60 * 60_000) return `${Math.round(delta / 60_000)}m ago`;
-  return `${Math.round(delta / (60 * 60_000))}h ago`;
+  if (delta < 10_000) {
+    return "just now";
+  }
+
+  const totalMinutes = Math.floor(delta / 60_000);
+  const oneDayMs = 24 * 60 * 60_000;
+
+  if (delta > oneDayMs) {
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const remainderMinutes = totalMinutes % (24 * 60);
+    const hours = Math.floor(remainderMinutes / 60);
+    const minutes = remainderMinutes % 60;
+    return `${days}d ${hours}h ${minutes}m ago`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m ago`;
 }
 
 function getQuoteSaveIndicatorState() {
