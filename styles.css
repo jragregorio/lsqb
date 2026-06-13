@@ -722,6 +722,35 @@ code {
   color: #7a6758;
 }
 
+.quote-date-field.quote-date-stale span {
+  color: #8f6a45;
+  font-weight: 700;
+}
+
+.quote-date-field.quote-date-stale input {
+  border-color: color-mix(in srgb, var(--accent) 68%, #c89b63 32%);
+  background: color-mix(in srgb, #fff8ef 84%, var(--accent) 16%);
+  box-shadow:
+    inset 0 1px 1px rgba(84, 58, 37, 0.03),
+    0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent 80%);
+  animation: quote-date-stale-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes quote-date-stale-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 1px rgba(84, 58, 37, 0.03),
+      0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent 82%);
+  }
+
+  50% {
+    box-shadow:
+      inset 0 1px 1px rgba(84, 58, 37, 0.03),
+      0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent 70%);
+  }
+}
+
 .quote-field-notes {
   grid-column: 1 / -1;
 }

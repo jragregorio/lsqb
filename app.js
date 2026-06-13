@@ -374,6 +374,7 @@ async function bootstrap() {
   refs.quoteDate?.addEventListener("input", (event) => {
     state.quoteMeta.quoteDate = event.target.value;
     persistDraftChange();
+    renderQuoteDateHighlight();
   });
   refs.quoteProjectProfessionalRole?.addEventListener("change", (event) => {
     state.quoteMeta.projectProfessionalRole = normalizeProjectProfessionalRole(
@@ -1921,6 +1922,7 @@ function renderQuoteWorkspace() {
   refs.quoteClientName.value = state.quoteMeta.clientName;
   refs.quoteProjectName.value = state.quoteMeta.projectName;
   refs.quoteDate.value = state.quoteMeta.quoteDate;
+  renderQuoteDateHighlight();
   if (refs.quoteProjectProfessionalRole) {
     refs.quoteProjectProfessionalRole.value = normalizeProjectProfessionalRole(
       state.quoteMeta.projectProfessionalRole,
@@ -4638,6 +4640,30 @@ function getCurrentDateInputValue() {
   const now = new Date();
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
+}
+
+function isLoadedQuoteDateStale() {
+  if (!state.quoteMeta.id) {
+    return false;
+  }
+
+  const quoteDate = state.quoteMeta.quoteDate?.trim();
+  if (!quoteDate) {
+    return true;
+  }
+
+  return quoteDate !== getCurrentDateInputValue();
+}
+
+function renderQuoteDateHighlight() {
+  const field = refs.quoteDate?.closest(".quote-date-field");
+  if (!field || !refs.quoteDate) {
+    return;
+  }
+
+  const stale = isLoadedQuoteDateStale();
+  field.classList.toggle("quote-date-stale", stale);
+  refs.quoteDate.setAttribute("aria-invalid", stale ? "true" : "false");
 }
 
 function syncQuoteMetaFromInputs() {
