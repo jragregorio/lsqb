@@ -3587,11 +3587,6 @@ function buildMaterialRollupLines() {
       }
     }
 
-    const hasQuantity = isMotor ? billedUnits > 0 : billedSqft > 0;
-    if (!hasQuantity) {
-      continue;
-    }
-
     lines.push({
       label,
       isMotor,

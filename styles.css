@@ -2194,8 +2194,8 @@ tbody tr.measurement-row--drag-over {
 .material-totals-dock-inner {
   width: min(1440px, calc(100vw - 2rem));
   margin: 0 auto;
-  padding: 0.5rem 0 calc(0.55rem + env(safe-area-inset-bottom, 0px));
-  max-height: min(40vh, 280px);
+  padding: 0.32rem 0 calc(0.34rem + env(safe-area-inset-bottom, 0px));
+  max-height: min(34vh, 220px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -2205,7 +2205,9 @@ tbody tr.measurement-row--drag-over {
   margin-left: 0;
   margin-right: 0;
   margin-bottom: 0;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.22rem;
   border-bottom: 0;
   background: transparent;
   box-shadow: none;
@@ -2213,36 +2215,37 @@ tbody tr.measurement-row--drag-over {
 
 .material-totals-dock .material-totals-dock-heading .eyebrow {
   margin-bottom: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
 }
 
 .material-totals-grid-wrap {
-  margin-top: 0.45rem;
+  margin-top: 0;
   width: 100%;
-  overflow-x: auto;
+  overflow-x: visible;
+  overflow-y: auto;
+  max-height: calc((2 * 2.65rem) + 0.3rem);
   -webkit-overflow-scrolling: touch;
 }
 
-/* Always five columns: 5 materials → one row; 6+ → additional rows (e.g. 6 → 5 + 1). */
+/* Five columns per row; wraps to a second row for materials 6-10. */
 .material-totals-grid {
-  --material-totals-gap: 0.4rem;
-  --material-totals-min-cell: 6.25rem;
+  --material-totals-gap: 0.3rem;
   display: grid;
-  grid-template-columns: repeat(5, minmax(var(--material-totals-min-cell), 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--material-totals-gap);
-  width: max(
-    100%,
-    calc(5 * var(--material-totals-min-cell) + 4 * var(--material-totals-gap))
-  );
+  width: 100%;
+  max-width: 100%;
 }
 
 .material-totals-cell {
   margin: 0;
-  padding: 0.35rem 0.45rem;
+  padding: 0.22rem 0.34rem;
   border: 1px solid #e8dfd4;
-  border-radius: 0.45rem;
+  border-radius: 0.4rem;
   background: #fffdf9;
-  font-size: 0.74rem;
-  line-height: 1.3;
+  font-size: 0.68rem;
+  line-height: 1.2;
   color: #3d342c;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2259,12 +2262,13 @@ tbody tr.measurement-row--drag-over {
 }
 
 .material-totals-cell-meta {
-  margin-top: 0.18rem;
+  margin-top: 0.08rem;
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.28rem;
   color: #5b4f45;
+  font-size: 0.66rem;
 }
 
 .material-totals-cell-cost {
@@ -2273,9 +2277,16 @@ tbody tr.measurement-row--drag-over {
   color: #4a392d;
 }
 
+@media (max-width: 720px) {
+  .material-totals-dock-inner {
+    width: min(100vw - 1rem, 1440px);
+    padding: 0.28rem 0 calc(0.3rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (max-width: 480px) {
   .material-totals-cell {
-    font-size: 0.7rem;
-    padding: 0.3rem 0.4rem;
+    font-size: 0.64rem;
+    padding: 0.18rem 0.28rem;
   }
 }
