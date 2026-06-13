@@ -887,6 +887,15 @@ function renderQuoteStepPanel() {
     return;
   }
 
+  const quoteWorkspaceActive = isQuoteWorkspaceActive();
+  refs.quoteStepFloat.classList.toggle("hidden", !quoteWorkspaceActive);
+  refs.quoteStepFloat.setAttribute("aria-hidden", quoteWorkspaceActive ? "false" : "true");
+
+  if (!quoteWorkspaceActive) {
+    syncQuoteStickyStack();
+    return;
+  }
+
   runtime.quoteStepPanelCollapsed = false;
 
   refs.quoteStepFloat.classList.toggle("is-collapsed", false);

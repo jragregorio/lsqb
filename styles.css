@@ -260,6 +260,10 @@ code {
   min-width: 0;
 }
 
+.quote-layout:has(.quote-step-float.hidden) .quote-layout-main {
+  margin-top: 1.25rem;
+}
+
 .quote-step-nav,
 .quote-step-float {
   position: sticky;
