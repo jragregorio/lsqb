@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-brand="luxe">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LUXESHADE Quote Builder v4.9.0</title>
+    <title>LUXESHADE Quote Builder v4.9.1</title>
     <link rel="icon" href="./assets/LogoOnly.jpg" type="image/jpeg" />
     <link rel="apple-touch-icon" href="./assets/LogoOnly.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=4.9.0" />
+    <link rel="stylesheet" href="./styles.css?v=4.9.1" />
   </head>
   <body>
     <main class="app-shell">
@@ -25,7 +25,7 @@
             <div class="app-brand">
               <p class="eyebrow">LUXESHADE</p>
               <h1 class="app-brand-title">LUXESHADE Quote Builder</h1>
-              <p class="app-brand-version">v4.9.0</p>
+              <p class="app-brand-version">v4.9.1</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -235,7 +235,7 @@
               <div>
                 <h2>PDF Branding</h2>
                 <p class="section-copy">
-                  This only changes the contract PDF output (logo, watermark, and colors).
+                  Changes the app color theme and contract PDF output (logo, watermark, and colors).
                 </p>
               </div>
             </div>
@@ -249,6 +249,7 @@
                 <option value="nds">NDS Trading</option>
                 <option value="kk">Kurtina Kultura</option>
               </select>
+              <p id="pdf-brand-theme-hint" class="section-copy admin-brand-theme-hint" aria-live="polite"></p>
             </div>
             <div class="admin-pdf-actions">
               <button id="print-clean-btn" class="secondary-button" type="button">
@@ -751,6 +752,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=4.9.0"></script>
+    <script type="module" src="./app.js?v=4.9.1"></script>
   </body>
 </html>

@@ -1,6 +1,45 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 const STORAGE_KEY = "luxeshade-quote-builder-v2";
+
+const BRAND_THEMES = {
+  luxe: {
+    pdf: {
+      watermarkWidth: 220,
+      watermarkOpacity: 0.16,
+      borderColor: "#e6d8ca",
+      accentColor: "#9e7149",
+      textColor: "#2f2a26",
+      lightFill: "#f5ece2",
+      accentFill: "#f3e5d7",
+    },
+    logoAssetKey: "luxe",
+  },
+  nds: {
+    pdf: {
+      watermarkWidth: 260,
+      watermarkOpacity: 0.14,
+      borderColor: "#e4c7c6",
+      accentColor: "#8b322c",
+      textColor: "#2b2422",
+      lightFill: "#f7eaea",
+      accentFill: "#f2dada",
+    },
+    logoAssetKey: "nds",
+  },
+  kk: {
+    pdf: {
+      watermarkWidth: 250,
+      watermarkOpacity: 0.1,
+      borderColor: "#e0e0e0",
+      accentColor: "#111111",
+      textColor: "#1a1a1a",
+      lightFill: "#f3f3f3",
+      accentFill: "#eaeaea",
+    },
+    logoAssetKey: "kk",
+  },
+};
 const SAMPLE_PRICELIST_PATH = "./data/pricelist.csv";
 const MINIMUM_SQUARE_FEET = 15;
 const SUPABASE_URL = "https://pdadkkpizdsdiavziimh.supabase.co";
@@ -123,6 +162,7 @@ const refs = {
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
+  pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
   deliveryAmount: document.querySelector("#delivery-amount"),
   deliveryFree: document.querySelector("#delivery-free"),
@@ -227,6 +267,8 @@ let materialTotalsDockResizeObserver = null;
 bootstrap();
 
 async function bootstrap() {
+  applyBrandTheme(state.pdfOrganization);
+
   refs.topAppMenuBtn?.addEventListener("click", () => {
     setTopAppMenuOpen(!runtime.topAppMenuOpen);
   });
@@ -281,6 +323,7 @@ async function bootstrap() {
     refs.pdfOrgSelect.addEventListener("change", (event) => {
       const next = String(event.target.value || "").toLowerCase();
       state.pdfOrganization = next === "nds" || next === "kk" ? next : "luxe";
+      applyBrandTheme(state.pdfOrganization);
       persistDraftChange();
       renderQuoteWorkspace();
     });
@@ -5067,56 +5110,56 @@ function buildContractPdfFileName(
   return `${safeName || prefix}.pdf`;
 }
 
-function getContractPdfBranding(organization, assets) {
-  if (organization === "kk") {
-    const headerSize = scaleImageToWidth(assets.kkLogoWidth, assets.kkLogoHeight, 110);
-    const watermarkSize = scaleImageToWidth(assets.kkLogoWidth, assets.kkLogoHeight, 250);
-    return {
-      logoDataUrl: assets.kkLogoDataUrl,
-      logoWidth: headerSize.width,
-      logoHeight: headerSize.height,
-      watermarkWidth: watermarkSize.width,
-      watermarkHeight: watermarkSize.height,
-      watermarkOpacity: 0.12,
-      borderColor: "#d9d2cd",
-      accentColor: "#111111",
-      textColor: "#1a1a1a",
-      lightFill: "#f3f1ef",
-      accentFill: "#eae6e2",
-    };
-  }
-  if (organization === "nds") {
-    const headerSize = scaleImageToWidth(assets.ndsLogoWidth, assets.ndsLogoHeight, 110);
-    const watermarkSize = scaleImageToWidth(assets.ndsLogoWidth, assets.ndsLogoHeight, 260);
-    return {
-      logoDataUrl: assets.ndsLogoDataUrl,
-      logoWidth: headerSize.width,
-      logoHeight: headerSize.height,
-      watermarkWidth: watermarkSize.width,
-      watermarkHeight: watermarkSize.height,
-      watermarkOpacity: 0.14,
-      borderColor: "#e4c7c6",
-      accentColor: "#8d2a24",
-      textColor: "#2b2422",
-      lightFill: "#f7eaea",
-      accentFill: "#f2dada",
-    };
-  }
+function normalizePdfOrganization(organization) {
+  return organization === "nds" || organization === "kk" ? organization : "luxe";
+}
 
-  const headerSize = scaleImageToWidth(assets.luxeLogoWidth, assets.luxeLogoHeight, 110);
-  const watermarkSize = scaleImageToWidth(assets.luxeLogoWidth, assets.luxeLogoHeight, 220);
+function applyBrandTheme(organization = state.pdfOrganization) {
+  const brand = normalizePdfOrganization(organization);
+  document.documentElement.dataset.brand = brand;
+
+  if (refs.pdfBrandThemeHint) {
+    refs.pdfBrandThemeHint.textContent = `App theme: ${getPdfOrganizationLabel()}`;
+  }
+}
+
+function getContractPdfBranding(organization, assets) {
+  const brand = normalizePdfOrganization(organization);
+  const theme = BRAND_THEMES[brand];
+  const pdf = theme.pdf;
+  const logoAssets = {
+    luxe: {
+      dataUrl: assets.luxeLogoDataUrl,
+      width: assets.luxeLogoWidth,
+      height: assets.luxeLogoHeight,
+    },
+    nds: {
+      dataUrl: assets.ndsLogoDataUrl,
+      width: assets.ndsLogoWidth,
+      height: assets.ndsLogoHeight,
+    },
+    kk: {
+      dataUrl: assets.kkLogoDataUrl,
+      width: assets.kkLogoWidth,
+      height: assets.kkLogoHeight,
+    },
+  };
+  const logo = logoAssets[theme.logoAssetKey];
+  const headerSize = scaleImageToWidth(logo.width, logo.height, 110);
+  const watermarkSize = scaleImageToWidth(logo.width, logo.height, pdf.watermarkWidth);
+
   return {
-    logoDataUrl: assets.luxeLogoDataUrl,
+    logoDataUrl: logo.dataUrl,
     logoWidth: headerSize.width,
     logoHeight: headerSize.height,
     watermarkWidth: watermarkSize.width,
     watermarkHeight: watermarkSize.height,
-    watermarkOpacity: 0.16,
-    borderColor: "#e6d8ca",
-    accentColor: "#9e7149",
-    textColor: "#2f2a26",
-    lightFill: "#f5ece2",
-    accentFill: "#f3e5d7",
+    watermarkOpacity: pdf.watermarkOpacity,
+    borderColor: pdf.borderColor,
+    accentColor: pdf.accentColor,
+    textColor: pdf.textColor,
+    lightFill: pdf.lightFill,
+    accentFill: pdf.accentFill,
   };
 }
 
@@ -6275,10 +6318,11 @@ function formatContractDate(value) {
 }
 
 function getPdfOrganizationLabel() {
-  if (state.pdfOrganization === "nds") {
+  const brand = normalizePdfOrganization(state.pdfOrganization);
+  if (brand === "nds") {
     return "NDS Trading";
   }
-  if (state.pdfOrganization === "kk") {
+  if (brand === "kk") {
     return "Kurtina Kultura";
   }
   return "LUXESHADE";
