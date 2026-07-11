@@ -5297,6 +5297,102 @@ function normalizePdfOrganization(organization) {
   return organization === "nds" || organization === "kk" ? organization : "luxe";
 }
 
+function buildContractPaymentOptionsItems(organization = "luxe") {
+  const brand = normalizePdfOrganization(organization);
+  const paymentNoteItems = [
+    {
+      text: [
+        { text: "Other payment methods such as " },
+        { text: "checks or cash", bold: true },
+        { text: " should be coordinated with the supplier as needed." },
+      ],
+      font: "Roboto",
+    },
+    {
+      text: [
+        { text: "For check payments, " },
+        { text: "clearance must be confirmed", bold: true },
+        { text: " before work or deliveries commence." },
+      ],
+      font: "Roboto",
+    },
+  ];
+
+  if (brand === "kk") {
+    return [
+      {
+        text: [
+          { text: "Account type: " },
+          { text: "BDO", bold: true, fontSize: 11.5 },
+        ],
+        font: "Roboto",
+      },
+      {
+        text: [
+          { text: "Account name: " },
+          { text: "Jan Robert A Gregorio", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account number: " },
+          { text: "0065-0018-4040", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account type: " },
+          { text: "Metrobank", bold: true, fontSize: 11.5 },
+        ],
+        font: "Roboto",
+        margin: [20, 6, 0, 4],
+      },
+      {
+        text: [
+          { text: "Account name: " },
+          { text: "Monique Lorenzo Gregorio", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account number: " },
+          { text: "494-349-463-4199", bold: true, fontSize: 11.5 },
+        ],
+      },
+      ...paymentNoteItems,
+    ];
+  }
+
+  return [
+    {
+      text: [
+        { text: "Online payment via " },
+        { text: "Metrobank", bold: true },
+        { text: " is accepted." },
+      ],
+      font: "Roboto",
+    },
+    {
+      text: [
+        { text: "Account name: " },
+        {
+          text: "LUXEHADE CURTAINS & WINDOW BLINDS INSTALLATION SERVICES",
+          font: "Roboto",
+          bold: true,
+          fontSize: 11.5,
+        },
+      ],
+    },
+    {
+      text: [
+        { text: "Account number: " },
+        { text: "494-3-49463610-8", font: "Roboto", bold: true, fontSize: 11.5 },
+      ],
+    },
+    ...paymentNoteItems,
+  ];
+}
+
 function applyBrandTheme(organization = state.pdfOrganization) {
   const brand = normalizePdfOrganization(organization);
   document.documentElement.dataset.brand = brand;
@@ -5780,49 +5876,7 @@ function buildContractPdfDefinition(
             },
             {
               title: "Payment Options",
-              items: [
-                {
-                  text: [
-                    { text: "Online payment via " },
-                    { text: "Metrobank", bold: true },
-                    { text: " is accepted." },
-                  ],
-                  font: "Roboto",
-                },
-                {
-                  text: [
-                    { text: "Account name: " },
-                    {
-                      text: "LUXEHADE CURTAINS & WINDOW BLINDS INSTALLATION SERVICES",
-                      font: "Roboto",
-                      bold: true,
-                      fontSize: 11.5,
-                    },
-                  ],
-                },
-                {
-                  text: [
-                    { text: "Account number: " },
-                    { text: "494-3-49463610-8", font: "Roboto", bold: true, fontSize: 11.5 },
-                  ],
-                },
-                {
-                  text: [
-                    { text: "Other payment methods such as " },
-                    { text: "checks or cash", bold: true },
-                    { text: " should be coordinated with the supplier as needed." },
-                  ],
-                  font: "Roboto",
-                },
-                {
-                  text: [
-                    { text: "For check payments, " },
-                    { text: "clearance must be confirmed", bold: true },
-                    { text: " before work or deliveries commence." },
-                  ],
-                  font: "Roboto",
-                },
-              ],
+              items: buildContractPaymentOptionsItems(organization),
             },
           ]),
           buildStyledTermsSection("Section 2. Work and Delivery Lead Time", [
