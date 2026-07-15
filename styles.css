@@ -547,8 +547,10 @@ code {
 }
 
 .panel {
+  position: relative;
+  margin-top: 0.85rem;
   margin-bottom: 1.25rem;
-  padding: 1.35rem;
+  padding: 1.85rem 1.35rem 1.35rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 86%, #ffffff 14%);
   border-radius: 1.2rem;
   background: var(--panel-bg);
@@ -563,10 +565,29 @@ code {
   margin-bottom: 1rem;
 }
 
+.panel-heading > div {
+  min-width: 0;
+}
+
 .panel-heading h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.2rem;
-  color: #2f231a;
+  position: absolute;
+  top: -0.72rem;
+  left: 1.15rem;
+  max-width: calc(100% - 2.3rem);
+  margin: 0;
+  padding: 0.28rem 0.8rem 0.26rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--panel-border) 52%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 58%, var(--panel-bg) 42%);
+  box-shadow:
+    0 6px 14px rgba(var(--shadow-tint), 0.18),
+    0 1px 3px rgba(var(--shadow-tint), 0.1);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.15;
+  text-transform: uppercase;
 }
 
 .drawer-backdrop {
@@ -2087,12 +2108,22 @@ tbody tr.measurement-row--drag-over {
   }
 
   .panel {
-    padding: 1rem;
+    margin-top: 0.8rem;
+    padding: 1.65rem 1rem 1rem;
   }
 
   .panel-heading {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .panel-heading h2 {
+    top: -0.62rem;
+    left: 0.85rem;
+    max-width: calc(100% - 1.7rem);
+    padding: 0.24rem 0.68rem 0.22rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
   }
 
   .quote-toolbar {
