@@ -444,6 +444,7 @@ async function bootstrap() {
     persistDraftChange();
     renderQuoteDateHighlight();
   });
+  refs.quoteDate?.addEventListener("click", handleQuoteDateClick);
   refs.quoteProjectProfessionalRole?.addEventListener("change", (event) => {
     state.quoteMeta.projectProfessionalRole = normalizeProjectProfessionalRole(
       event.target.value,
@@ -722,6 +723,19 @@ function handleDocumentClick(event) {
   }
 
   setTopAppMenuOpen(false);
+}
+
+function handleQuoteDateClick(event) {
+  const input = event.currentTarget;
+  if (!input || input.disabled || input.readOnly || typeof input.showPicker !== "function") {
+    return;
+  }
+
+  try {
+    input.showPicker();
+  } catch (error) {
+    // Some browsers restrict picker calls in edge cases; keep native focus behavior.
+  }
 }
 
 function isQuoteBadgeTooltipAvailable() {
