@@ -1600,8 +1600,8 @@ code {
 }
 
 /* Cost column: keep compact. */
-.measurements-table th:nth-child(10),
-.measurements-table td:nth-child(10) {
+.measurements-table th:nth-child(11),
+.measurements-table td:nth-child(11) {
   width: 100px;
   min-width: 100px;
   max-width: 110px;
@@ -1618,7 +1618,28 @@ code {
   vertical-align: middle;
 }
 
+.measurements-table th.measurement-no-disc-col,
+.measurements-table td.measurement-no-disc-cell {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 3.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .data-table input[type="checkbox"].measurement-free-checkbox {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  min-width: 0.8125rem;
+  min-height: 0.8125rem;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.data-table input[type="checkbox"].measurement-no-disc-checkbox {
   width: 0.8125rem;
   height: 0.8125rem;
   min-width: 0.8125rem;
@@ -2441,7 +2462,7 @@ tbody tr.measurement-row--drag-over {
     grid-column: 1 / -1;
   }
 
-  /* 9: free + 10: cost on same row */
+  /* 9: free + 10: no disc + 11: cost on same row */
   #measurements-panel .measurements-table tr.measurement-row > td:nth-child(9) {
     grid-column: span 1;
     display: flex;
@@ -2451,10 +2472,17 @@ tbody tr.measurement-row--drag-over {
 
   #measurements-panel .measurements-table tr.measurement-row > td:nth-child(10) {
     grid-column: span 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  /* 11: trash button pinned right */
   #measurements-panel .measurements-table tr.measurement-row > td:nth-child(11) {
+    grid-column: span 1;
+  }
+
+  /* 12: trash button pinned right */
+  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(12) {
     grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;

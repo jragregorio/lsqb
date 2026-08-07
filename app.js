@@ -1127,6 +1127,7 @@ function createMeasurementRow() {
     materialId: "",
     unitQuantity: "",
     isFree: false,
+    excludeFromDiscount: false,
   };
 }
 
@@ -1678,6 +1679,7 @@ async function handleSaveQuote(options = {}) {
           unit_quantity: item.unitQuantity,
           line_cost: item.lineCost,
           line_is_free: Boolean(item.isFree),
+          line_excludes_discount: Boolean(item.excludeFromDiscount),
         })),
       );
 
@@ -1796,7 +1798,7 @@ async function loadQuoteById(quoteId) {
     supabase
       .from("quote_measurements")
       .select(
-        "id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, line_is_free, sort_order",
+        "id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, line_is_free, line_excludes_discount, sort_order",
       )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true }),
@@ -1870,6 +1872,7 @@ async function loadQuoteById(quoteId) {
         materialId: localIdMap.get(row.quote_material_id) || "",
         unitQuantity: unitQty,
         isFree: Boolean(row.line_is_free),
+        excludeFromDiscount: Boolean(row.line_excludes_discount),
       };
     }) || [];
 
@@ -3045,7 +3048,7 @@ function renderMeasurements() {
 
   if (state.measurementRows.length === 0) {
     refs.measurementBody.append(
-      createEmptyStateRow(11, "Add a measurement row to begin."),
+      createEmptyStateRow(12, "Add a measurement row to begin."),
     );
     return;
   }
@@ -3664,6 +3667,21 @@ function renderMeasurements() {
     });
     freeCell.append(freeInput);
 
+    const noDiscCell = document.createElement("td");
+    noDiscCell.className = "measurement-no-disc-cell";
+    const noDiscInput = document.createElement("input");
+    noDiscInput.type = "checkbox";
+    noDiscInput.className = "measurement-no-disc-checkbox";
+    noDiscInput.checked = Boolean(row.excludeFromDiscount);
+    noDiscInput.disabled = runtime.quoteBusy;
+    noDiscInput.setAttribute("aria-label", "Exclude line from quote discount");
+    noDiscInput.addEventListener("change", (event) => {
+      row.excludeFromDiscount = Boolean(event.target.checked);
+      persistDraftChange();
+      renderSummary();
+    });
+    noDiscCell.append(noDiscInput);
+
     const actionCell = document.createElement("td");
     const actionStack = document.createElement("div");
     actionStack.className = "measurement-row-actions";
@@ -3729,6 +3747,7 @@ function renderMeasurements() {
       heightCell,
       materialCell,
       freeCell,
+      noDiscCell,
       costCell,
       actionCell,
     );
@@ -4144,6 +4163,23 @@ function getMeasurementRetailCost(row) {
   return squareFootage.billed * retailPrice;
 }
 
+function getDiscountableSubtotal() {
+  const delivery = state.quoteMeta.deliveryIsFree
+    ? 0
+    : parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
+  const installSteam = state.quoteMeta.installSteamIsFree
+    ? 0
+    : parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+
+  return state.measurementRows.reduce((total, row) => {
+    if (row.isFree || row.excludeFromDiscount) {
+      return total;
+    }
+    const cost = getMeasurementCost(row);
+    return total + (cost ?? 0);
+  }, 0) + delivery + installSteam;
+}
+
 function getSubtotal() {
   const delivery = state.quoteMeta.deliveryIsFree
     ? 0
@@ -4163,7 +4199,7 @@ function getSubtotal() {
 
 function getSummaryTotals() {
   const subtotal = getSubtotal();
-  const discountAmount = getAppliedDiscountAmount(subtotal);
+  const discountAmount = getAppliedDiscountAmount();
   const finalTotal = Math.max(0, subtotal - discountAmount);
   const half = finalTotal / 2;
 
@@ -4175,19 +4211,19 @@ function getSummaryTotals() {
   };
 }
 
-function getAppliedDiscountAmount(subtotal = getSubtotal()) {
+function getAppliedDiscountAmount(discountableSubtotal = getDiscountableSubtotal()) {
   const rawDiscountValue = parseCurrencyLikeNumber(state.discountValue) || 0;
 
-  if (rawDiscountValue <= 0 || subtotal <= 0) {
+  if (rawDiscountValue <= 0 || discountableSubtotal <= 0) {
     return 0;
   }
 
   if (state.discountType === "percent") {
     const boundedPercent = Math.min(Math.max(rawDiscountValue, 0), 100);
-    return subtotal * (boundedPercent / 100);
+    return discountableSubtotal * (boundedPercent / 100);
   }
 
-  return Math.min(Math.max(rawDiscountValue, 0), subtotal);
+  return Math.min(Math.max(rawDiscountValue, 0), discountableSubtotal);
 }
 
 function validateQuoteForSave() {
@@ -4216,10 +4252,10 @@ function validateQuoteForSave() {
     };
   }
 
-  if (state.discountType === "amount" && discountValue > getSubtotal()) {
+  if (state.discountType === "amount" && discountValue > getDiscountableSubtotal()) {
     return {
       ok: false,
-      message: "Amount discount cannot exceed the subtotal.",
+      message: "Amount discount cannot exceed the discountable subtotal.",
     };
   }
 
@@ -4340,6 +4376,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
           materialLabel: selectedMaterial.category,
           askingPrice,
           isFree: Boolean(row.isFree),
+          excludeFromDiscount: Boolean(row.excludeFromDiscount),
         });
       }
       continue;
@@ -4381,6 +4418,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
         materialLabel: selectedMaterial.category,
         askingPrice,
         isFree: Boolean(row.isFree),
+        excludeFromDiscount: Boolean(row.excludeFromDiscount),
       });
     }
   }
@@ -4567,7 +4605,8 @@ function hasMeaningfulDraftChanges() {
           row.height !== "" ||
           row.materialId ||
           row.unitQuantity !== "" ||
-          row.isFree,
+          row.isFree ||
+          row.excludeFromDiscount,
       ),
   );
 }
@@ -4612,6 +4651,7 @@ function buildCurrentQuoteFingerprint() {
       materialId: row.materialId || "",
       unitQuantity: row.unitQuantity === "" ? "" : String(row.unitQuantity),
       isFree: Boolean(row.isFree),
+      excludeFromDiscount: Boolean(row.excludeFromDiscount),
     })),
   });
 }
