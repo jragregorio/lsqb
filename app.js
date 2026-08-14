@@ -90,7 +90,8 @@ const MEASUREMENT_TYPE_OPTIONS = [
 ];
 
 /** Must match the configured material category in Material Setup (e.g. pricelist row). */
-const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized";
+const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized"; // keep for TYPE lock
+const MOTORIZED_QUANTITY_CATEGORIES = ["Curtains Motorized", "MOTORIZED"];
 const MOTORIZED_TYPE_VALUE = "PIONEER BRAND";
 const MEASUREMENT_CONTROL_SPLIT = "SPLIT";
 const MEASUREMENT_CONTROL_FULL = "FULL";
@@ -225,6 +226,7 @@ const refs = {
   summaryMaterialPocketTotal: document.querySelector("#summary-material-pocket-total"),
   motorQuantityDialog: document.querySelector("#motor-quantity-dialog"),
   motorQuantityForm: document.querySelector("#motor-quantity-form"),
+  motorQuantityTitle: document.querySelector("#motor-quantity-title"),
   motorQuantityInput: document.querySelector("#motor-quantity-input"),
   motorQuantityCancel: document.querySelector("#motor-quantity-cancel"),
   deleteQuoteDialog: document.querySelector("#delete-quote-dialog"),
@@ -3275,6 +3277,9 @@ function renderMeasurements() {
     tr.classList.add("measurement-row");
     tr.dataset.measurementRowId = row.id;
     const motorized = isMotorizedMaterialRow(row);
+    const curtainsMotorized = isCurtainsMotorizedCategory(
+      getMeasurementMaterialForRow(row),
+    );
 
     const dragCell = document.createElement("td");
     dragCell.className = "measurement-drag-cell";
@@ -3356,7 +3361,7 @@ function renderMeasurements() {
     roomCell.append(roomInput);
 
     const typeCell = document.createElement("td");
-    if (motorized) {
+    if (curtainsMotorized) {
       if (row.type !== MOTORIZED_TYPE_VALUE) {
         row.type = MOTORIZED_TYPE_VALUE;
         persistDraftChange();
@@ -3365,6 +3370,19 @@ function renderMeasurements() {
         value: MOTORIZED_TYPE_VALUE,
         className: "measurement-fit-field",
         disabled: true,
+      });
+      attachMeasurementFieldFit(typeInput);
+      typeCell.append(typeInput);
+    } else if (motorized) {
+      const typeInput = buildTextInput({
+        value: row.type || "",
+        placeholder: "Enter type",
+        className: "measurement-fit-field",
+        disabled: runtime.quoteBusy,
+        onInput: (value) => {
+          row.type = value;
+          persistDraftChange();
+        },
       });
       attachMeasurementFieldFit(typeInput);
       typeCell.append(typeInput);
@@ -3623,7 +3641,9 @@ function renderMeasurements() {
                 syncMaterialInputLabelFromRow();
               } else {
                 row.unitQuantity = String(result.quantity);
-                row.type = MOTORIZED_TYPE_VALUE;
+                if (isCurtainsMotorizedCategory(picked)) {
+                  row.type = MOTORIZED_TYPE_VALUE;
+                }
                 row.width = "";
                 row.height = "";
                 row.control = "";
@@ -3734,7 +3754,7 @@ function renderMeasurements() {
         helper.className = "muted-helper";
         helper.textContent = qty
           ? `${qty} quantity`
-          : "Quantity required — pick Curtains Motorized again to enter";
+          : "Quantity required — pick this material again to enter";
         costCell.append(helper);
         return;
       }
@@ -4103,7 +4123,22 @@ function getMeasurementMaterialForRow(row) {
 }
 
 function isMotorizedCategoryFromMaterial(material) {
-  return material?.category?.trim() === MOTORIZED_MATERIAL_CATEGORY;
+  const category = material?.category?.trim();
+  if (!category) {
+    return false;
+  }
+  const normalized = category.toLowerCase();
+  return MOTORIZED_QUANTITY_CATEGORIES.some(
+    (entry) => entry.toLowerCase() === normalized,
+  );
+}
+
+function isCurtainsMotorizedCategory(material) {
+  const category = material?.category?.trim();
+  if (!category) {
+    return false;
+  }
+  return category.toLowerCase() === MOTORIZED_MATERIAL_CATEGORY.toLowerCase();
 }
 
 function isMotorizedMaterialRow(row) {
@@ -4120,6 +4155,7 @@ function parseMotorQuantity(value) {
 
 function openMotorQuantityDialog(row) {
   const dialog = refs.motorQuantityDialog;
+  const title = refs.motorQuantityTitle;
   const input = refs.motorQuantityInput;
   const form = refs.motorQuantityForm;
   const cancelBtn = refs.motorQuantityCancel;
@@ -4128,6 +4164,12 @@ function openMotorQuantityDialog(row) {
     if (!dialog || !input || !form) {
       resolve({ ok: false });
       return;
+    }
+
+    const material = getMeasurementMaterialForRow(row);
+    const category = material?.category?.trim();
+    if (title) {
+      title.textContent = category || "Motorized";
     }
 
     input.value = row.unitQuantity ? String(row.unitQuantity) : "";
@@ -4459,7 +4501,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
         return {
           ok: false,
           message:
-            "Curtains Motorized rows need a quantity. Select the material again and enter a whole number (1 or more).",
+            "Motorized rows need a quantity. Select the material again and enter a whole number (1 or more).",
         };
       }
 
