@@ -3089,14 +3089,18 @@ function buildMeasurementOptionCombobox({
   list.hidden = true;
 
   let outsidePointerActive = false;
+  let committedValue = value || "";
 
   const revertInput = () => {
-    input.value = value || "";
+    input.value = committedValue;
   };
 
   const commitOnClose = () => {
     if (allowBlank && !input.value.trim()) {
-      onSelect("");
+      if (committedValue !== "") {
+        committedValue = "";
+        onSelect("");
+      }
     } else {
       revertInput();
     }
@@ -3182,6 +3186,7 @@ function buildMeasurementOptionCombobox({
       li.append(main, sub);
       li.addEventListener("mousedown", (event) => {
         event.preventDefault();
+        committedValue = label;
         input.value = label;
         closeList();
         onSelect(label);
@@ -3376,7 +3381,6 @@ function renderMeasurements() {
           onSelect: (label) => {
             row.type = label;
             persistDraftChange();
-            renderMeasurements();
           },
         }),
       );
@@ -3397,22 +3401,36 @@ function renderMeasurements() {
     materialCodeCell.append(materialCodeInput);
 
     const controlCell = document.createElement("td");
-    controlCell.className = "material-combobox-cell measurement-control-cell";
-    controlCell.append(
-      buildMeasurementOptionCombobox({
-        value: normalizeMeasurementControl(row.control),
-        options: MEASUREMENT_CONTROL_OPTIONS,
-        placeholder: "Search control…",
-        emptyMessage: "No controls match your search.",
-        disabled: runtime.quoteBusy,
-        allowBlank: true,
-        onSelect: (nextValue) => {
-          row.control = normalizeMeasurementControl(nextValue);
-          persistDraftChange();
-          renderMeasurements();
-        },
-      }),
-    );
+    controlCell.className = "measurement-control-cell";
+    if (motorized) {
+      if (row.control) {
+        row.control = "";
+        persistDraftChange();
+      }
+      const controlInput = buildTextInput({
+        value: "",
+        className: "measurement-fit-field",
+        disabled: true,
+      });
+      attachMeasurementFieldFit(controlInput);
+      controlCell.append(controlInput);
+    } else {
+      controlCell.classList.add("material-combobox-cell");
+      controlCell.append(
+        buildMeasurementOptionCombobox({
+          value: normalizeMeasurementControl(row.control),
+          options: MEASUREMENT_CONTROL_OPTIONS,
+          placeholder: "Search control…",
+          emptyMessage: "No controls match your search.",
+          disabled: runtime.quoteBusy,
+          allowBlank: true,
+          onSelect: (nextValue) => {
+            row.control = normalizeMeasurementControl(nextValue);
+            persistDraftChange();
+          },
+        }),
+      );
+    }
 
     const labelCell = document.createElement("td");
     const labelInput = buildTextInput({
@@ -3608,6 +3626,7 @@ function renderMeasurements() {
                 row.type = MOTORIZED_TYPE_VALUE;
                 row.width = "";
                 row.height = "";
+                row.control = "";
                 pushRecentMeasurementMaterial(picked.id);
               }
               persistDraftChange();
@@ -4452,7 +4471,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
           room: row.room,
           type: row.type,
           materialCode: row.materialCode,
-          control: normalizeMeasurementControl(row.control),
+          control: "",
           label: row.label.trim(),
           width: 0,
           height: 0,
@@ -5078,7 +5097,7 @@ function buildContractPreviewData() {
         label: row.label?.trim() || "",
         type: row.type?.trim() || "-",
         materialCode: row.materialCode?.trim() || "-",
-        control: normalizeMeasurementControl(row.control) || "-",
+        control: motorized ? "—" : normalizeMeasurementControl(row.control) || "-",
         width: motorized ? "—" : formatMeasurementDimension(row.width),
         height: motorized ? "—" : formatMeasurementDimension(row.height),
         srp: cost,
