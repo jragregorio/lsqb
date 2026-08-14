@@ -1568,10 +1568,10 @@ code {
     min-width: 7.2rem;
   }
 
-  .measurements-table th:nth-child(6),
-  .measurements-table td:nth-child(6),
   .measurements-table th:nth-child(7),
-  .measurements-table td:nth-child(7) {
+  .measurements-table td:nth-child(7),
+  .measurements-table th:nth-child(8),
+  .measurements-table td:nth-child(8) {
     min-width: 5.6rem;
     max-width: 5.6rem;
     width: 5.6rem;
@@ -1605,11 +1605,18 @@ code {
 }
 
 /* Cost column: keep compact. */
-.measurements-table th:nth-child(11),
-.measurements-table td:nth-child(11) {
+.measurements-table th:nth-child(12),
+.measurements-table td:nth-child(12) {
   width: 100px;
   min-width: 100px;
   max-width: 110px;
+}
+
+.measurements-table th.measurement-control-col,
+.measurements-table td.measurement-control-cell {
+  min-width: 5.5rem;
+  width: 5.5rem;
+  max-width: 6.5rem;
 }
 
 .measurements-table th.measurement-free-col,
@@ -1661,11 +1668,11 @@ code {
   min-width: 8.4rem;
 }
 
-/* Width (mm) = 6, Height (mm) = 7 — drag column shifted indices; was wrongly 7/8 */
-.measurements-table th:nth-child(6),
-.measurements-table td:nth-child(6),
+/* Width (mm) = 7, Height (mm) = 8 — drag column shifted indices */
 .measurements-table th:nth-child(7),
-.measurements-table td:nth-child(7) {
+.measurements-table td:nth-child(7),
+.measurements-table th:nth-child(8),
+.measurements-table td:nth-child(8) {
   width: calc(6.3rem * 1.05);
   min-width: calc(6.3rem * 1.05);
   max-width: calc(6.3rem * 1.05);
@@ -2460,25 +2467,23 @@ tbody tr.measurement-row--drag-over {
     grid-column: 1 / -1;
   }
 
-  /* 6: width, 7: height */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(6),
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(7) {
-    grid-column: span 1;
-  }
-
-  /* 8: material spans full width */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(8) {
+  /* 6: control */
+  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(6) {
     grid-column: 1 / -1;
   }
 
-  /* 9: free + 10: no disc + 11: cost on same row */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(9) {
+  /* 7: width, 8: height */
+  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(7),
+  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(8) {
     grid-column: span 1;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
   }
 
+  /* 9: material spans full width */
+  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(9) {
+    grid-column: 1 / -1;
+  }
+
+  /* 10: free + 11: no disc + 12: cost on same row */
   #measurements-panel .measurements-table tr.measurement-row > td:nth-child(10) {
     grid-column: span 1;
     display: flex;
@@ -2488,10 +2493,17 @@ tbody tr.measurement-row--drag-over {
 
   #measurements-panel .measurements-table tr.measurement-row > td:nth-child(11) {
     grid-column: span 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
-  /* 12: trash button pinned right */
   #measurements-panel .measurements-table tr.measurement-row > td:nth-child(12) {
+    grid-column: span 1;
+  }
+
+  /* 13: trash button pinned right */
+  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(13) {
     grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;

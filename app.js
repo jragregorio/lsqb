@@ -92,6 +92,17 @@ const MEASUREMENT_TYPE_OPTIONS = [
 /** Must match the configured material category in Material Setup (e.g. pricelist row). */
 const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized";
 const MOTORIZED_TYPE_VALUE = "PIONEER BRAND";
+const MEASUREMENT_CONTROL_SPLIT = "SPLIT";
+const MEASUREMENT_CONTROL_FULL = "FULL";
+const MEASUREMENT_CONTROL_OPTIONS = [
+  MEASUREMENT_CONTROL_SPLIT,
+  MEASUREMENT_CONTROL_FULL,
+];
+
+function normalizeMeasurementControl(value) {
+  const next = String(value ?? "").trim();
+  return MEASUREMENT_CONTROL_OPTIONS.includes(next) ? next : "";
+}
 
 const PROJECT_PROFESSIONAL_ROLE_COLUMN = "project_professional_role";
 
@@ -1122,6 +1133,7 @@ function createMeasurementRow() {
     room: "",
     type: "",
     materialCode: "",
+    control: "",
     label: "",
     width: "",
     height: "",
@@ -1671,6 +1683,7 @@ async function handleSaveQuote(options = {}) {
           room_section: sanitizeOptionalText(item.room),
           measurement_type: sanitizeOptionalText(item.type),
           material_code: sanitizeOptionalText(item.materialCode),
+          control: normalizeMeasurementControl(item.control) || null,
           label: item.label,
           width_mm: item.width,
           height_mm: item.height,
@@ -1799,7 +1812,7 @@ async function loadQuoteById(quoteId) {
     supabase
       .from("quote_measurements")
       .select(
-        "id, quote_material_id, room_section, measurement_type, material_code, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, line_is_free, line_excludes_discount, sort_order",
+        "id, quote_material_id, room_section, measurement_type, material_code, control, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, line_is_free, line_excludes_discount, sort_order",
       )
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true }),
@@ -1867,6 +1880,7 @@ async function loadQuoteById(quoteId) {
         room: row.room_section || "",
         type: row.measurement_type || "",
         materialCode: row.material_code || "",
+        control: normalizeMeasurementControl(row.control),
         label: row.label || "",
         width: isQtyLine ? "" : row.width_mm === null ? "" : String(row.width_mm),
         height: isQtyLine ? "" : row.height_mm === null ? "" : String(row.height_mm),
@@ -3044,12 +3058,201 @@ function reorderMeasurementRowsByIds(dragId, targetId, insertAfter) {
   return true;
 }
 
+function buildMeasurementOptionCombobox({
+  value,
+  options,
+  placeholder,
+  emptyMessage,
+  disabled = false,
+  allowBlank = false,
+  onSelect,
+}) {
+  const wrap = document.createElement("div");
+  wrap.className = "material-combobox";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "material-combobox-input measurement-fit-field";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.placeholder = placeholder;
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-expanded", "false");
+  input.disabled = disabled;
+  input.value = value || "";
+  attachMeasurementFieldFit(input);
+
+  const list = document.createElement("ul");
+  list.className = "material-combobox-list";
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+
+  let outsidePointerActive = false;
+
+  const revertInput = () => {
+    input.value = value || "";
+  };
+
+  const commitOnClose = () => {
+    if (allowBlank && !input.value.trim()) {
+      onSelect("");
+    } else {
+      revertInput();
+    }
+  };
+
+  const closeList = () => {
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    if (outsidePointerActive) {
+      document.removeEventListener("pointerdown", onOutsidePointerDown, true);
+      outsidePointerActive = false;
+    }
+    window.removeEventListener("scroll", onWindowScrollCapture, true);
+    window.removeEventListener("resize", positionDropdown);
+  };
+
+  const positionDropdown = () => {
+    if (list.hidden) {
+      return;
+    }
+    const rect = input.getBoundingClientRect();
+    const margin = 6;
+    const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
+    const maxH = Math.min(280, Math.max(120, spaceBelow));
+    list.style.position = "fixed";
+    list.style.left = `${rect.left}px`;
+    list.style.top = `${rect.bottom + margin}px`;
+    list.style.width = `${Math.max(rect.width, 200)}px`;
+    list.style.maxHeight = `${maxH}px`;
+    list.style.zIndex = "3000";
+  };
+
+  const onWindowScrollCapture = (event) => {
+    if (list.hidden) {
+      return;
+    }
+    const t = event.target;
+    if (t === list) {
+      return;
+    }
+    if (t instanceof Node && list.contains(t)) {
+      return;
+    }
+    closeList();
+  };
+
+  const onOutsidePointerDown = (event) => {
+    if (list.hidden) {
+      return;
+    }
+    if (event.target instanceof Node && wrap.contains(event.target)) {
+      return;
+    }
+    commitOnClose();
+    closeList();
+  };
+
+  function renderListOptions() {
+    list.innerHTML = "";
+    const q = input.value.trim().toLowerCase();
+    const filtered = options.filter((label) =>
+      !q ? true : String(label).toLowerCase().includes(q),
+    );
+
+    if (filtered.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "material-combobox-empty";
+      empty.textContent = emptyMessage;
+      list.append(empty);
+      return;
+    }
+
+    filtered.forEach((label) => {
+      const li = document.createElement("li");
+      li.className = "material-combobox-option";
+      li.setAttribute("role", "option");
+      const main = document.createElement("div");
+      main.className = "material-combobox-option-main";
+      main.textContent = label;
+      const sub = document.createElement("div");
+      sub.className = "material-combobox-option-sub";
+      sub.hidden = true;
+      li.append(main, sub);
+      li.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        input.value = label;
+        closeList();
+        onSelect(label);
+      });
+      list.append(li);
+    });
+  }
+
+  const openList = () => {
+    if (disabled) {
+      return;
+    }
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+    renderListOptions();
+    positionDropdown();
+    window.addEventListener("scroll", onWindowScrollCapture, true);
+    window.addEventListener("resize", positionDropdown);
+    if (!outsidePointerActive) {
+      document.addEventListener("pointerdown", onOutsidePointerDown, true);
+      outsidePointerActive = true;
+    }
+  };
+
+  input.addEventListener("focus", () => {
+    if (disabled) {
+      return;
+    }
+    if (value) {
+      input.select();
+    }
+    openList();
+  });
+  input.addEventListener("input", () => {
+    if (disabled) {
+      return;
+    }
+    renderListOptions();
+    if (list.hidden) {
+      openList();
+    } else {
+      positionDropdown();
+    }
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      revertInput();
+      closeList();
+      input.blur();
+    }
+  });
+  input.addEventListener("blur", () => {
+    window.setTimeout(() => {
+      if (!list.hidden) {
+        commitOnClose();
+        closeList();
+      }
+    }, 0);
+  });
+
+  wrap.append(input, list);
+  return wrap;
+}
+
 function renderMeasurements() {
   refs.measurementBody.innerHTML = "";
 
   if (state.measurementRows.length === 0) {
     refs.measurementBody.append(
-      createEmptyStateRow(12, "Add a measurement row to begin."),
+      createEmptyStateRow(13, "Add a measurement row to begin."),
     );
     return;
   }
@@ -3162,176 +3365,21 @@ function renderMeasurements() {
       typeCell.append(typeInput);
     } else {
       typeCell.className = "material-combobox-cell";
-
-      const typeWrap = document.createElement("div");
-      typeWrap.className = "material-combobox";
-
-      const typeInput = document.createElement("input");
-      typeInput.type = "text";
-      typeInput.className = "material-combobox-input measurement-fit-field";
-      typeInput.autocomplete = "off";
-      typeInput.spellcheck = false;
-      typeInput.placeholder = "Search type…";
-      typeInput.setAttribute("role", "combobox");
-      typeInput.setAttribute("aria-autocomplete", "list");
-      typeInput.setAttribute("aria-expanded", "false");
-      typeInput.disabled = runtime.quoteBusy;
-      typeInput.value = row.type || "";
-      attachMeasurementFieldFit(typeInput);
-
-      const typeList = document.createElement("ul");
-      typeList.className = "material-combobox-list";
-      typeList.setAttribute("role", "listbox");
-      typeList.hidden = true;
-
-      let typeOutsidePointerActive = false;
-
-      const closeTypeList = () => {
-        typeList.hidden = true;
-        typeInput.setAttribute("aria-expanded", "false");
-        if (typeOutsidePointerActive) {
-          document.removeEventListener("pointerdown", onOutsideTypePointerDown, true);
-          typeOutsidePointerActive = false;
-        }
-        window.removeEventListener("scroll", onTypeWindowScrollCapture, true);
-        window.removeEventListener("resize", positionTypeDropdown);
-      };
-
-      const positionTypeDropdown = () => {
-        if (typeList.hidden) {
-          return;
-        }
-        const rect = typeInput.getBoundingClientRect();
-        const margin = 6;
-        const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
-        const maxH = Math.min(280, Math.max(120, spaceBelow));
-        typeList.style.position = "fixed";
-        typeList.style.left = `${rect.left}px`;
-        typeList.style.top = `${rect.bottom + margin}px`;
-        typeList.style.width = `${Math.max(rect.width, 200)}px`;
-        typeList.style.maxHeight = `${maxH}px`;
-        typeList.style.zIndex = "3000";
-      };
-
-      const onTypeWindowScrollCapture = (event) => {
-        if (typeList.hidden) {
-          return;
-        }
-        const t = event.target;
-        if (t === typeList) {
-          return;
-        }
-        if (t instanceof Node && typeList.contains(t)) {
-          return;
-        }
-        closeTypeList();
-      };
-
-      const onOutsideTypePointerDown = (event) => {
-        if (typeList.hidden) {
-          return;
-        }
-        if (event.target instanceof Node && typeWrap.contains(event.target)) {
-          return;
-        }
-        // revert label if it's not an exact option
-        typeInput.value = row.type || "";
-        closeTypeList();
-      };
-
-      function renderTypeListOptions() {
-        typeList.innerHTML = "";
-        const q = typeInput.value.trim().toLowerCase();
-        const filtered = MEASUREMENT_TYPE_OPTIONS.filter((label) =>
-          !q ? true : String(label).toLowerCase().includes(q),
-        );
-
-        if (filtered.length === 0) {
-          const empty = document.createElement("li");
-          empty.className = "material-combobox-empty";
-          empty.textContent = "No types match your search.";
-          typeList.append(empty);
-          return;
-        }
-
-        filtered.forEach((label) => {
-          const li = document.createElement("li");
-          li.className = "material-combobox-option";
-          li.setAttribute("role", "option");
-          const main = document.createElement("div");
-          main.className = "material-combobox-option-main";
-          main.textContent = label;
-          const sub = document.createElement("div");
-          sub.className = "material-combobox-option-sub";
-          sub.hidden = true;
-          li.append(main, sub);
-          li.addEventListener("mousedown", (event) => {
-            event.preventDefault();
+      typeCell.append(
+        buildMeasurementOptionCombobox({
+          value: row.type || "",
+          options: MEASUREMENT_TYPE_OPTIONS,
+          placeholder: "Search type…",
+          emptyMessage: "No types match your search.",
+          disabled: runtime.quoteBusy,
+          allowBlank: false,
+          onSelect: (label) => {
             row.type = label;
-            typeInput.value = label;
-            closeTypeList();
             persistDraftChange();
             renderMeasurements();
-          });
-          typeList.append(li);
-        });
-      }
-
-      const openTypeList = () => {
-        if (runtime.quoteBusy) {
-          return;
-        }
-        typeList.hidden = false;
-        typeInput.setAttribute("aria-expanded", "true");
-        renderTypeListOptions();
-        positionTypeDropdown();
-        window.addEventListener("scroll", onTypeWindowScrollCapture, true);
-        window.addEventListener("resize", positionTypeDropdown);
-        if (!typeOutsidePointerActive) {
-          document.addEventListener("pointerdown", onOutsideTypePointerDown, true);
-          typeOutsidePointerActive = true;
-        }
-      };
-
-      typeInput.addEventListener("focus", () => {
-        if (runtime.quoteBusy) {
-          return;
-        }
-        if (row.type) {
-          typeInput.select();
-        }
-        openTypeList();
-      });
-      typeInput.addEventListener("input", () => {
-        if (runtime.quoteBusy) {
-          return;
-        }
-        renderTypeListOptions();
-        if (typeList.hidden) {
-          openTypeList();
-        } else {
-          positionTypeDropdown();
-        }
-      });
-      typeInput.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          typeInput.value = row.type || "";
-          closeTypeList();
-          typeInput.blur();
-        }
-      });
-      typeInput.addEventListener("blur", () => {
-        window.setTimeout(() => {
-          if (!typeList.hidden) {
-            typeInput.value = row.type || "";
-            closeTypeList();
-          }
-        }, 0);
-      });
-
-      typeWrap.append(typeInput, typeList);
-      typeCell.append(typeWrap);
+          },
+        }),
+      );
     }
 
     const materialCodeCell = document.createElement("td");
@@ -3347,6 +3395,24 @@ function renderMeasurements() {
     });
     attachMeasurementFieldFit(materialCodeInput);
     materialCodeCell.append(materialCodeInput);
+
+    const controlCell = document.createElement("td");
+    controlCell.className = "material-combobox-cell measurement-control-cell";
+    controlCell.append(
+      buildMeasurementOptionCombobox({
+        value: normalizeMeasurementControl(row.control),
+        options: MEASUREMENT_CONTROL_OPTIONS,
+        placeholder: "Search control…",
+        emptyMessage: "No controls match your search.",
+        disabled: runtime.quoteBusy,
+        allowBlank: true,
+        onSelect: (nextValue) => {
+          row.control = normalizeMeasurementControl(nextValue);
+          persistDraftChange();
+          renderMeasurements();
+        },
+      }),
+    );
 
     const labelCell = document.createElement("td");
     const labelInput = buildTextInput({
@@ -3759,6 +3825,7 @@ function renderMeasurements() {
       labelCell,
       typeCell,
       materialCodeCell,
+      controlCell,
       widthCell,
       heightCell,
       materialCell,
@@ -4341,6 +4408,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
       Boolean(row.room) ||
       Boolean(row.type) ||
       Boolean(row.materialCode) ||
+      Boolean(row.control) ||
       Boolean(row.label) ||
       row.width !== "" ||
       row.height !== "" ||
@@ -4384,6 +4452,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
           room: row.room,
           type: row.type,
           materialCode: row.materialCode,
+          control: normalizeMeasurementControl(row.control),
           label: row.label.trim(),
           width: 0,
           height: 0,
@@ -4426,6 +4495,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
         room: row.room,
         type: row.type,
         materialCode: row.materialCode,
+        control: normalizeMeasurementControl(row.control),
         label: row.label.trim(),
         width,
         height,
@@ -4616,6 +4686,7 @@ function hasMeaningfulDraftChanges() {
           row.room ||
           row.type ||
           row.materialCode ||
+          row.control ||
           row.label ||
           row.width !== "" ||
           row.height !== "" ||
@@ -4661,6 +4732,7 @@ function buildCurrentQuoteFingerprint() {
       room: row.room || "",
       type: row.type || "",
       materialCode: row.materialCode || "",
+      control: normalizeMeasurementControl(row.control),
       label: row.label || "",
       width: row.width === "" ? "" : String(row.width),
       height: row.height === "" ? "" : String(row.height),
@@ -5006,6 +5078,7 @@ function buildContractPreviewData() {
         label: row.label?.trim() || "",
         type: row.type?.trim() || "-",
         materialCode: row.materialCode?.trim() || "-",
+        control: normalizeMeasurementControl(row.control) || "-",
         width: motorized ? "—" : formatMeasurementDimension(row.width),
         height: motorized ? "—" : formatMeasurementDimension(row.height),
         srp: cost,
@@ -5513,12 +5586,12 @@ function getContractPdfBranding(organization, assets) {
 }
 
 const CONTRACT_TABLE_LINE_WIDTH = 0.75;
-const CONTRACT_ORDER_TABLE_WIDTHS = [92, 76, 112, 60, 60, 70];
+const CONTRACT_ORDER_TABLE_WIDTHS = [86, 72, 100, 50, 58, 58, 66];
 // Totals table widths: [label column, amount column]
 // Keep this explicit for easier tuning against ORDER DETAILS table.
 const CONTRACT_TOTALS_TABLE_WIDTHS = [300, 181];
 
-const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [92, 76, 112, 63, 63];
+const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [86, 72, 100, 50, 58, 58];
 const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
 const PRINT_CLEAN_TABLE_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_COUNT + 2;
 const PRINT_CLEAN_TABLE_LINE_WIDTH = CONTRACT_TABLE_LINE_WIDTH;
@@ -6078,13 +6151,14 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     border: [false, false, false, false],
   });
 
-  const contractColumnCount = printClean ? PRINT_CLEAN_DATA_COLUMN_COUNT : 6;
+  const contractColumnCount = printClean ? PRINT_CLEAN_DATA_COLUMN_COUNT : 7;
   const tableColumnCount = printClean ? PRINT_CLEAN_TABLE_COLUMN_COUNT : contractColumnCount;
 
   const dataHeaderRow = [
     buildHeaderCell("AREA"),
     buildHeaderCell("TYPE"),
     buildHeaderCell("MATERIAL CODE"),
+    buildHeaderCell("CONTROL"),
     buildHeaderCell("WIDTH"),
     buildHeaderCell("HEIGHT"),
   ];
@@ -6120,6 +6194,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
           {},
           {},
           {},
+          {},
           buildSideSpacerCell(),
         ]);
       } else {
@@ -6147,6 +6222,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
       { text: item.label || " ", alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.type, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.materialCode, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.control, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.width, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.height, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
     ];

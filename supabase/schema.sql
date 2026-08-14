@@ -68,6 +68,7 @@ create table if not exists public.quote_measurements (
   room_section text,
   measurement_type text,
   material_code text,
+  control text,
   label text not null,
   width_mm numeric(12, 2) not null,
   height_mm numeric(12, 2) not null,
