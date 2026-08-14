@@ -91,6 +91,7 @@ const MEASUREMENT_TYPE_OPTIONS = [
 
 /** Must match the configured material category in Material Setup (e.g. pricelist row). */
 const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized";
+const MOTORIZED_TYPE_VALUE = "PIONEER BRAND";
 
 const PROJECT_PROFESSIONAL_ROLE_COLUMN = "project_professional_role";
 
@@ -3148,15 +3149,14 @@ function renderMeasurements() {
 
     const typeCell = document.createElement("td");
     if (motorized) {
+      if (row.type !== MOTORIZED_TYPE_VALUE) {
+        row.type = MOTORIZED_TYPE_VALUE;
+        persistDraftChange();
+      }
       const typeInput = buildTextInput({
-        value: row.type || "",
-        placeholder: "Enter type",
+        value: MOTORIZED_TYPE_VALUE,
         className: "measurement-fit-field",
-        disabled: runtime.quoteBusy,
-        onInput: (value) => {
-          row.type = value;
-          persistDraftChange();
-        },
+        disabled: true,
       });
       attachMeasurementFieldFit(typeInput);
       typeCell.append(typeInput);
@@ -3539,6 +3539,7 @@ function renderMeasurements() {
                 syncMaterialInputLabelFromRow();
               } else {
                 row.unitQuantity = String(result.quantity);
+                row.type = MOTORIZED_TYPE_VALUE;
                 row.width = "";
                 row.height = "";
                 pushRecentMeasurementMaterial(picked.id);
