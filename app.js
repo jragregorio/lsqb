@@ -3641,6 +3641,7 @@ function renderMeasurements() {
                 syncMaterialInputLabelFromRow();
               } else {
                 row.unitQuantity = String(result.quantity);
+                row.materialCode = buildMotorizedMaterialCode(result.quantity);
                 if (isCurtainsMotorizedCategory(picked)) {
                   row.type = MOTORIZED_TYPE_VALUE;
                 }
@@ -4151,6 +4152,10 @@ function parseMotorQuantity(value) {
     return null;
   }
   return parsed;
+}
+
+function buildMotorizedMaterialCode(quantity) {
+  return `X${quantity} MOTORIZED`;
 }
 
 function openMotorQuantityDialog(row) {
