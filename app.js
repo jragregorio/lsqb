@@ -7,11 +7,11 @@ const BRAND_THEMES = {
     pdf: {
       watermarkWidth: 220,
       watermarkOpacity: 0.16,
-      borderColor: "#e6d8ca",
-      accentColor: "#9e7149",
-      textColor: "#2f2a26",
-      lightFill: "#f5ece2",
-      accentFill: "#f3e5d7",
+      borderColor: "#c9b49c",
+      accentColor: "#8a5730",
+      textColor: "#15110e",
+      lightFill: "#efe3d3",
+      accentFill: "#e6d0b8",
     },
     logoAssetKey: "luxe",
   },
@@ -5340,14 +5340,14 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
       html, body {
         margin: 0;
         height: 100%;
-        background: #efe8df;
+        background: #efe3d3;
       }
 
       body {
         display: flex;
         flex-direction: column;
         font-family: "Segoe UI", Arial, sans-serif;
-        color: #2f2a26;
+        color: #15110e;
       }
 
       .pdf-preview-bar {
@@ -5356,8 +5356,8 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
         justify-content: space-between;
         gap: 16px;
         padding: 12px 16px;
-        border-bottom: 1px solid #dccab8;
-        background: #fbf7f2;
+        border-bottom: 1px solid #c9b49c;
+        background: #fffaf3;
       }
 
       .pdf-preview-name {
@@ -5377,7 +5377,7 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
 
       .pdf-preview-note {
         font-size: 12px;
-        color: #6f6257;
+        color: #4f3e30;
       }
 
       .pdf-preview-download {
@@ -5387,8 +5387,8 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
         min-height: 38px;
         padding: 0 14px;
         border-radius: 999px;
-        border: 1px solid #9e7149;
-        background: #9e7149;
+        border: 1px solid #8a5730;
+        background: #8a5730;
         color: #ffffff;
         text-decoration: none;
         font-size: 13px;
@@ -5396,8 +5396,8 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
       }
 
       .pdf-preview-download:hover {
-        background: #875f3b;
-        border-color: #875f3b;
+        background: #5c3820;
+        border-color: #5c3820;
       }
 
       .pdf-preview-frame {
@@ -5605,6 +5605,13 @@ function buildContractPaymentOptionsItems(organization = "luxe") {
 function applyBrandTheme(organization = state.pdfOrganization) {
   const brand = normalizePdfOrganization(organization);
   document.documentElement.dataset.brand = brand;
+
+  delete document.documentElement.dataset.luxePalette;
+  try {
+    window.localStorage.removeItem("luxeshade-luxe-palette-preview");
+  } catch {
+    // ignore storage failures
+  }
 
   if (refs.pdfBrandThemeHint) {
     refs.pdfBrandThemeHint.textContent = `App theme: ${getPdfOrganizationLabel()}`;
