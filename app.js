@@ -3147,177 +3147,192 @@ function renderMeasurements() {
     roomCell.append(roomInput);
 
     const typeCell = document.createElement("td");
-    typeCell.className = "material-combobox-cell";
-
-    const typeWrap = document.createElement("div");
-    typeWrap.className = "material-combobox";
-
-    const typeInput = document.createElement("input");
-    typeInput.type = "text";
-    typeInput.className = "material-combobox-input measurement-fit-field";
-    typeInput.autocomplete = "off";
-    typeInput.spellcheck = false;
-    typeInput.placeholder = "Search type…";
-    typeInput.setAttribute("role", "combobox");
-    typeInput.setAttribute("aria-autocomplete", "list");
-    typeInput.setAttribute("aria-expanded", "false");
-    typeInput.disabled = runtime.quoteBusy;
-    typeInput.value = row.type || "";
-    attachMeasurementFieldFit(typeInput);
-
-    const typeList = document.createElement("ul");
-    typeList.className = "material-combobox-list";
-    typeList.setAttribute("role", "listbox");
-    typeList.hidden = true;
-
-    let typeOutsidePointerActive = false;
-
-    const closeTypeList = () => {
-      typeList.hidden = true;
-      typeInput.setAttribute("aria-expanded", "false");
-      if (typeOutsidePointerActive) {
-        document.removeEventListener("pointerdown", onOutsideTypePointerDown, true);
-        typeOutsidePointerActive = false;
-      }
-      window.removeEventListener("scroll", onTypeWindowScrollCapture, true);
-      window.removeEventListener("resize", positionTypeDropdown);
-    };
-
-    const positionTypeDropdown = () => {
-      if (typeList.hidden) {
-        return;
-      }
-      const rect = typeInput.getBoundingClientRect();
-      const margin = 6;
-      const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
-      const maxH = Math.min(280, Math.max(120, spaceBelow));
-      typeList.style.position = "fixed";
-      typeList.style.left = `${rect.left}px`;
-      typeList.style.top = `${rect.bottom + margin}px`;
-      typeList.style.width = `${Math.max(rect.width, 200)}px`;
-      typeList.style.maxHeight = `${maxH}px`;
-      typeList.style.zIndex = "3000";
-    };
-
-    const onTypeWindowScrollCapture = (event) => {
-      if (typeList.hidden) {
-        return;
-      }
-      const t = event.target;
-      if (t === typeList) {
-        return;
-      }
-      if (t instanceof Node && typeList.contains(t)) {
-        return;
-      }
-      closeTypeList();
-    };
-
-    const onOutsideTypePointerDown = (event) => {
-      if (typeList.hidden) {
-        return;
-      }
-      if (event.target instanceof Node && typeWrap.contains(event.target)) {
-        return;
-      }
-      // revert label if it's not an exact option
-      typeInput.value = row.type || "";
-      closeTypeList();
-    };
-
-    function renderTypeListOptions() {
-      typeList.innerHTML = "";
-      const q = typeInput.value.trim().toLowerCase();
-      const filtered = MEASUREMENT_TYPE_OPTIONS.filter((label) =>
-        !q ? true : String(label).toLowerCase().includes(q),
-      );
-
-      if (filtered.length === 0) {
-        const empty = document.createElement("li");
-        empty.className = "material-combobox-empty";
-        empty.textContent = "No types match your search.";
-        typeList.append(empty);
-        return;
-      }
-
-      filtered.forEach((label) => {
-        const li = document.createElement("li");
-        li.className = "material-combobox-option";
-        li.setAttribute("role", "option");
-        const main = document.createElement("div");
-        main.className = "material-combobox-option-main";
-        main.textContent = label;
-        const sub = document.createElement("div");
-        sub.className = "material-combobox-option-sub";
-        sub.hidden = true;
-        li.append(main, sub);
-        li.addEventListener("mousedown", (event) => {
-          event.preventDefault();
-          row.type = label;
-          typeInput.value = label;
-          closeTypeList();
+    if (motorized) {
+      const typeInput = buildTextInput({
+        value: row.type || "",
+        placeholder: "Enter type",
+        className: "measurement-fit-field",
+        disabled: runtime.quoteBusy,
+        onInput: (value) => {
+          row.type = value;
           persistDraftChange();
-          renderMeasurements();
-        });
-        typeList.append(li);
+        },
       });
-    }
+      attachMeasurementFieldFit(typeInput);
+      typeCell.append(typeInput);
+    } else {
+      typeCell.className = "material-combobox-cell";
 
-    const openTypeList = () => {
-      if (runtime.quoteBusy) {
-        return;
-      }
-      typeList.hidden = false;
-      typeInput.setAttribute("aria-expanded", "true");
-      renderTypeListOptions();
-      positionTypeDropdown();
-      window.addEventListener("scroll", onTypeWindowScrollCapture, true);
-      window.addEventListener("resize", positionTypeDropdown);
-      if (!typeOutsidePointerActive) {
-        document.addEventListener("pointerdown", onOutsideTypePointerDown, true);
-        typeOutsidePointerActive = true;
-      }
-    };
+      const typeWrap = document.createElement("div");
+      typeWrap.className = "material-combobox";
 
-    typeInput.addEventListener("focus", () => {
-      if (runtime.quoteBusy) {
-        return;
-      }
-      if (row.type) {
-        typeInput.select();
-      }
-      openTypeList();
-    });
-    typeInput.addEventListener("input", () => {
-      if (runtime.quoteBusy) {
-        return;
-      }
-      renderTypeListOptions();
-      if (typeList.hidden) {
-        openTypeList();
-      } else {
-        positionTypeDropdown();
-      }
-    });
-    typeInput.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
+      const typeInput = document.createElement("input");
+      typeInput.type = "text";
+      typeInput.className = "material-combobox-input measurement-fit-field";
+      typeInput.autocomplete = "off";
+      typeInput.spellcheck = false;
+      typeInput.placeholder = "Search type…";
+      typeInput.setAttribute("role", "combobox");
+      typeInput.setAttribute("aria-autocomplete", "list");
+      typeInput.setAttribute("aria-expanded", "false");
+      typeInput.disabled = runtime.quoteBusy;
+      typeInput.value = row.type || "";
+      attachMeasurementFieldFit(typeInput);
+
+      const typeList = document.createElement("ul");
+      typeList.className = "material-combobox-list";
+      typeList.setAttribute("role", "listbox");
+      typeList.hidden = true;
+
+      let typeOutsidePointerActive = false;
+
+      const closeTypeList = () => {
+        typeList.hidden = true;
+        typeInput.setAttribute("aria-expanded", "false");
+        if (typeOutsidePointerActive) {
+          document.removeEventListener("pointerdown", onOutsideTypePointerDown, true);
+          typeOutsidePointerActive = false;
+        }
+        window.removeEventListener("scroll", onTypeWindowScrollCapture, true);
+        window.removeEventListener("resize", positionTypeDropdown);
+      };
+
+      const positionTypeDropdown = () => {
+        if (typeList.hidden) {
+          return;
+        }
+        const rect = typeInput.getBoundingClientRect();
+        const margin = 6;
+        const spaceBelow = window.innerHeight - rect.bottom - margin - 8;
+        const maxH = Math.min(280, Math.max(120, spaceBelow));
+        typeList.style.position = "fixed";
+        typeList.style.left = `${rect.left}px`;
+        typeList.style.top = `${rect.bottom + margin}px`;
+        typeList.style.width = `${Math.max(rect.width, 200)}px`;
+        typeList.style.maxHeight = `${maxH}px`;
+        typeList.style.zIndex = "3000";
+      };
+
+      const onTypeWindowScrollCapture = (event) => {
+        if (typeList.hidden) {
+          return;
+        }
+        const t = event.target;
+        if (t === typeList) {
+          return;
+        }
+        if (t instanceof Node && typeList.contains(t)) {
+          return;
+        }
+        closeTypeList();
+      };
+
+      const onOutsideTypePointerDown = (event) => {
+        if (typeList.hidden) {
+          return;
+        }
+        if (event.target instanceof Node && typeWrap.contains(event.target)) {
+          return;
+        }
+        // revert label if it's not an exact option
         typeInput.value = row.type || "";
         closeTypeList();
-        typeInput.blur();
+      };
+
+      function renderTypeListOptions() {
+        typeList.innerHTML = "";
+        const q = typeInput.value.trim().toLowerCase();
+        const filtered = MEASUREMENT_TYPE_OPTIONS.filter((label) =>
+          !q ? true : String(label).toLowerCase().includes(q),
+        );
+
+        if (filtered.length === 0) {
+          const empty = document.createElement("li");
+          empty.className = "material-combobox-empty";
+          empty.textContent = "No types match your search.";
+          typeList.append(empty);
+          return;
+        }
+
+        filtered.forEach((label) => {
+          const li = document.createElement("li");
+          li.className = "material-combobox-option";
+          li.setAttribute("role", "option");
+          const main = document.createElement("div");
+          main.className = "material-combobox-option-main";
+          main.textContent = label;
+          const sub = document.createElement("div");
+          sub.className = "material-combobox-option-sub";
+          sub.hidden = true;
+          li.append(main, sub);
+          li.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            row.type = label;
+            typeInput.value = label;
+            closeTypeList();
+            persistDraftChange();
+            renderMeasurements();
+          });
+          typeList.append(li);
+        });
       }
-    });
-    typeInput.addEventListener("blur", () => {
-      window.setTimeout(() => {
-        if (!typeList.hidden) {
+
+      const openTypeList = () => {
+        if (runtime.quoteBusy) {
+          return;
+        }
+        typeList.hidden = false;
+        typeInput.setAttribute("aria-expanded", "true");
+        renderTypeListOptions();
+        positionTypeDropdown();
+        window.addEventListener("scroll", onTypeWindowScrollCapture, true);
+        window.addEventListener("resize", positionTypeDropdown);
+        if (!typeOutsidePointerActive) {
+          document.addEventListener("pointerdown", onOutsideTypePointerDown, true);
+          typeOutsidePointerActive = true;
+        }
+      };
+
+      typeInput.addEventListener("focus", () => {
+        if (runtime.quoteBusy) {
+          return;
+        }
+        if (row.type) {
+          typeInput.select();
+        }
+        openTypeList();
+      });
+      typeInput.addEventListener("input", () => {
+        if (runtime.quoteBusy) {
+          return;
+        }
+        renderTypeListOptions();
+        if (typeList.hidden) {
+          openTypeList();
+        } else {
+          positionTypeDropdown();
+        }
+      });
+      typeInput.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
           typeInput.value = row.type || "";
           closeTypeList();
+          typeInput.blur();
         }
-      }, 0);
-    });
+      });
+      typeInput.addEventListener("blur", () => {
+        window.setTimeout(() => {
+          if (!typeList.hidden) {
+            typeInput.value = row.type || "";
+            closeTypeList();
+          }
+        }, 0);
+      });
 
-    typeWrap.append(typeInput, typeList);
-    typeCell.append(typeWrap);
+      typeWrap.append(typeInput, typeList);
+      typeCell.append(typeWrap);
+    }
 
     const materialCodeCell = document.createElement("td");
     const materialCodeInput = buildTextInput({
