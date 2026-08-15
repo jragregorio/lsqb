@@ -8,7 +8,7 @@ const BRAND_THEMES = {
       watermarkWidth: 220,
       watermarkOpacity: 0.16,
       borderColor: "#c9b49c",
-      accentColor: "#8a5730",
+      accentColor: "#c47a28",
       textColor: "#15110e",
       lightFill: "#efe3d3",
       accentFill: "#e6d0b8",
@@ -5387,8 +5387,8 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
         min-height: 38px;
         padding: 0 14px;
         border-radius: 999px;
-        border: 1px solid #8a5730;
-        background: #8a5730;
+        border: 1px solid #c47a28;
+        background: #c47a28;
         color: #ffffff;
         text-decoration: none;
         font-size: 13px;
@@ -5396,8 +5396,8 @@ function openPdfPreviewWindow(previewWindow, pdfUrl, fileName) {
       }
 
       .pdf-preview-download:hover {
-        background: #5c3820;
-        border-color: #5c3820;
+        background: #a85f18;
+        border-color: #a85f18;
       }
 
       .pdf-preview-frame {
@@ -5607,8 +5607,10 @@ function applyBrandTheme(organization = state.pdfOrganization) {
   document.documentElement.dataset.brand = brand;
 
   delete document.documentElement.dataset.luxePalette;
+  delete document.documentElement.dataset.luxePop;
   try {
     window.localStorage.removeItem("luxeshade-luxe-palette-preview");
+    window.localStorage.removeItem("luxeshade-luxe-pop-preview");
   } catch {
     // ignore storage failures
   }

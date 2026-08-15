@@ -11,7 +11,7 @@ html[data-brand="luxe"] {
   --muted: #4f3e30;
   --primary: #5c3820;
   --primary-dark: #3d2414;
-  --accent: #8a5730;
+  --accent: #c47a28;
   --success: #4c6644;
   --danger: #9e3542;
   --danger-bg: #ffeeec;
@@ -19,7 +19,7 @@ html[data-brand="luxe"] {
   --surface-elevated: #fffdfb;
   --line-strong: #a8876a;
   --accent-card-bg: #e6d0b8;
-  --accent-card-border: #c09a74;
+  --accent-card-border: #d4a05a;
   --highlight-surface: #fff3e4;
   --label-muted: #4a392c;
   --body-glow-1: rgba(138, 87, 48, 0.14);
@@ -107,6 +107,45 @@ html[data-brand="kk"] {
   --material-totals-cell-text: color-mix(in srgb, var(--text) 92%, var(--muted) 8%);
   --material-totals-cell-meta: color-mix(in srgb, var(--muted) 82%, var(--text) 18%);
   --material-totals-cell-cost: var(--table-money-text);
+}
+
+html[data-brand="luxe"] {
+  --table-field-border: #c9a06a;
+  --table-cell-border: #c9a06a;
+  --table-control-border: #c9a06a;
+  --table-card-border: #c9a06a;
+  --table-card-accent-border: color-mix(in srgb, #c47a28 62%, transparent 38%);
+}
+
+html[data-brand="luxe"] .primary-button {
+  border-color: #a85f18;
+}
+
+html[data-brand="luxe"] .secondary-button,
+html[data-brand="luxe"] .accent-button {
+  border-color: #c47a28;
+}
+
+html[data-brand="luxe"] .quote-step-pill {
+  border-color: #d4b48a;
+}
+
+html[data-brand="luxe"] .quote-step-pill.is-active {
+  border-color: #c47a28;
+}
+
+html[data-brand="luxe"] .panel-heading h2 {
+  border-color: #c47a28;
+}
+
+html[data-brand="luxe"] .quote-meta-grid input,
+html[data-brand="luxe"] .quote-meta-grid textarea,
+html[data-brand="luxe"] .quote-meta-grid select {
+  border-color: #c9a06a;
+}
+
+html[data-brand="luxe"] .material-combobox-input:focus {
+  outline-color: #c47a28;
 }
 
 * {
