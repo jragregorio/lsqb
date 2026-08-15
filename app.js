@@ -122,6 +122,10 @@ const QUOTE_SELECT_COLUMN_LIST = [
   "delivery_is_free",
   "install_steam_amount",
   "install_steam_is_free",
+  "installation_amount",
+  "installation_is_free",
+  "steam_amount",
+  "steam_is_free",
   "discount",
   "discount_type",
   "discount_value",
@@ -182,8 +186,10 @@ const refs = {
   dtiOfficialReceiptBtn: document.querySelector("#dti-official-receipt-btn"),
   deliveryAmount: document.querySelector("#delivery-amount"),
   deliveryFree: document.querySelector("#delivery-free"),
-  installSteamAmount: document.querySelector("#install-steam-amount"),
-  installSteamFree: document.querySelector("#install-steam-free"),
+  installationAmount: document.querySelector("#installation-amount"),
+  installationFree: document.querySelector("#installation-free"),
+  steamAmount: document.querySelector("#steam-amount"),
+  steamFree: document.querySelector("#steam-free"),
   quoteClientName: document.querySelector("#quote-client-name"),
   quoteProjectName: document.querySelector("#quote-project-name"),
   quoteDate: document.querySelector("#quote-date"),
@@ -389,13 +395,23 @@ async function bootstrap() {
     persistDraftChange();
     renderSummary();
   });
-  refs.installSteamAmount?.addEventListener("input", (event) => {
-    state.quoteMeta.installSteamAmount = normalizeInputNumber(event.target.value);
+  refs.installationAmount?.addEventListener("input", (event) => {
+    state.quoteMeta.installationAmount = normalizeInputNumber(event.target.value);
     persistDraftChange();
     renderSummary();
   });
-  refs.installSteamFree?.addEventListener("change", (event) => {
-    state.quoteMeta.installSteamIsFree = Boolean(event.target.checked);
+  refs.installationFree?.addEventListener("change", (event) => {
+    state.quoteMeta.installationIsFree = Boolean(event.target.checked);
+    persistDraftChange();
+    renderSummary();
+  });
+  refs.steamAmount?.addEventListener("input", (event) => {
+    state.quoteMeta.steamAmount = normalizeInputNumber(event.target.value);
+    persistDraftChange();
+    renderSummary();
+  });
+  refs.steamFree?.addEventListener("change", (event) => {
+    state.quoteMeta.steamIsFree = Boolean(event.target.checked);
     persistDraftChange();
     renderSummary();
   });
@@ -1146,6 +1162,33 @@ function createMeasurementRow() {
   };
 }
 
+function mapQuoteChargesMetaFromRow(row) {
+  const deliveryAmount = getDiscountInputDisplayValue(row.delivery_amount) || "";
+  const deliveryIsFree = Boolean(row.delivery_is_free);
+  const hasInstallationColumns =
+    row.installation_amount !== null && row.installation_amount !== undefined;
+
+  if (hasInstallationColumns) {
+    return {
+      deliveryAmount,
+      deliveryIsFree,
+      installationAmount: getDiscountInputDisplayValue(row.installation_amount) || "",
+      installationIsFree: Boolean(row.installation_is_free),
+      steamAmount: getDiscountInputDisplayValue(row.steam_amount) || "",
+      steamIsFree: Boolean(row.steam_is_free),
+    };
+  }
+
+  return {
+    deliveryAmount,
+    deliveryIsFree,
+    installationAmount: getDiscountInputDisplayValue(row.install_steam_amount) || "",
+    installationIsFree: Boolean(row.install_steam_is_free),
+    steamAmount: "",
+    steamIsFree: false,
+  };
+}
+
 function getDefaultQuoteMeta() {
   return {
     id: "",
@@ -1160,8 +1203,10 @@ function getDefaultQuoteMeta() {
     notes: "",
     deliveryAmount: "",
     deliveryIsFree: false,
-    installSteamAmount: "",
-    installSteamIsFree: false,
+    installationAmount: "",
+    installationIsFree: false,
+    steamAmount: "",
+    steamIsFree: false,
     createdAt: "",
     updatedAt: "",
   };
@@ -1563,6 +1608,9 @@ async function handleSaveQuote(options = {}) {
     autosave ? "Autosaving quote..." : state.quoteMeta.id ? "Updating quote..." : "Saving quote...",
   );
   const summaryTotals = getSummaryTotals();
+  const installationAmountRaw =
+    parseCurrencyLikeNumber(state.quoteMeta.installationAmount) || 0;
+  const steamAmountRaw = parseCurrencyLikeNumber(state.quoteMeta.steamAmount) || 0;
 
   const quotePayload = {
     owner_user_id: runtime.session.user.id,
@@ -1576,8 +1624,13 @@ async function handleSaveQuote(options = {}) {
     notes: sanitizeOptionalText(state.quoteMeta.notes),
     delivery_amount: parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0,
     delivery_is_free: Boolean(state.quoteMeta.deliveryIsFree),
-    install_steam_amount: parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0,
-    install_steam_is_free: Boolean(state.quoteMeta.installSteamIsFree),
+    installation_amount: installationAmountRaw,
+    installation_is_free: Boolean(state.quoteMeta.installationIsFree),
+    steam_amount: steamAmountRaw,
+    steam_is_free: Boolean(state.quoteMeta.steamIsFree),
+    install_steam_amount: installationAmountRaw + steamAmountRaw,
+    install_steam_is_free:
+      Boolean(state.quoteMeta.installationIsFree) && Boolean(state.quoteMeta.steamIsFree),
     discount: summaryTotals.discountAmount,
     discount_type: state.discountType,
     discount_value: parseCurrencyLikeNumber(state.discountValue) || 0,
@@ -1721,10 +1774,7 @@ async function handleSaveQuote(options = {}) {
     emailAddress: savedQuote.email_address || "",
     quoteReference: savedQuote.quote_reference || "",
     notes: savedQuote.notes || "",
-    deliveryAmount: getDiscountInputDisplayValue(savedQuote.delivery_amount) || "",
-    deliveryIsFree: Boolean(savedQuote.delivery_is_free),
-    installSteamAmount: getDiscountInputDisplayValue(savedQuote.install_steam_amount) || "",
-    installSteamIsFree: Boolean(savedQuote.install_steam_is_free),
+    ...mapQuoteChargesMetaFromRow(savedQuote),
     createdAt: savedQuote.created_at || "",
     updatedAt: savedQuote.updated_at || "",
   };
@@ -1844,10 +1894,7 @@ async function loadQuoteById(quoteId) {
     emailAddress: quoteResult.data.email_address || "",
     quoteReference: quoteResult.data.quote_reference || "",
     notes: quoteResult.data.notes || "",
-    deliveryAmount: getDiscountInputDisplayValue(quoteResult.data.delivery_amount) || "",
-    deliveryIsFree: Boolean(quoteResult.data.delivery_is_free),
-    installSteamAmount: getDiscountInputDisplayValue(quoteResult.data.install_steam_amount) || "",
-    installSteamIsFree: Boolean(quoteResult.data.install_steam_is_free),
+    ...mapQuoteChargesMetaFromRow(quoteResult.data),
     createdAt: quoteResult.data.created_at || "",
     updatedAt: quoteResult.data.updated_at || "",
   };
@@ -2174,13 +2221,21 @@ function renderQuoteWorkspace() {
     refs.deliveryFree.checked = Boolean(state.quoteMeta.deliveryIsFree);
     refs.deliveryFree.disabled = runtime.quoteBusy;
   }
-  if (refs.installSteamAmount) {
-    refs.installSteamAmount.value = state.quoteMeta.installSteamAmount || "";
-    refs.installSteamAmount.disabled = runtime.quoteBusy;
+  if (refs.installationAmount) {
+    refs.installationAmount.value = state.quoteMeta.installationAmount || "";
+    refs.installationAmount.disabled = runtime.quoteBusy;
   }
-  if (refs.installSteamFree) {
-    refs.installSteamFree.checked = Boolean(state.quoteMeta.installSteamIsFree);
-    refs.installSteamFree.disabled = runtime.quoteBusy;
+  if (refs.installationFree) {
+    refs.installationFree.checked = Boolean(state.quoteMeta.installationIsFree);
+    refs.installationFree.disabled = runtime.quoteBusy;
+  }
+  if (refs.steamAmount) {
+    refs.steamAmount.value = state.quoteMeta.steamAmount || "";
+    refs.steamAmount.disabled = runtime.quoteBusy;
+  }
+  if (refs.steamFree) {
+    refs.steamFree.checked = Boolean(state.quoteMeta.steamIsFree);
+    refs.steamFree.disabled = runtime.quoteBusy;
   }
 
   const signedIn = Boolean(runtime.session);
@@ -4316,9 +4371,12 @@ function getDiscountableSubtotal() {
   const delivery = state.quoteMeta.deliveryIsFree
     ? 0
     : parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
-  const installSteam = state.quoteMeta.installSteamIsFree
+  const installation = state.quoteMeta.installationIsFree
     ? 0
-    : parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+    : parseCurrencyLikeNumber(state.quoteMeta.installationAmount) || 0;
+  const steam = state.quoteMeta.steamIsFree
+    ? 0
+    : parseCurrencyLikeNumber(state.quoteMeta.steamAmount) || 0;
 
   return state.measurementRows.reduce((total, row) => {
     if (row.isFree || row.excludeFromDiscount) {
@@ -4326,16 +4384,19 @@ function getDiscountableSubtotal() {
     }
     const cost = getMeasurementCost(row);
     return total + (cost ?? 0);
-  }, 0) + delivery + installSteam;
+  }, 0) + delivery + installation + steam;
 }
 
 function getSubtotal() {
   const delivery = state.quoteMeta.deliveryIsFree
     ? 0
     : parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
-  const installSteam = state.quoteMeta.installSteamIsFree
+  const installation = state.quoteMeta.installationIsFree
     ? 0
-    : parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+    : parseCurrencyLikeNumber(state.quoteMeta.installationAmount) || 0;
+  const steam = state.quoteMeta.steamIsFree
+    ? 0
+    : parseCurrencyLikeNumber(state.quoteMeta.steamAmount) || 0;
 
   return state.measurementRows.reduce((total, row) => {
     if (row.isFree) {
@@ -4343,7 +4404,7 @@ function getSubtotal() {
     }
     const cost = getMeasurementCost(row);
     return total + (cost ?? 0);
-  }, 0) + delivery + installSteam;
+  }, 0) + delivery + installation + steam;
 }
 
 function getSummaryTotals() {
@@ -4384,9 +4445,13 @@ function validateQuoteForSave() {
   if (deliveryAmount < 0) {
     return { ok: false, message: "Delivery amount cannot be negative." };
   }
-  const installSteamAmount = parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
-  if (installSteamAmount < 0) {
-    return { ok: false, message: "Installation and steam amount cannot be negative." };
+  const installationAmount = parseCurrencyLikeNumber(state.quoteMeta.installationAmount) || 0;
+  if (installationAmount < 0) {
+    return { ok: false, message: "Installation amount cannot be negative." };
+  }
+  const steamAmount = parseCurrencyLikeNumber(state.quoteMeta.steamAmount) || 0;
+  if (steamAmount < 0) {
+    return { ok: false, message: "Steam amount cannot be negative." };
   }
 
   const discountValue = parseCurrencyLikeNumber(state.discountValue) || 0;
@@ -5124,9 +5189,11 @@ function syncQuoteMetaFromInputs() {
   state.quoteMeta.notes = refs.quoteNotes.value;
   state.quoteMeta.deliveryAmount = refs.deliveryAmount?.value || state.quoteMeta.deliveryAmount || "";
   state.quoteMeta.deliveryIsFree = Boolean(refs.deliveryFree?.checked);
-  state.quoteMeta.installSteamAmount =
-    refs.installSteamAmount?.value || state.quoteMeta.installSteamAmount || "";
-  state.quoteMeta.installSteamIsFree = Boolean(refs.installSteamFree?.checked);
+  state.quoteMeta.installationAmount =
+    refs.installationAmount?.value || state.quoteMeta.installationAmount || "";
+  state.quoteMeta.installationIsFree = Boolean(refs.installationFree?.checked);
+  state.quoteMeta.steamAmount = refs.steamAmount?.value || state.quoteMeta.steamAmount || "";
+  state.quoteMeta.steamIsFree = Boolean(refs.steamFree?.checked);
   saveState();
 }
 
@@ -5155,7 +5222,8 @@ function buildContractPreviewData() {
 
   const { subtotal, discountAmount, finalTotal, half } = getSummaryTotals();
   const deliveryAmount = parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
-  const installSteamAmount = parseCurrencyLikeNumber(state.quoteMeta.installSteamAmount) || 0;
+  const installationAmount = parseCurrencyLikeNumber(state.quoteMeta.installationAmount) || 0;
+  const steamAmount = parseCurrencyLikeNumber(state.quoteMeta.steamAmount) || 0;
   const discountValueRaw = String(state.discountValue ?? "").trim();
   const discountValueNumeric = parseCurrencyLikeNumber(state.discountValue) || 0;
   const hasDiscount = discountValueRaw !== "" && discountValueNumeric > 0;
@@ -5175,8 +5243,10 @@ function buildContractPreviewData() {
     notes: state.quoteMeta.notes.trim(),
     deliveryAmount,
     deliveryIsFree: Boolean(state.quoteMeta.deliveryIsFree),
-    installSteamAmount,
-    installSteamIsFree: Boolean(state.quoteMeta.installSteamIsFree),
+    installationAmount,
+    installationIsFree: Boolean(state.quoteMeta.installationIsFree),
+    steamAmount,
+    steamIsFree: Boolean(state.quoteMeta.steamIsFree),
     lineItems,
     subtotal,
     hasDiscount,
@@ -6012,15 +6082,30 @@ function buildContractPdfDefinition(
                       );
                     }
 
-                    const shouldShowInstallSteam =
-                      Boolean(contract.installSteamIsFree) || Number(contract.installSteamAmount) > 0;
-                    if (shouldShowInstallSteam) {
+                    const shouldShowInstallation =
+                      Boolean(contract.installationIsFree) ||
+                      Number(contract.installationAmount) > 0;
+                    if (shouldShowInstallation) {
                       rows.push(
                         buildTotalsRow(
-                          "Installation and Steam",
+                          "Installation",
                           formatPdfAdditionalChargeDisplay(
-                            contract.installSteamAmount,
-                            contract.installSteamIsFree,
+                            contract.installationAmount,
+                            contract.installationIsFree,
+                          ),
+                        ),
+                      );
+                    }
+
+                    const shouldShowSteam =
+                      Boolean(contract.steamIsFree) || Number(contract.steamAmount) > 0;
+                    if (shouldShowSteam) {
+                      rows.push(
+                        buildTotalsRow(
+                          "Steam",
+                          formatPdfAdditionalChargeDisplay(
+                            contract.steamAmount,
+                            contract.steamIsFree,
                           ),
                         ),
                       );
