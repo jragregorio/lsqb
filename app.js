@@ -5209,11 +5209,12 @@ function buildContractPreviewData() {
       return {
         room: row.room?.trim() || "",
         label: row.label?.trim() || "",
-        type: row.type?.trim() || "-",
-        materialCode: row.materialCode?.trim() || "-",
-        control: motorized ? "—" : normalizeMeasurementControl(row.control) || "-",
+        type: row.type?.trim() || "—",
+        materialCode: row.materialCode?.trim() || "—",
+        control: motorized ? "—" : normalizeMeasurementControl(row.control) || "—",
         width: motorized ? "—" : formatMeasurementDimension(row.width),
         height: motorized ? "—" : formatMeasurementDimension(row.height),
+        sqft: formatPdfSqftDisplay(row),
         srp: cost,
         isFree: Boolean(row.isFree),
       };
@@ -5231,15 +5232,15 @@ function buildContractPreviewData() {
   const discountPercent = discountType === "percent" ? discountValueNumeric : 0;
 
   return {
-    clientName: state.quoteMeta.clientName.trim() || "-",
-    clientAddress: state.quoteMeta.projectName.trim() || "-",
+    clientName: state.quoteMeta.clientName.trim() || "—",
+    clientAddress: state.quoteMeta.projectName.trim() || "—",
     quoteDate: formatContractDate(state.quoteMeta.quoteDate),
-    projectArchitect: state.quoteMeta.projectArchitect.trim() || "-",
+    projectArchitect: state.quoteMeta.projectArchitect.trim() || "—",
     projectProfessionalLabel: getProjectProfessionalLabel(
       state.quoteMeta.projectProfessionalRole,
     ),
-    contactNumber: state.quoteMeta.contactNumber.trim() || "-",
-    emailAddress: state.quoteMeta.emailAddress.trim() || "-",
+    contactNumber: state.quoteMeta.contactNumber.trim() || "—",
+    emailAddress: state.quoteMeta.emailAddress.trim() || "—",
     notes: state.quoteMeta.notes.trim(),
     deliveryAmount,
     deliveryIsFree: Boolean(state.quoteMeta.deliveryIsFree),
@@ -5731,12 +5732,12 @@ function getContractPdfBranding(organization, assets) {
 }
 
 const CONTRACT_TABLE_LINE_WIDTH = 0.75;
-const CONTRACT_ORDER_TABLE_WIDTHS = [86, 72, 100, 50, 58, 58, 66];
+const CONTRACT_ORDER_TABLE_WIDTHS = [74, 64, 88, 46, 50, 50, 44, 65];
 // Totals table widths: [label column, amount column]
 // Keep this explicit for easier tuning against ORDER DETAILS table.
 const CONTRACT_TOTALS_TABLE_WIDTHS = [300, 181];
 
-const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [86, 72, 100, 50, 58, 58];
+const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [74, 64, 88, 46, 50, 50, 44];
 const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
 const PRINT_CLEAN_TABLE_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_COUNT + 2;
 const PRINT_CLEAN_TABLE_LINE_WIDTH = CONTRACT_TABLE_LINE_WIDTH;
@@ -6311,7 +6312,9 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     border: [false, false, false, false],
   });
 
-  const contractColumnCount = printClean ? PRINT_CLEAN_DATA_COLUMN_COUNT : 7;
+  const contractColumnCount = printClean
+    ? PRINT_CLEAN_DATA_COLUMN_COUNT
+    : CONTRACT_ORDER_TABLE_WIDTHS.length;
   const tableColumnCount = printClean ? PRINT_CLEAN_TABLE_COLUMN_COUNT : contractColumnCount;
 
   const dataHeaderRow = [
@@ -6321,6 +6324,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     buildHeaderCell("CONTROL"),
     buildHeaderCell("WIDTH"),
     buildHeaderCell("HEIGHT"),
+    buildHeaderCell("SQFT"),
   ];
   if (!printClean) {
     dataHeaderRow.push(buildHeaderCell("SRP"));
@@ -6336,7 +6340,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
   lineItems.forEach((item) => {
     if (item.room && item.room !== previousRoom) {
       if (printClean) {
-        body.push([
+        const roomRow = [
           buildSideSpacerCell(),
           {
             text: item.room,
@@ -6350,13 +6354,12 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
             characterSpacing: 0.15,
             margin: [6, 1, 0, 1],
           },
-          {},
-          {},
-          {},
-          {},
-          {},
-          buildSideSpacerCell(),
-        ]);
+        ];
+        for (let index = 1; index < PRINT_CLEAN_DATA_COLUMN_COUNT; index += 1) {
+          roomRow.push({});
+        }
+        roomRow.push(buildSideSpacerCell());
+        body.push(roomRow);
       } else {
         const roomRow = [{
           text: item.room,
@@ -6379,12 +6382,13 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
 
     previousRoom = item.room || previousRoom;
     const dataRow = [
-      { text: item.label || " ", alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.label || "—", alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.type, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.materialCode, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.control, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.width, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
       { text: item.height, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
+      { text: item.sqft, alignment: "center", verticalAlignment: "middle", fontSize: 9 },
     ];
     if (!printClean) {
       dataRow.push({
@@ -6920,10 +6924,23 @@ function getProjectProfessionalLabel(role) {
     : "Project Architect";
 }
 
+function formatPdfSqftDisplay(row) {
+  if (isMotorizedMaterialRow(row)) {
+    return "—";
+  }
+
+  const squareFootage = getMeasurementSquareFootage(row);
+  if (squareFootage === null) {
+    return "—";
+  }
+
+  return squareFootage.billed.toLocaleString("en-PH", { maximumFractionDigits: 0 });
+}
+
 function formatMeasurementDimension(value) {
   const parsedValue = parseCurrencyLikeNumber(value);
   if (parsedValue === null) {
-    return "-";
+    return "—";
   }
 
   return Number.isInteger(parsedValue)
