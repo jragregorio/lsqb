@@ -182,6 +182,7 @@ const refs = {
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
+  printBlankBtn: document.querySelector("#print-blank-btn"),
   dtiCertificateBtn: document.querySelector("#dti-certificate-btn"),
   dtiOfficialReceiptBtn: document.querySelector("#dti-official-receipt-btn"),
   deliveryAmount: document.querySelector("#delivery-amount"),
@@ -367,6 +368,9 @@ async function bootstrap() {
   }
   refs.printCleanBtn?.addEventListener("click", () => {
     void handlePrintClean();
+  });
+  refs.printBlankBtn?.addEventListener("click", () => {
+    void handlePrintBlank();
   });
   refs.dtiCertificateBtn?.addEventListener("click", () => {
     openGovernmentDoc(GOVERNMENT_DOC_URLS.dtiCertificate);
@@ -2275,6 +2279,12 @@ function renderQuoteWorkspace() {
       runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
     refs.printCleanBtn.textContent =
       runtime.exportPdfBusy ? "Preparing PDF..." : "Print Clean";
+  }
+  if (refs.printBlankBtn) {
+    refs.printBlankBtn.disabled =
+      runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
+    refs.printBlankBtn.textContent =
+      runtime.exportPdfBusy ? "Preparing PDF..." : "Print Blank";
   }
   refs.refreshQuotesBtn.disabled =
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
@@ -5021,7 +5031,39 @@ async function handlePrintClean() {
   await exportContractPdf({ printClean: true });
 }
 
-async function exportContractPdf({ printClean = false } = {}) {
+async function handlePrintBlank() {
+  await exportContractPdf({ printBlank: true });
+}
+
+function getContractPdfExportCopy({ printClean = false, printBlank = false } = {}) {
+  if (printBlank) {
+    return {
+      pdfLabel: "blank contract PDF",
+      opened:
+        "Blank contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
+      downloaded: "Blank contract PDF downloaded.",
+      popupBlocked: "Popup blocked by browser. Blank contract PDF downloaded instead.",
+    };
+  }
+  if (printClean) {
+    return {
+      pdfLabel: "clean contract PDF",
+      opened:
+        "Clean contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
+      downloaded: "Clean contract PDF downloaded.",
+      popupBlocked: "Popup blocked by browser. Clean contract PDF downloaded instead.",
+    };
+  }
+  return {
+    pdfLabel: "contract PDF",
+    opened:
+      "Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
+    downloaded: "Contract PDF downloaded.",
+    popupBlocked: "Popup blocked by browser. Contract PDF downloaded instead.",
+  };
+}
+
+async function exportContractPdf({ printClean = false, printBlank = false } = {}) {
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
@@ -5040,7 +5082,8 @@ async function exportContractPdf({ printClean = false } = {}) {
 
   registerPdfFonts(pdfMake);
 
-  const pdfLabel = printClean ? "clean contract PDF" : "contract PDF";
+  const exportCopy = getContractPdfExportCopy({ printClean, printBlank });
+  const { pdfLabel } = exportCopy;
 
   runtime.exportPdfBusy = true;
   renderQuoteWorkspace();
@@ -5056,31 +5099,21 @@ async function exportContractPdf({ printClean = false } = {}) {
     const documentDefinition = buildContractPdfDefinition(contract, assets, {
       organization: state.pdfOrganization,
       printClean,
+      printBlank,
     });
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const fileName = buildContractPdfFileName(contract, state.pdfOrganization, {
       printClean,
+      printBlank,
     });
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
       popupWindow.focus();
-      setQuoteStatus(
-        printClean
-          ? "Clean contract PDF opened in a new tab. Use Download PDF to save it with the correct filename."
-          : "Contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
-      );
+      setQuoteStatus(exportCopy.opened);
     } else {
       triggerPdfDownload(pdfUrl, fileName);
-      setQuoteStatus(
-        popupWindow
-          ? printClean
-            ? "Clean contract PDF downloaded."
-            : "Contract PDF downloaded."
-          : printClean
-            ? "Popup blocked by browser. Clean contract PDF downloaded instead."
-            : "Popup blocked by browser. Contract PDF downloaded instead.",
-      );
+      setQuoteStatus(popupWindow ? exportCopy.downloaded : exportCopy.popupBlocked);
     }
 
     schedulePdfUrlCleanup(pdfUrl, popupWindow);
@@ -5554,7 +5587,7 @@ function triggerPdfDownload(pdfUrl, fileName) {
 function buildContractPdfFileName(
   contract,
   organization = "luxe",
-  { printClean = false } = {},
+  { printClean = false, printBlank = false } = {},
 ) {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
   const basePrefix = organization === "nds"
@@ -5562,7 +5595,11 @@ function buildContractPdfFileName(
     : organization === "kk"
       ? "KK Contract"
       : "LUXESHADE Contract";
-  const prefix = printClean ? `${basePrefix} Clean` : basePrefix;
+  const prefix = printBlank
+    ? `${basePrefix} Blank`
+    : printClean
+      ? `${basePrefix} Clean`
+      : basePrefix;
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
   const safeName = rawName
@@ -5745,7 +5782,7 @@ const PRINT_CLEAN_TABLE_LINE_WIDTH = CONTRACT_TABLE_LINE_WIDTH;
 function buildContractPdfDefinition(
   contract,
   assets,
-  { organization = "luxe", printClean = false } = {},
+  { organization = "luxe", printClean = false, printBlank = false } = {},
 ) {
   const pageMargin = 43.2;
   const orderTableWidths = printClean
@@ -5958,15 +5995,15 @@ function buildContractPdfDefinition(
         },
       };
     },
-    footer(currentPage, pageCount) {
-      return {
+    footer: printBlank
+      ? undefined
+      : (currentPage, pageCount) => ({
         text: `Page ${currentPage} of ${pageCount}`,
         alignment: "right",
         color: accentColor,
         fontSize: 9,
         margin: [pageMargin, 12, pageMargin, 22],
-      };
-    },
+      }),
     defaultStyle: {
       font: "TenorSans",
       fontSize: 10,
@@ -6015,7 +6052,7 @@ function buildContractPdfDefinition(
             ],
             columnGap: 18,
           },
-          ...(contract.notes
+          ...(contract.notes && !printBlank
             ? [
                 {
                   stack: [
@@ -6029,6 +6066,9 @@ function buildContractPdfDefinition(
                 },
               ]
             : []),
+          ...(printBlank
+            ? []
+            : [
           {
             text: "ORDER DETAILS",
             fontSize: 10,
@@ -6141,9 +6181,10 @@ function buildContractPdfDefinition(
             margin: [0, 14, 0, 0],
             pageBreak: "after",
           }]),
+            ]),
         ],
       },
-      ...(printClean
+      ...(printClean || printBlank
         ? []
         : [
       {
