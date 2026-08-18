@@ -180,6 +180,7 @@ const refs = {
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
+  pdfPaymentOptionsSelect: document.querySelector("#pdf-payment-options-select"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
   printBlankBtn: document.querySelector("#print-blank-btn"),
@@ -362,6 +363,14 @@ async function bootstrap() {
       const next = String(event.target.value || "").toLowerCase();
       state.pdfOrganization = next === "nds" || next === "kk" ? next : "luxe";
       applyBrandTheme(state.pdfOrganization);
+      persistDraftChange();
+      renderQuoteWorkspace();
+    });
+  }
+  if (refs.pdfPaymentOptionsSelect) {
+    refs.pdfPaymentOptionsSelect.value = state.pdfPaymentOptions || "luxe";
+    refs.pdfPaymentOptionsSelect.addEventListener("change", (event) => {
+      state.pdfPaymentOptions = normalizePdfPaymentOptions(event.target.value);
       persistDraftChange();
       renderQuoteWorkspace();
     });
@@ -1231,6 +1240,7 @@ function loadState() {
         : [],
       // Always default PDF branding to Luxe on refresh (do not persist org selection).
       pdfOrganization: "luxe",
+      pdfPaymentOptions: "luxe",
       quoteMeta: getDefaultQuoteMeta(),
       selectedMaterials: [],
       measurementRows: [],
@@ -1248,6 +1258,7 @@ function getDefaultState() {
     sourceLabel: "",
     sourceMaterials: [],
     pdfOrganization: "luxe",
+    pdfPaymentOptions: "luxe",
     quoteMeta: getDefaultQuoteMeta(),
     selectedMaterials: [],
     measurementRows: [],
@@ -1257,8 +1268,12 @@ function getDefaultState() {
 }
 
 function saveState() {
-  // Do not persist PDF branding choice; it should reset to Luxe after refresh.
-  const { pdfOrganization: _pdfOrganization, ...persistedState } = state;
+  // Do not persist PDF branding or payment option; both reset after refresh.
+  const {
+    pdfOrganization: _pdfOrganization,
+    pdfPaymentOptions: _pdfPaymentOptions,
+    ...persistedState
+  } = state;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
 }
 
@@ -5098,6 +5113,7 @@ async function exportContractPdf({ printClean = false, printBlank = false } = {}
     setQuoteStatus("Rendering PDF (3/3)...");
     const documentDefinition = buildContractPdfDefinition(contract, assets, {
       organization: state.pdfOrganization,
+      paymentOption: state.pdfPaymentOptions,
       printClean,
       printBlank,
     });
@@ -5614,8 +5630,12 @@ function normalizePdfOrganization(organization) {
   return organization === "nds" || organization === "kk" ? organization : "luxe";
 }
 
-function buildContractPaymentOptionsItems(organization = "luxe") {
-  const brand = normalizePdfOrganization(organization);
+function normalizePdfPaymentOptions(value) {
+  return value === "monique-elena" || value === "jan-monique" ? value : "luxe";
+}
+
+function buildContractPaymentOptionsItems(paymentOption = "luxe") {
+  const option = normalizePdfPaymentOptions(paymentOption);
   const paymentNoteItems = [
     {
       text: [
@@ -5635,7 +5655,7 @@ function buildContractPaymentOptionsItems(organization = "luxe") {
     },
   ];
 
-  if (brand === "kk") {
+  if (option === "jan-monique") {
     return [
       {
         text: [
@@ -5674,6 +5694,51 @@ function buildContractPaymentOptionsItems(organization = "luxe") {
         text: [
           { text: "Account number: " },
           { text: "494-349-463-4199", bold: true, fontSize: 11.5 },
+        ],
+      },
+      ...paymentNoteItems,
+    ];
+  }
+
+  if (option === "monique-elena") {
+    return [
+      {
+        text: [
+          { text: "Account type: " },
+          { text: "Metrobank", bold: true, fontSize: 11.5 },
+        ],
+        font: "Roboto",
+      },
+      {
+        text: [
+          { text: "Account name: " },
+          { text: "Monique Lorenzo Gregorio", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account number: " },
+          { text: "494-349-463-4199", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account type: " },
+          { text: "BDO", bold: true, fontSize: 11.5 },
+        ],
+        font: "Roboto",
+        margin: [20, 6, 0, 4],
+      },
+      {
+        text: [
+          { text: "Account name: " },
+          { text: "Ma. Elena P. Bernardo", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account number: " },
+          { text: "0110-1002-1573", bold: true, fontSize: 11.5 },
         ],
       },
       ...paymentNoteItems,
@@ -5782,7 +5847,12 @@ const PRINT_CLEAN_TABLE_LINE_WIDTH = CONTRACT_TABLE_LINE_WIDTH;
 function buildContractPdfDefinition(
   contract,
   assets,
-  { organization = "luxe", printClean = false, printBlank = false } = {},
+  {
+    organization = "luxe",
+    paymentOption = "luxe",
+    printClean = false,
+    printBlank = false,
+  } = {},
 ) {
   const pageMargin = 43.2;
   const orderTableWidths = printClean
@@ -6221,7 +6291,7 @@ function buildContractPdfDefinition(
             },
             {
               title: "Payment Options",
-              items: buildContractPaymentOptionsItems(organization),
+              items: buildContractPaymentOptionsItems(paymentOption),
             },
           ]),
           buildStyledTermsSection("Section 2. Work and Delivery Lead Time", [
