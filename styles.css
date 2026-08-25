@@ -832,7 +832,8 @@ code {
   margin-top: 0.25rem;
 }
 
-.admin-form-row select {
+.admin-form-row select,
+.admin-form-row input[type="number"] {
   min-height: 2.9rem;
   padding: 0.7rem 0.8rem;
   border: 1px solid color-mix(in srgb, var(--panel-border) 72%, var(--line-strong) 28%);
@@ -1538,7 +1539,16 @@ code {
   padding: 0.4rem 0.55rem;
 }
 
+.measurement-add-note-button {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.55rem;
+}
+
 .measurement-add-below-label {
+  display: none;
+}
+
+.measurement-add-note-label {
   display: none;
 }
 
@@ -1551,6 +1561,27 @@ code {
   font-size: 1rem;
   font-weight: 700;
   line-height: 1;
+}
+
+.measurement-add-note-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.measurement-note-row .measurement-note-cell {
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.measurement-note-input {
+  width: 100%;
 }
 
 .file-picker {
@@ -2513,37 +2544,55 @@ tbody tr.measurement-row--drag-over {
   }
 
   /* 7: width, 8: height */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(7),
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(8) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(7),
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(8) {
     grid-column: span 1;
   }
 
   /* 9: material spans full width */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(9) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(9) {
     grid-column: 1 / -1;
   }
 
   /* 10: free + 11: no disc + 12: cost on same row */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(10) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(10) {
     grid-column: span 1;
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
 
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(11) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(11) {
     grid-column: span 1;
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
 
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(12) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(12) {
     grid-column: span 1;
   }
 
-  /* 13: trash button pinned right */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(13) {
+  /* 13: actions pinned right */
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(13) {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row {
+    grid-template-columns: 1fr;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row > td:nth-child(1) {
+    grid-column: 1 / -1;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row > td:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row > td:nth-child(3) {
     grid-column: 1 / -1;
     display: flex;
     justify-content: flex-end;

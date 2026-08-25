@@ -137,6 +137,7 @@ const QUOTE_SELECT_COLUMN_LIST = [
 ];
 
 let supportsProjectProfessionalRoleColumn = false;
+let supportsMeasurementNoteRowColumns = false;
 let quoteSchemaSupportChecked = false;
 
 const refs = {
@@ -184,6 +185,8 @@ const refs = {
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
   printBlankBtn: document.querySelector("#print-blank-btn"),
+  pdfLaborRateInput: document.querySelector("#pdf-labor-rate-input"),
+  printLaborBtn: document.querySelector("#print-labor-btn"),
   dtiCertificateBtn: document.querySelector("#dti-certificate-btn"),
   dtiOfficialReceiptBtn: document.querySelector("#dti-official-receipt-btn"),
   deliveryAmount: document.querySelector("#delivery-amount"),
@@ -375,11 +378,21 @@ async function bootstrap() {
       renderQuoteWorkspace();
     });
   }
+  if (refs.pdfLaborRateInput) {
+    refs.pdfLaborRateInput.value = state.laborRate || "";
+    refs.pdfLaborRateInput.addEventListener("input", (event) => {
+      state.laborRate = normalizeInputNumber(event.target.value);
+      saveState();
+    });
+  }
   refs.printCleanBtn?.addEventListener("click", () => {
     void handlePrintClean();
   });
   refs.printBlankBtn?.addEventListener("click", () => {
     void handlePrintBlank();
+  });
+  refs.printLaborBtn?.addEventListener("click", () => {
+    void handlePrintLabor();
   });
   refs.dtiCertificateBtn?.addEventListener("click", () => {
     openGovernmentDoc(GOVERNMENT_DOC_URLS.dtiCertificate);
@@ -1108,6 +1121,7 @@ function applySession(session) {
 
   if (!session) {
     supportsProjectProfessionalRoleColumn = false;
+    supportsMeasurementNoteRowColumns = false;
     quoteSchemaSupportChecked = false;
     clearQueuedAutosave();
     runtime.authBusy = false;
@@ -1161,6 +1175,7 @@ function createMaterialSetupRow() {
 function createMeasurementRow() {
   return {
     id: createId("measurement"),
+    isNote: false,
     room: "",
     type: "",
     materialCode: "",
@@ -1172,6 +1187,14 @@ function createMeasurementRow() {
     unitQuantity: "",
     isFree: false,
     excludeFromDiscount: false,
+  };
+}
+
+function createNoteRow() {
+  return {
+    id: createId("note"),
+    isNote: true,
+    note: "",
   };
 }
 
@@ -1241,6 +1264,7 @@ function loadState() {
       // Always default PDF branding to Luxe on refresh (do not persist org selection).
       pdfOrganization: "luxe",
       pdfPaymentOptions: "luxe",
+      laborRate: typeof parsed.laborRate === "string" ? parsed.laborRate : "",
       quoteMeta: getDefaultQuoteMeta(),
       selectedMaterials: [],
       measurementRows: [],
@@ -1259,6 +1283,7 @@ function getDefaultState() {
     sourceMaterials: [],
     pdfOrganization: "luxe",
     pdfPaymentOptions: "luxe",
+    laborRate: "",
     quoteMeta: getDefaultQuoteMeta(),
     selectedMaterials: [],
     measurementRows: [],
@@ -1751,24 +1776,53 @@ async function handleSaveQuote(options = {}) {
     const { error: measurementInsertError } = await supabase
       .from("quote_measurements")
       .insert(
-        measurementDrafts.map((item, index) => ({
-          quote_id: savedQuote.id,
-          quote_material_id: materialIdMap.get(item.localMaterialId) || null,
-          room_section: sanitizeOptionalText(item.room),
-          measurement_type: sanitizeOptionalText(item.type),
-          material_code: sanitizeOptionalText(item.materialCode),
-          control: normalizeMeasurementControl(item.control) || null,
-          label: item.label,
-          width_mm: item.width,
-          height_mm: item.height,
-          material_label: item.materialLabel,
-          asking_price: item.askingPrice,
-          sort_order: index,
-          unit_quantity: item.unitQuantity,
-          line_cost: item.lineCost,
-          line_is_free: Boolean(item.isFree),
-          line_excludes_discount: Boolean(item.excludeFromDiscount),
-        })),
+        measurementDrafts.map((item, index) => {
+          if (item.isNote) {
+            const notePayload = {
+              quote_id: savedQuote.id,
+              quote_material_id: null,
+              room_section: null,
+              measurement_type: null,
+              material_code: null,
+              control: null,
+              label: "Note",
+              width_mm: 0,
+              height_mm: 0,
+              material_label: "Note",
+              asking_price: 0,
+              sort_order: index,
+              unit_quantity: null,
+              line_cost: 0,
+              line_is_free: false,
+              line_excludes_discount: false,
+            };
+            if (supportsMeasurementNoteRowColumns) {
+              notePayload.is_note = true;
+              notePayload.line_note = item.note || "";
+            }
+            return notePayload;
+          }
+
+          const measurementPayload = {
+            quote_id: savedQuote.id,
+            quote_material_id: materialIdMap.get(item.localMaterialId) || null,
+            room_section: sanitizeOptionalText(item.room),
+            measurement_type: sanitizeOptionalText(item.type),
+            material_code: sanitizeOptionalText(item.materialCode),
+            control: normalizeMeasurementControl(item.control) || null,
+            label: item.label,
+            width_mm: item.width,
+            height_mm: item.height,
+            material_label: item.materialLabel,
+            asking_price: item.askingPrice,
+            sort_order: index,
+            unit_quantity: item.unitQuantity,
+            line_cost: item.lineCost,
+            line_is_free: Boolean(item.isFree),
+            line_excludes_discount: Boolean(item.excludeFromDiscount),
+          };
+          return measurementPayload;
+        }),
       );
 
     if (measurementInsertError) {
@@ -1882,9 +1936,7 @@ async function loadQuoteById(quoteId) {
       .order("sort_order", { ascending: true }),
     supabase
       .from("quote_measurements")
-      .select(
-        "id, quote_material_id, room_section, measurement_type, material_code, control, label, width_mm, height_mm, material_label, asking_price, unit_quantity, line_cost, line_is_free, line_excludes_discount, sort_order",
-      )
+      .select(getMeasurementSelectColumns())
       .eq("quote_id", quoteId)
       .order("sort_order", { ascending: true }),
   ]);
@@ -1934,6 +1986,14 @@ async function loadQuoteById(quoteId) {
 
   state.measurementRows =
     measurementsResult.data.map((row) => {
+      if (supportsMeasurementNoteRowColumns && row.is_note) {
+        return {
+          id: createId("note"),
+          isNote: true,
+          note: row.line_note || "",
+        };
+      }
+
       const unitQty =
         row.unit_quantity !== null && row.unit_quantity !== undefined
           ? String(row.unit_quantity)
@@ -1945,6 +2005,7 @@ async function loadQuoteById(quoteId) {
 
       return {
         id: createId("measurement"),
+        isNote: false,
         room: row.room_section || "",
         type: row.measurement_type || "",
         materialCode: row.material_code || "",
@@ -2300,6 +2361,15 @@ function renderQuoteWorkspace() {
       runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
     refs.printBlankBtn.textContent =
       runtime.exportPdfBusy ? "Preparing PDF..." : "Print Blank";
+  }
+  if (refs.printLaborBtn) {
+    refs.printLaborBtn.disabled =
+      runtime.quoteBusy || runtime.exportPdfBusy || !isQuoteWorkspaceActive();
+    refs.printLaborBtn.textContent =
+      runtime.exportPdfBusy ? "Preparing PDF..." : "Print with Labor";
+  }
+  if (refs.pdfLaborRateInput && refs.pdfLaborRateInput.value !== (state.laborRate || "")) {
+    refs.pdfLaborRateInput.value = state.laborRate || "";
   }
   refs.refreshQuotesBtn.disabled =
     !signedIn || runtime.quoteBusy || runtime.quoteListBusy;
@@ -3334,6 +3404,153 @@ function buildMeasurementOptionCombobox({
   return wrap;
 }
 
+function buildMeasurementDragCell(row, tr, preferChevronReorder) {
+  const dragCell = document.createElement("td");
+  dragCell.className = "measurement-drag-cell";
+
+  if (preferChevronReorder) {
+    dragCell.classList.add("measurement-reorder-cell");
+    const wrap = document.createElement("div");
+    wrap.className = "measurement-reorder-controls";
+
+    const buildChevronButton = (direction) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "measurement-reorder-button";
+      btn.disabled = runtime.quoteBusy;
+      btn.setAttribute(
+        "aria-label",
+        direction === "up" ? "Move row up" : "Move row down",
+      );
+      btn.innerHTML =
+        direction === "up"
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true"><path fill="currentColor" d="M7.41 14.59 12 10l4.59 4.59L18 13.17 12 7.17l-6 6z"/></svg>'
+          : '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true"><path fill="currentColor" d="m7.41 8.41 4.59 4.59 4.59-4.59L18 9.83l-6 6-6-6z"/></svg>';
+
+      btn.addEventListener("click", () => {
+        const idx = state.measurementRows.findIndex((r) => r.id === row.id);
+        if (idx < 0) {
+          return;
+        }
+        const nextIdx = direction === "up" ? idx - 1 : idx + 1;
+        if (nextIdx < 0 || nextIdx >= state.measurementRows.length) {
+          return;
+        }
+        const next = state.measurementRows.slice();
+        const tmp = next[idx];
+        next[idx] = next[nextIdx];
+        next[nextIdx] = tmp;
+        state.measurementRows = next;
+        persistDraftChange();
+        renderMeasurements();
+        renderSummary();
+      });
+
+      return btn;
+    };
+
+    wrap.append(buildChevronButton("up"), buildChevronButton("down"));
+    dragCell.append(wrap);
+  } else {
+    const dragHandle = document.createElement("div");
+    dragHandle.className = "measurement-drag-handle";
+    dragHandle.setAttribute("role", "button");
+    dragHandle.tabIndex = runtime.quoteBusy ? -1 : 0;
+    dragHandle.setAttribute("aria-label", "Drag to reorder row");
+    dragHandle.setAttribute("data-measurement-drag-handle", "");
+    if (runtime.quoteBusy) {
+      dragHandle.setAttribute("aria-disabled", "true");
+    }
+    const dragGlyph = document.createElement("span");
+    dragGlyph.className = "measurement-drag-glyph";
+    dragGlyph.setAttribute("aria-hidden", "true");
+    dragGlyph.textContent = "\u22EE\u22EE";
+    dragHandle.append(dragGlyph);
+    dragCell.append(dragHandle);
+    bindMeasurementRowDragControls(dragHandle, tr, row);
+  }
+
+  return dragCell;
+}
+
+function buildMeasurementActionCell(row) {
+  const actionCell = document.createElement("td");
+  const actionStack = document.createElement("div");
+  actionStack.className = "measurement-row-actions";
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.className = "ghost-danger-button measurement-remove-button";
+  removeButton.setAttribute("aria-label", "Remove row");
+  removeButton.innerHTML = [
+    '<span class="measurement-remove-label">Remove</span>',
+    '<span class="measurement-remove-icon" aria-hidden="true">',
+    '<svg viewBox="0 0 24 24" width="18" height="18" focusable="false" aria-hidden="true">',
+    '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v10h-2V9zm4 0h2v10h-2V9zM6 9h2v10H6V9zm2 12h8a2 2 0 0 0 2-2V9H4v10a2 2 0 0 0 2 2z"/>',
+    "</svg>",
+    "</span>",
+  ].join("");
+  removeButton.disabled = runtime.quoteBusy;
+  removeButton.addEventListener("click", () => {
+    state.measurementRows = state.measurementRows.filter(
+      (measurement) => measurement.id !== row.id,
+    );
+
+    if (state.measurementRows.length === 0) {
+      state.measurementRows.push(createMeasurementRow());
+    }
+
+    persistDraftChange();
+    renderMeasurements();
+    renderSummary();
+  });
+
+  const addNoteButton = document.createElement("button");
+  addNoteButton.type = "button";
+  addNoteButton.className = "secondary-button measurement-add-note-button";
+  addNoteButton.setAttribute("aria-label", "Add note below");
+  addNoteButton.disabled = runtime.quoteBusy;
+  addNoteButton.innerHTML = [
+    '<span class="measurement-add-note-label">Add note</span>',
+    '<span class="measurement-add-note-icon" aria-hidden="true">N</span>',
+  ].join("");
+  addNoteButton.addEventListener("click", () => {
+    const rowIndex = state.measurementRows.findIndex((item) => item.id === row.id);
+    if (rowIndex < 0) {
+      return;
+    }
+    state.measurementRows.splice(rowIndex + 1, 0, createNoteRow());
+    persistDraftChange();
+    queueAutosave();
+    renderMeasurements();
+  });
+
+  const addBelowButton = document.createElement("button");
+  addBelowButton.type = "button";
+  addBelowButton.className = "secondary-button measurement-add-below-button";
+  addBelowButton.setAttribute("aria-label", "Add row below");
+  addBelowButton.disabled = runtime.quoteBusy;
+  addBelowButton.innerHTML = [
+    '<span class="measurement-add-below-label">Add below</span>',
+    '<span class="measurement-add-below-icon" aria-hidden="true">+</span>',
+  ].join("");
+  addBelowButton.addEventListener("click", () => {
+    const rowIndex = state.measurementRows.findIndex((item) => item.id === row.id);
+    if (rowIndex < 0) {
+      return;
+    }
+    state.measurementRows.splice(rowIndex + 1, 0, createMeasurementRow());
+    persistDraftChange();
+    queueAutosave();
+    renderMeasurements();
+    renderSummary();
+  });
+
+  actionStack.append(removeButton, addNoteButton, addBelowButton);
+  actionCell.append(actionStack);
+  return actionCell;
+}
+
 function renderMeasurements() {
   refs.measurementBody.innerHTML = "";
 
@@ -3356,75 +3573,36 @@ function renderMeasurements() {
     const tr = document.createElement("tr");
     tr.classList.add("measurement-row");
     tr.dataset.measurementRowId = row.id;
+
+    if (row.isNote) {
+      tr.classList.add("measurement-note-row");
+      const dragCell = buildMeasurementDragCell(row, tr, preferChevronReorder);
+      const noteCell = document.createElement("td");
+      noteCell.className = "measurement-note-cell";
+      noteCell.colSpan = 11;
+      const noteInput = document.createElement("input");
+      noteInput.type = "text";
+      noteInput.className = "measurement-fit-field measurement-note-input";
+      noteInput.placeholder =
+        "Note / custom labor line (e.g. Labor (Sewing) — DEN SHEER: W1 9P, W2 13P)";
+      noteInput.value = row.note || "";
+      noteInput.disabled = runtime.quoteBusy;
+      noteInput.addEventListener("input", (event) => {
+        row.note = event.target.value;
+        persistDraftChange();
+      });
+      noteCell.append(noteInput);
+      tr.append(dragCell, noteCell, buildMeasurementActionCell(row));
+      refs.measurementBody.append(tr);
+      return;
+    }
+
     const motorized = isMotorizedMaterialRow(row);
     const curtainsMotorized = isCurtainsMotorizedCategory(
       getMeasurementMaterialForRow(row),
     );
 
-    const dragCell = document.createElement("td");
-    dragCell.className = "measurement-drag-cell";
-
-    if (preferChevronReorder) {
-      dragCell.classList.add("measurement-reorder-cell");
-      const wrap = document.createElement("div");
-      wrap.className = "measurement-reorder-controls";
-
-      const buildChevronButton = (direction) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "measurement-reorder-button";
-        btn.disabled = runtime.quoteBusy;
-        btn.setAttribute(
-          "aria-label",
-          direction === "up" ? "Move row up" : "Move row down",
-        );
-        btn.innerHTML =
-          direction === "up"
-            ? '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true"><path fill="currentColor" d="M7.41 14.59 12 10l4.59 4.59L18 13.17 12 7.17l-6 6z"/></svg>'
-            : '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true"><path fill="currentColor" d="m7.41 8.41 4.59 4.59 4.59-4.59L18 9.83l-6 6-6-6z"/></svg>';
-
-        btn.addEventListener("click", () => {
-          const idx = state.measurementRows.findIndex((r) => r.id === row.id);
-          if (idx < 0) {
-            return;
-          }
-          const nextIdx = direction === "up" ? idx - 1 : idx + 1;
-          if (nextIdx < 0 || nextIdx >= state.measurementRows.length) {
-            return;
-          }
-          const next = state.measurementRows.slice();
-          const tmp = next[idx];
-          next[idx] = next[nextIdx];
-          next[nextIdx] = tmp;
-          state.measurementRows = next;
-          persistDraftChange();
-          renderMeasurements();
-          renderSummary();
-        });
-
-        return btn;
-      };
-
-      wrap.append(buildChevronButton("up"), buildChevronButton("down"));
-      dragCell.append(wrap);
-    } else {
-      const dragHandle = document.createElement("div");
-      dragHandle.className = "measurement-drag-handle";
-      dragHandle.setAttribute("role", "button");
-      dragHandle.tabIndex = runtime.quoteBusy ? -1 : 0;
-      dragHandle.setAttribute("aria-label", "Drag to reorder row");
-      dragHandle.setAttribute("data-measurement-drag-handle", "");
-      if (runtime.quoteBusy) {
-        dragHandle.setAttribute("aria-disabled", "true");
-      }
-      const dragGlyph = document.createElement("span");
-      dragGlyph.className = "measurement-drag-glyph";
-      dragGlyph.setAttribute("aria-hidden", "true");
-      dragGlyph.textContent = "\u22EE\u22EE";
-      dragHandle.append(dragGlyph);
-      dragCell.append(dragHandle);
-      bindMeasurementRowDragControls(dragHandle, tr, row);
-    }
+    const dragCell = buildMeasurementDragCell(row, tr, preferChevronReorder);
 
     const roomCell = document.createElement("td");
     const roomInput = buildTextInput({
@@ -3884,61 +4062,6 @@ function renderMeasurements() {
     });
     noDiscCell.append(noDiscInput);
 
-    const actionCell = document.createElement("td");
-    const actionStack = document.createElement("div");
-    actionStack.className = "measurement-row-actions";
-
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "ghost-danger-button measurement-remove-button";
-    removeButton.setAttribute("aria-label", "Remove row");
-    removeButton.innerHTML = [
-      '<span class="measurement-remove-label">Remove</span>',
-      '<span class="measurement-remove-icon" aria-hidden="true">',
-      '<svg viewBox="0 0 24 24" width="18" height="18" focusable="false" aria-hidden="true">',
-      '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v10h-2V9zm4 0h2v10h-2V9zM6 9h2v10H6V9zm2 12h8a2 2 0 0 0 2-2V9H4v10a2 2 0 0 0 2 2z"/>',
-      "</svg>",
-      "</span>",
-    ].join("");
-    removeButton.disabled = runtime.quoteBusy;
-    removeButton.addEventListener("click", () => {
-      state.measurementRows = state.measurementRows.filter(
-        (measurement) => measurement.id !== row.id,
-      );
-
-      if (state.measurementRows.length === 0) {
-        state.measurementRows.push(createMeasurementRow());
-      }
-
-      persistDraftChange();
-      renderMeasurements();
-      renderSummary();
-    });
-
-    const addBelowButton = document.createElement("button");
-    addBelowButton.type = "button";
-    addBelowButton.className = "secondary-button measurement-add-below-button";
-    addBelowButton.setAttribute("aria-label", "Add row below");
-    addBelowButton.disabled = runtime.quoteBusy;
-    addBelowButton.innerHTML = [
-      '<span class="measurement-add-below-label">Add below</span>',
-      '<span class="measurement-add-below-icon" aria-hidden="true">+</span>',
-    ].join("");
-    addBelowButton.addEventListener("click", () => {
-      const rowIndex = state.measurementRows.findIndex((item) => item.id === row.id);
-      if (rowIndex < 0) {
-        return;
-      }
-      state.measurementRows.splice(rowIndex + 1, 0, createMeasurementRow());
-      persistDraftChange();
-      queueAutosave();
-      renderMeasurements();
-      renderSummary();
-    });
-
-    actionStack.append(removeButton, addBelowButton);
-    actionCell.append(actionStack);
-
     tr.append(
       dragCell,
       roomCell,
@@ -3952,7 +4075,7 @@ function renderMeasurements() {
       freeCell,
       noDiscCell,
       costCell,
-      actionCell,
+      buildMeasurementActionCell(row),
     );
     refs.measurementBody.append(tr);
   });
@@ -4316,7 +4439,7 @@ function getPocketValue(materialRow) {
 }
 
 function getMeasurementSquareFootage(row) {
-  if (isMotorizedMaterialRow(row)) {
+  if (row.isNote || isMotorizedMaterialRow(row)) {
     return null;
   }
 
@@ -4341,6 +4464,10 @@ function getMeasurementSquareFootage(row) {
 }
 
 function getMeasurementCost(row) {
+  if (row.isNote) {
+    return null;
+  }
+
   const material = getMeasurementMaterialForRow(row);
   const askingPrice = parseCurrencyLikeNumber(material?.askingPrice);
 
@@ -4365,6 +4492,10 @@ function getMeasurementCost(row) {
 }
 
 function getMeasurementRetailCost(row) {
+  if (row.isNote) {
+    return null;
+  }
+
   if (row.isFree) {
     return 0;
   }
@@ -4560,6 +4691,16 @@ function getMeasurementDraftsForSave(validateOnly = false) {
   const drafts = [];
 
   for (const row of state.measurementRows) {
+    if (row.isNote) {
+      if (!validateOnly) {
+        drafts.push({
+          isNote: true,
+          note: row.note?.trim() || "",
+        });
+      }
+      continue;
+    }
+
     const hasAnyValue =
       Boolean(row.room) ||
       Boolean(row.type) ||
@@ -4839,6 +4980,7 @@ function hasMeaningfulDraftChanges() {
       state.selectedMaterials.some((row) => row.category || row.askingPrice !== "") ||
       state.measurementRows.some(
         (row) =>
+          row.isNote ||
           row.room ||
           row.type ||
           row.materialCode ||
@@ -4884,7 +5026,15 @@ function buildCurrentQuoteFingerprint() {
       retailPrice: row.retailPrice === "" ? "" : String(row.retailPrice),
       askingPrice: row.askingPrice === "" ? "" : String(row.askingPrice),
     })),
-    measurementRows: state.measurementRows.map((row) => ({
+    measurementRows: state.measurementRows.map((row) => {
+      if (row.isNote) {
+        return {
+          isNote: true,
+          note: row.note || "",
+        };
+      }
+
+      return {
       room: row.room || "",
       type: row.type || "",
       materialCode: row.materialCode || "",
@@ -4896,7 +5046,8 @@ function buildCurrentQuoteFingerprint() {
       unitQuantity: row.unitQuantity === "" ? "" : String(row.unitQuantity),
       isFree: Boolean(row.isFree),
       excludeFromDiscount: Boolean(row.excludeFromDiscount),
-    })),
+      };
+    }),
   });
 }
 
@@ -5050,7 +5201,15 @@ async function handlePrintBlank() {
   await exportContractPdf({ printBlank: true });
 }
 
-function getContractPdfExportCopy({ printClean = false, printBlank = false } = {}) {
+async function handlePrintLabor() {
+  await exportContractPdf({ printLabor: true });
+}
+
+function getContractPdfExportCopy({
+  printClean = false,
+  printBlank = false,
+  printLabor = false,
+} = {}) {
   if (printBlank) {
     return {
       pdfLabel: "blank contract PDF",
@@ -5069,6 +5228,15 @@ function getContractPdfExportCopy({ printClean = false, printBlank = false } = {
       popupBlocked: "Popup blocked by browser. Clean contract PDF downloaded instead.",
     };
   }
+  if (printLabor) {
+    return {
+      pdfLabel: "labor contract PDF",
+      opened:
+        "Labor contract PDF opened in a new tab. Use Download PDF to save it with the correct filename.",
+      downloaded: "Labor contract PDF downloaded.",
+      popupBlocked: "Popup blocked by browser. Labor contract PDF downloaded instead.",
+    };
+  }
   return {
     pdfLabel: "contract PDF",
     opened:
@@ -5078,13 +5246,33 @@ function getContractPdfExportCopy({ printClean = false, printBlank = false } = {
   };
 }
 
-async function exportContractPdf({ printClean = false, printBlank = false } = {}) {
+async function exportContractPdf({
+  printClean = false,
+  printBlank = false,
+  printLabor = false,
+} = {}) {
+  if (printLabor) {
+    printClean = false;
+    printBlank = false;
+  }
+
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
     setQuoteStatus(validation.message, true);
     window.alert(validation.message);
     return;
+  }
+
+  if (printLabor) {
+    const laborRate = parseCurrencyLikeNumber(state.laborRate);
+    if (laborRate === null || laborRate <= 0) {
+      const message =
+        "Enter a labor rate greater than 0 for Installation & Steam in Admin Tools before printing with labor.";
+      setQuoteStatus(message, true);
+      window.alert(message);
+      return;
+    }
   }
 
   const pdfMake = window.pdfMake;
@@ -5097,8 +5285,9 @@ async function exportContractPdf({ printClean = false, printBlank = false } = {}
 
   registerPdfFonts(pdfMake);
 
-  const exportCopy = getContractPdfExportCopy({ printClean, printBlank });
+  const exportCopy = getContractPdfExportCopy({ printClean, printBlank, printLabor });
   const { pdfLabel } = exportCopy;
+  const laborRate = printLabor ? parseCurrencyLikeNumber(state.laborRate) : 0;
 
   runtime.exportPdfBusy = true;
   renderQuoteWorkspace();
@@ -5116,12 +5305,15 @@ async function exportContractPdf({ printClean = false, printBlank = false } = {}
       paymentOption: state.pdfPaymentOptions,
       printClean,
       printBlank,
+      printLabor,
+      laborRate,
     });
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const fileName = buildContractPdfFileName(contract, state.pdfOrganization, {
       printClean,
       printBlank,
+      printLabor,
     });
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
@@ -5249,12 +5441,20 @@ function syncQuoteMetaFromInputs() {
 function buildContractPreviewData() {
   const lineItems = state.measurementRows
     .map((row) => {
+      if (row.isNote) {
+        return {
+          isNote: true,
+          note: row.note?.trim() || "",
+        };
+      }
+
       const cost = getMeasurementCost(row);
       if (cost === null) {
         return null;
       }
 
       const motorized = isMotorizedMaterialRow(row);
+      const squareFootage = motorized ? null : getMeasurementSquareFootage(row);
       return {
         room: row.room?.trim() || "",
         label: row.label?.trim() || "",
@@ -5264,8 +5464,10 @@ function buildContractPreviewData() {
         width: motorized ? "—" : formatMeasurementDimension(row.width),
         height: motorized ? "—" : formatMeasurementDimension(row.height),
         sqft: formatPdfSqftDisplay(row),
+        billedSqft: squareFootage?.billed ?? null,
         srp: cost,
         isFree: Boolean(row.isFree),
+        isMotorized: motorized,
       };
     })
     .filter(Boolean);
@@ -5603,7 +5805,7 @@ function triggerPdfDownload(pdfUrl, fileName) {
 function buildContractPdfFileName(
   contract,
   organization = "luxe",
-  { printClean = false, printBlank = false } = {},
+  { printClean = false, printBlank = false, printLabor = false } = {},
 ) {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
   const basePrefix = organization === "nds"
@@ -5615,7 +5817,9 @@ function buildContractPdfFileName(
     ? `${basePrefix} Blank`
     : printClean
       ? `${basePrefix} Clean`
-      : basePrefix;
+      : printLabor
+        ? `${basePrefix} Labor`
+        : basePrefix;
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
   const safeName = rawName
@@ -5631,7 +5835,9 @@ function normalizePdfOrganization(organization) {
 }
 
 function normalizePdfPaymentOptions(value) {
-  return value === "monique-elena" || value === "jan-monique" ? value : "luxe";
+  return value === "monique-elena" || value === "jan-monique" || value === "jeremiah"
+    ? value
+    : "luxe";
 }
 
 function buildContractPaymentOptionsItems(paymentOption = "luxe") {
@@ -5745,6 +5951,31 @@ function buildContractPaymentOptionsItems(paymentOption = "luxe") {
     ];
   }
 
+  if (option === "jeremiah") {
+    return [
+      {
+        text: [
+          { text: "Account type: " },
+          { text: "BDO", bold: true, fontSize: 11.5 },
+        ],
+        font: "Roboto",
+      },
+      {
+        text: [
+          { text: "Account name: " },
+          { text: "Jeremiah C Bernardo", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account number: " },
+          { text: "0110-1001-2906", bold: true, fontSize: 11.5 },
+        ],
+      },
+      ...paymentNoteItems,
+    ];
+  }
+
   return [
     {
       text: [
@@ -5852,6 +6083,8 @@ function buildContractPdfDefinition(
     paymentOption = "luxe",
     printClean = false,
     printBlank = false,
+    printLabor = false,
+    laborRate = 0,
   } = {},
 ) {
   const pageMargin = 43.2;
@@ -6043,6 +6276,8 @@ function buildContractPdfDefinition(
       body: buildContractPdfOrderTableBody(contract.lineItems, {
         headerFill: lightFill,
         printClean,
+        printLabor,
+        laborRate,
       }),
     },
     layout: orderTableLayout,
@@ -6405,7 +6640,23 @@ function buildContractPdfDefinition(
   };
 }
 
-function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = false } = {}) {
+function shouldShowContractLineLaborBreakdown(item, printLabor, installationSteamRate) {
+  if (!printLabor || !Number.isFinite(installationSteamRate) || installationSteamRate <= 0) {
+    return false;
+  }
+  if (item.isMotorized || item.isFree) {
+    return false;
+  }
+  if (!Number.isFinite(item.billedSqft) || item.billedSqft <= 0) {
+    return false;
+  }
+  return true;
+}
+
+function buildContractPdfOrderTableBody(
+  lineItems,
+  { headerFill, printClean = false, printLabor = false, laborRate = 0 } = {},
+) {
   const buildHeaderCell = (text) => ({
     text,
     font: "Roboto",
@@ -6447,8 +6698,40 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
 
   const body = [headerRow];
 
+  const buildSpanningDisplayRow = (text) => {
+    const row = [{
+      text,
+      colSpan: tableColumnCount,
+      font: "Roboto",
+      alignment: "left",
+      verticalAlignment: "middle",
+      fontSize: 8.5,
+      margin: [14, 1, 0, 1],
+    }];
+    for (let spanIndex = 1; spanIndex < tableColumnCount; spanIndex += 1) {
+      row.push({});
+    }
+    return row;
+  };
+
   let previousRoom = "";
-  lineItems.forEach((item) => {
+
+  for (let index = 0; index < lineItems.length; index += 1) {
+    const item = lineItems[index];
+
+    if (item.isNote) {
+      if (!printLabor || printClean) {
+        continue;
+      }
+      const noteText = item.note?.trim();
+      if (!noteText) {
+        continue;
+      }
+      const noteRow = buildSpanningDisplayRow(noteText);
+      body.push(noteRow);
+      continue;
+    }
+
     if (item.room && item.room !== previousRoom) {
       if (printClean) {
         const roomRow = [
@@ -6466,7 +6749,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
             margin: [6, 1, 0, 1],
           },
         ];
-        for (let index = 1; index < PRINT_CLEAN_DATA_COLUMN_COUNT; index += 1) {
+        for (let roomIndex = 1; roomIndex < PRINT_CLEAN_DATA_COLUMN_COUNT; roomIndex += 1) {
           roomRow.push({});
         }
         roomRow.push(buildSideSpacerCell());
@@ -6484,7 +6767,7 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
           characterSpacing: 0.15,
           margin: [6, 1, 0, 1],
         }];
-        for (let index = 1; index < tableColumnCount; index += 1) {
+        for (let roomIndex = 1; roomIndex < tableColumnCount; roomIndex += 1) {
           roomRow.push({});
         }
         body.push(roomRow);
@@ -6513,7 +6796,16 @@ function buildContractPdfOrderTableBody(lineItems, { headerFill, printClean = fa
     body.push(
       printClean ? [buildSideSpacerCell(), ...dataRow, buildSideSpacerCell()] : dataRow,
     );
-  });
+
+    if (!printClean && shouldShowContractLineLaborBreakdown(item, printLabor, laborRate)) {
+      const laborAmount = item.billedSqft * laborRate;
+      const billedSqftDisplay = item.billedSqft.toLocaleString("en-PH", {
+        maximumFractionDigits: 0,
+      });
+      const installLabel = `LABOR (INSTALLATION & STEAM): ${billedSqftDisplay} SQFT × ${formatPdfPesoAmount(laborRate)} = ${formatPdfPesoAmount(laborAmount)}`;
+      body.push(buildSpanningDisplayRow(installLabel));
+    }
+  }
 
   return body;
 }
@@ -6994,9 +7286,35 @@ function getQuoteSelectColumns() {
   return columns.join(", ");
 }
 
+function getMeasurementSelectColumns() {
+  const baseColumns = [
+    "id",
+    "quote_material_id",
+    "room_section",
+    "measurement_type",
+    "material_code",
+    "control",
+    "label",
+    "width_mm",
+    "height_mm",
+    "material_label",
+    "asking_price",
+    "unit_quantity",
+    "line_cost",
+    "line_is_free",
+    "line_excludes_discount",
+    "sort_order",
+  ];
+  if (supportsMeasurementNoteRowColumns) {
+    baseColumns.push("is_note", "line_note");
+  }
+  return baseColumns.join(", ");
+}
+
 async function ensureQuoteSchemaSupport() {
   if (!runtime.session) {
     supportsProjectProfessionalRoleColumn = false;
+    supportsMeasurementNoteRowColumns = false;
     quoteSchemaSupportChecked = false;
     return;
   }
@@ -7011,6 +7329,13 @@ async function ensureQuoteSchemaSupport() {
     .limit(1);
 
   supportsProjectProfessionalRoleColumn = !error;
+
+  const { error: noteRowError } = await supabase
+    .from("quote_measurements")
+    .select("is_note, line_note")
+    .limit(1);
+
+  supportsMeasurementNoteRowColumns = !noteRowError;
   quoteSchemaSupportChecked = true;
 }
 

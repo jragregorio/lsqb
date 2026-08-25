@@ -82,13 +82,17 @@ create table if not exists public.quote_measurements (
   line_cost numeric(12, 2) not null,
   line_is_free boolean not null default false,
   line_excludes_discount boolean not null default false,
+  panel_count integer,
+  is_note boolean not null default false,
+  line_note text,
   sort_order integer not null default 0,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint quote_measurements_width_mm_nonneg check (width_mm >= 0),
   constraint quote_measurements_height_mm_nonneg check (height_mm >= 0),
   constraint quote_measurements_qty_or_dims check (
-    (unit_quantity is not null and unit_quantity > 0)
+    is_note = true
+    or (unit_quantity is not null and unit_quantity > 0)
     or (width_mm > 0 and height_mm > 0)
   )
 );
