@@ -1511,10 +1511,19 @@ code {
   color: var(--danger);
 }
 
-/* Measurement table actions: trash icon (global) */
-.measurement-remove-button {
-  padding: 0.55rem 0.6rem;
+/* Measurement table actions: equal square buttons in a vertical stack */
+.measurement-remove-button,
+.measurement-add-note-button,
+.measurement-add-below-button {
+  box-sizing: border-box;
+  width: 2.4rem;
+  min-width: 2.4rem;
+  height: 2.4rem;
   min-height: 2.4rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .measurement-remove-label {
@@ -1525,6 +1534,8 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .measurement-row-actions {
@@ -1532,16 +1543,6 @@ code {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.4rem;
-}
-
-.measurement-add-below-button {
-  min-height: 2.2rem;
-  padding: 0.4rem 0.55rem;
-}
-
-.measurement-add-note-button {
-  min-height: 2.2rem;
-  padding: 0.4rem 0.55rem;
 }
 
 .measurement-add-below-label {
@@ -1556,8 +1557,11 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   width: 1rem;
   height: 1rem;
+  min-width: 0;
+  overflow: hidden;
   font-size: 1rem;
   font-weight: 700;
   line-height: 1;
@@ -1567,8 +1571,11 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   width: 1rem;
   height: 1rem;
+  min-width: 0;
+  overflow: hidden;
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1;
@@ -1688,6 +1695,39 @@ code {
   min-width: 5.5rem;
   width: 5.5rem;
   max-width: 6.5rem;
+}
+
+.measurement-type-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.measurement-copy-above-button {
+  align-self: flex-start;
+  min-height: unset;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 88%, #ffffff 12%);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #7b6a5b;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.measurement-copy-above-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--panel-border) 74%, var(--accent) 26%);
+  background: color-mix(in srgb, var(--surface-alt) 45%, #ffffff 55%);
+  color: #5d4f44;
+}
+
+.measurement-copy-above-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .measurements-table th.measurement-free-col,
@@ -2009,7 +2049,8 @@ tbody tr.measurement-row--drag-over {
   border-bottom: 0;
 }
 
-.material-combobox-option:hover:not(.is-disabled) {
+.material-combobox-list:not(:has(.is-highlighted)) .material-combobox-option:hover:not(.is-disabled),
+.material-combobox-option.is-highlighted:not(.is-disabled) {
   background: var(--table-dropdown-hover);
 }
 

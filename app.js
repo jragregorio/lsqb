@@ -105,6 +105,48 @@ function normalizeMeasurementControl(value) {
   return MEASUREMENT_CONTROL_OPTIONS.includes(next) ? next : "";
 }
 
+function isSheerOrBlackoutType(type) {
+  const normalized = String(type ?? "").trim();
+  return normalized === "SHEER CURTAIN" || normalized === "BLACKOUT CURTAIN";
+}
+
+function findCopyAboveSourceRow(rowIndex) {
+  for (let i = rowIndex - 1; i >= 0; i -= 1) {
+    const candidate = state.measurementRows[i];
+    if (candidate.isNote) {
+      continue;
+    }
+    if (isMotorizedMaterialRow(candidate)) {
+      continue;
+    }
+    return candidate;
+  }
+  return null;
+}
+
+function syncMeasurementCopyAboveButton(button, row, rowIndex) {
+  const show = isSheerOrBlackoutType(row.type);
+  button.hidden = !show;
+  if (!show) {
+    return;
+  }
+  const source = findCopyAboveSourceRow(rowIndex);
+  button.disabled = runtime.quoteBusy || !source;
+}
+
+function applyCopyAboveDimensions(row, rowIndex) {
+  const source = findCopyAboveSourceRow(rowIndex);
+  if (!source || runtime.quoteBusy) {
+    return;
+  }
+  row.width = source.width;
+  row.height = source.height;
+  row.control = normalizeMeasurementControl(source.control);
+  persistDraftChange();
+  renderMeasurements();
+  renderSummary();
+}
+
 const PROJECT_PROFESSIONAL_ROLE_COLUMN = "project_professional_role";
 
 const QUOTE_SELECT_COLUMN_LIST = [
@@ -3242,9 +3284,51 @@ function buildMeasurementOptionCombobox({
 
   let outsidePointerActive = false;
   let committedValue = value || "";
+  let highlightedIndex = -1;
 
   const revertInput = () => {
     input.value = committedValue;
+  };
+
+  const getSelectableOptions = () =>
+    Array.from(list.querySelectorAll(".material-combobox-option:not(.is-disabled)"));
+
+  const clearHighlight = () => {
+    highlightedIndex = -1;
+    list.querySelectorAll(".material-combobox-option").forEach((el) => {
+      el.classList.remove("is-highlighted");
+      el.setAttribute("aria-selected", "false");
+    });
+  };
+
+  const setHighlight = (index) => {
+    const items = getSelectableOptions();
+    if (items.length === 0) {
+      clearHighlight();
+      return;
+    }
+    const clamped = Math.max(0, Math.min(index, items.length - 1));
+    highlightedIndex = clamped;
+    items.forEach((el, i) => {
+      const on = i === clamped;
+      el.classList.toggle("is-highlighted", on);
+      el.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    const el = items[clamped];
+    const listRect = list.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    if (elRect.bottom > listRect.bottom) {
+      list.scrollTop += elRect.bottom - listRect.bottom;
+    } else if (elRect.top < listRect.top) {
+      list.scrollTop -= listRect.top - elRect.top;
+    }
+  };
+
+  const selectOption = (label) => {
+    committedValue = label;
+    input.value = label;
+    closeList();
+    onSelect(label);
   };
 
   const commitOnClose = () => {
@@ -3259,6 +3343,7 @@ function buildMeasurementOptionCombobox({
   };
 
   const closeList = () => {
+    clearHighlight();
     list.hidden = true;
     input.setAttribute("aria-expanded", "false");
     if (outsidePointerActive) {
@@ -3311,6 +3396,7 @@ function buildMeasurementOptionCombobox({
   };
 
   function renderListOptions() {
+    clearHighlight();
     list.innerHTML = "";
     const q = input.value.trim().toLowerCase();
     const filtered = options.filter((label) =>
@@ -3338,10 +3424,14 @@ function buildMeasurementOptionCombobox({
       li.append(main, sub);
       li.addEventListener("mousedown", (event) => {
         event.preventDefault();
-        committedValue = label;
-        input.value = label;
-        closeList();
-        onSelect(label);
+        selectOption(label);
+      });
+      li.addEventListener("mouseenter", () => {
+        const items = getSelectableOptions();
+        const index = items.indexOf(li);
+        if (index !== -1) {
+          setHighlight(index);
+        }
       });
       list.append(li);
     });
@@ -3384,11 +3474,59 @@ function buildMeasurementOptionCombobox({
     }
   });
   input.addEventListener("keydown", (event) => {
+    if (disabled) {
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       revertInput();
       closeList();
       input.blur();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (list.hidden) {
+        openList();
+        setHighlight(0);
+      } else {
+        const items = getSelectableOptions();
+        if (items.length === 0) {
+          return;
+        }
+        if (highlightedIndex === -1) {
+          setHighlight(0);
+        } else {
+          setHighlight(Math.min(highlightedIndex + 1, items.length - 1));
+        }
+      }
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      if (list.hidden) {
+        return;
+      }
+      event.preventDefault();
+      const items = getSelectableOptions();
+      if (items.length === 0) {
+        return;
+      }
+      if (highlightedIndex === -1) {
+        setHighlight(items.length - 1);
+      } else {
+        setHighlight(Math.max(highlightedIndex - 1, 0));
+      }
+      return;
+    }
+    if (event.key === "Enter" || event.key === "NumpadEnter") {
+      const items = getSelectableOptions();
+      if (highlightedIndex >= 0 && highlightedIndex < items.length) {
+        event.preventDefault();
+        const main = items[highlightedIndex].querySelector(".material-combobox-option-main");
+        if (main) {
+          selectOption(main.textContent);
+        }
+      }
     }
   });
   input.addEventListener("blur", () => {
@@ -3569,7 +3707,7 @@ function renderMeasurements() {
     window.matchMedia?.("(pointer: coarse)")?.matches,
   );
 
-  state.measurementRows.forEach((row) => {
+  state.measurementRows.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
     tr.classList.add("measurement-row");
     tr.dataset.measurementRowId = row.id;
@@ -3645,8 +3783,27 @@ function renderMeasurements() {
       attachMeasurementFieldFit(typeInput);
       typeCell.append(typeInput);
     } else {
-      typeCell.className = "material-combobox-cell";
-      typeCell.append(
+      typeCell.className = "material-combobox-cell measurement-type-cell";
+      const typeStack = document.createElement("div");
+      typeStack.className = "measurement-type-stack";
+
+      const copyAboveButton = document.createElement("button");
+      copyAboveButton.type = "button";
+      copyAboveButton.className = "measurement-copy-above-button";
+      copyAboveButton.textContent = "Copy above";
+      copyAboveButton.setAttribute(
+        "aria-label",
+        "Copy width, height, and control from the row above",
+      );
+      copyAboveButton.addEventListener("click", () => {
+        applyCopyAboveDimensions(row, rowIndex);
+      });
+
+      const syncCopyAboveButton = () => {
+        syncMeasurementCopyAboveButton(copyAboveButton, row, rowIndex);
+      };
+
+      typeStack.append(
         buildMeasurementOptionCombobox({
           value: row.type || "",
           options: MEASUREMENT_TYPE_OPTIONS,
@@ -3656,10 +3813,14 @@ function renderMeasurements() {
           allowBlank: false,
           onSelect: (label) => {
             row.type = label;
+            syncCopyAboveButton();
             persistDraftChange();
           },
         }),
+        copyAboveButton,
       );
+      syncCopyAboveButton();
+      typeCell.append(typeStack);
     }
 
     const materialCodeCell = document.createElement("td");
