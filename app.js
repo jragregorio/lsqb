@@ -119,24 +119,31 @@ function findCopyAboveSourceRow(rowIndex) {
     if (isMotorizedMaterialRow(candidate)) {
       continue;
     }
-    return candidate;
+    return isSheerOrBlackoutType(candidate.type) ? candidate : null;
   }
   return null;
 }
 
 function syncMeasurementCopyAboveButton(button, row, rowIndex) {
-  const show = isSheerOrBlackoutType(row.type);
-  button.hidden = !show;
-  if (!show) {
+  if (!isSheerOrBlackoutType(row.type)) {
+    button.hidden = true;
     return;
   }
   const source = findCopyAboveSourceRow(rowIndex);
-  button.disabled = runtime.quoteBusy || !source;
+  if (!source) {
+    button.hidden = true;
+    return;
+  }
+  button.hidden = false;
+  button.disabled = runtime.quoteBusy;
 }
 
 function applyCopyAboveDimensions(row, rowIndex) {
+  if (!isSheerOrBlackoutType(row.type) || runtime.quoteBusy) {
+    return;
+  }
   const source = findCopyAboveSourceRow(rowIndex);
-  if (!source || runtime.quoteBusy) {
+  if (!source || !isSheerOrBlackoutType(source.type)) {
     return;
   }
   row.width = source.width;
@@ -3518,10 +3525,12 @@ function buildMeasurementOptionCombobox({
       }
       return;
     }
-    if (event.key === "Enter" || event.key === "NumpadEnter") {
+    if (event.key === "Enter" || event.key === "NumpadEnter" || event.key === "Tab") {
       const items = getSelectableOptions();
       if (highlightedIndex >= 0 && highlightedIndex < items.length) {
-        event.preventDefault();
+        if (event.key !== "Tab") {
+          event.preventDefault();
+        }
         const main = items[highlightedIndex].querySelector(".material-combobox-option-main");
         if (main) {
           selectOption(main.textContent);
@@ -3790,7 +3799,7 @@ function renderMeasurements() {
       const copyAboveButton = document.createElement("button");
       copyAboveButton.type = "button";
       copyAboveButton.className = "measurement-copy-above-button";
-      copyAboveButton.textContent = "Copy above";
+      copyAboveButton.textContent = "COPY ABOVE";
       copyAboveButton.setAttribute(
         "aria-label",
         "Copy width, height, and control from the row above",
