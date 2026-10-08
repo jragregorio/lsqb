@@ -91,7 +91,11 @@ const MEASUREMENT_TYPE_OPTIONS = [
 
 /** Must match the configured material category in Material Setup (e.g. pricelist row). */
 const MOTORIZED_MATERIAL_CATEGORY = "Curtains Motorized"; // keep for TYPE lock
-const MOTORIZED_QUANTITY_CATEGORIES = ["Curtains Motorized", "MOTORIZED"];
+const MOTORIZED_QUANTITY_CATEGORIES = [
+  "Curtains Motorized",
+  "MOTORIZED",
+  "Woodblinds Motor",
+];
 const MOTORIZED_TYPE_VALUE = "PIONEER BRAND";
 const MEASUREMENT_CONTROL_SPLIT = "SPLIT";
 const MEASUREMENT_CONTROL_FULL = "FULL";
