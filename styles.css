@@ -2283,6 +2283,34 @@ tbody tr.measurement-row--drag-over {
   margin: 0.45rem 0 0;
 }
 
+.admin-pdf-hide-org-row {
+  margin-top: 0.65rem;
+}
+
+.admin-checkbox-row {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-checkbox-row input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0.15rem 0 0;
+  flex-shrink: 0;
+}
+
+.admin-checkbox-row span {
+  line-height: 1.35;
+}
+
+.admin-pdf-hide-org-hint {
+  margin: 0.15rem 0 0 1.6rem;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     width: 100%;

@@ -234,6 +234,7 @@ const refs = {
   csvStatus: document.querySelector("#csv-status"),
   loadSampleBtn: document.querySelector("#load-sample-btn"),
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
+  pdfHideOrgCheckbox: document.querySelector("#pdf-hide-org-checkbox"),
   pdfPaymentOptionsSelect: document.querySelector("#pdf-payment-options-select"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
@@ -419,6 +420,14 @@ async function bootstrap() {
       const next = String(event.target.value || "").toLowerCase();
       state.pdfOrganization = next === "nds" || next === "kk" ? next : "luxe";
       applyBrandTheme(state.pdfOrganization);
+      persistDraftChange();
+      renderQuoteWorkspace();
+    });
+  }
+  if (refs.pdfHideOrgCheckbox) {
+    refs.pdfHideOrgCheckbox.checked = Boolean(state.pdfHideOrganization);
+    refs.pdfHideOrgCheckbox.addEventListener("change", (event) => {
+      state.pdfHideOrganization = Boolean(event.target.checked);
       persistDraftChange();
       renderQuoteWorkspace();
     });
@@ -1316,6 +1325,7 @@ function loadState() {
         : [],
       // Always default PDF branding to Luxe on refresh (do not persist org selection).
       pdfOrganization: "luxe",
+      pdfHideOrganization: false,
       pdfPaymentOptions: "luxe",
       laborRate: typeof parsed.laborRate === "string" ? parsed.laborRate : "",
       quoteMeta: getDefaultQuoteMeta(),
@@ -1335,6 +1345,7 @@ function getDefaultState() {
     sourceLabel: "",
     sourceMaterials: [],
     pdfOrganization: "luxe",
+    pdfHideOrganization: false,
     pdfPaymentOptions: "luxe",
     laborRate: "",
     quoteMeta: getDefaultQuoteMeta(),
@@ -1349,6 +1360,7 @@ function saveState() {
   // Do not persist PDF branding or payment option; both reset after refresh.
   const {
     pdfOrganization: _pdfOrganization,
+    pdfHideOrganization: _pdfHideOrganization,
     pdfPaymentOptions: _pdfPaymentOptions,
     ...persistedState
   } = state;
@@ -5477,6 +5489,7 @@ async function exportContractPdf({
     const documentDefinition = buildContractPdfDefinition(contract, assets, {
       organization: state.pdfOrganization,
       paymentOption: state.pdfPaymentOptions,
+      hideOrganization: state.pdfHideOrganization,
       printClean,
       printBlank,
       printLabor,
@@ -5488,6 +5501,7 @@ async function exportContractPdf({
       printClean,
       printBlank,
       printLabor,
+      hideOrganization: state.pdfHideOrganization,
     });
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
@@ -5979,14 +5993,21 @@ function triggerPdfDownload(pdfUrl, fileName) {
 function buildContractPdfFileName(
   contract,
   organization = "luxe",
-  { printClean = false, printBlank = false, printLabor = false } = {},
+  {
+    printClean = false,
+    printBlank = false,
+    printLabor = false,
+    hideOrganization = false,
+  } = {},
 ) {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
-  const basePrefix = organization === "nds"
-    ? "NDS Contract"
-    : organization === "kk"
-      ? "KK Contract"
-      : "LUXESHADE Contract";
+  const basePrefix = hideOrganization
+    ? "Contract"
+    : organization === "nds"
+      ? "NDS Contract"
+      : organization === "kk"
+        ? "KK Contract"
+        : "LUXESHADE Contract";
   const prefix = printBlank
     ? `${basePrefix} Blank`
     : printClean
@@ -6198,7 +6219,28 @@ function applyBrandTheme(organization = state.pdfOrganization) {
   }
 }
 
-function getContractPdfBranding(organization, assets) {
+const UNBRANDED_PDF_COLORS = {
+  textColor: "#15110e",
+  borderColor: "#c9c4bd",
+  accentColor: "#333333",
+  lightFill: "#f3f1ed",
+  accentFill: "#e8e4de",
+};
+
+function getContractPdfBranding(organization, assets, { hideOrganization = false } = {}) {
+  if (hideOrganization) {
+    return {
+      hideOrganization: true,
+      logoDataUrl: null,
+      logoWidth: 0,
+      logoHeight: 0,
+      watermarkWidth: 0,
+      watermarkHeight: 0,
+      watermarkOpacity: 0,
+      ...UNBRANDED_PDF_COLORS,
+    };
+  }
+
   const brand = normalizePdfOrganization(organization);
   const theme = BRAND_THEMES[brand];
   const pdf = theme.pdf;
@@ -6224,6 +6266,7 @@ function getContractPdfBranding(organization, assets) {
   const watermarkSize = scaleImageToWidth(logo.width, logo.height, pdf.watermarkWidth);
 
   return {
+    hideOrganization: false,
     logoDataUrl: logo.dataUrl,
     logoWidth: headerSize.width,
     logoHeight: headerSize.height,
@@ -6259,6 +6302,7 @@ function buildContractPdfDefinition(
     printBlank = false,
     printLabor = false,
     laborRate = 0,
+    hideOrganization = false,
   } = {},
 ) {
   const pageMargin = 43.2;
@@ -6266,7 +6310,7 @@ function buildContractPdfDefinition(
     ? ["*", ...PRINT_CLEAN_DATA_COLUMN_WIDTHS, "*"]
     : CONTRACT_ORDER_TABLE_WIDTHS;
   const totalsTableWidths = CONTRACT_TOTALS_TABLE_WIDTHS;
-  const branding = getContractPdfBranding(organization, assets);
+  const branding = getContractPdfBranding(organization, assets, { hideOrganization });
   const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
   const orderTableLayout = {
     hLineColor: () => borderColor,
@@ -6457,23 +6501,9 @@ function buildContractPdfDefinition(
     layout: orderTableLayout,
   };
 
-  return {
+  const contractPdfDefinition = {
     pageSize: "LETTER",
     pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
-    background(currentPage, pageSize) {
-      const safePageWidth = pageSize?.width || 612;
-      const safePageHeight = pageSize?.height || 792;
-      return {
-        image: branding.logoDataUrl,
-        width: branding.watermarkWidth,
-        height: branding.watermarkHeight,
-        opacity: branding.watermarkOpacity,
-        absolutePosition: {
-          x: (safePageWidth - branding.watermarkWidth) / 2,
-          y: (safePageHeight - branding.watermarkHeight) / 2,
-        },
-      };
-    },
     footer: printBlank
       ? undefined
       : (currentPage, pageCount) => ({
@@ -6492,13 +6522,15 @@ function buildContractPdfDefinition(
     content: [
       {
         stack: [
-          {
-            image: branding.logoDataUrl,
-            width: branding.logoWidth,
-            height: branding.logoHeight,
-            alignment: "center",
-            margin: [0, 0, 0, 10],
-          },
+          ...(branding.logoDataUrl
+            ? [{
+              image: branding.logoDataUrl,
+              width: branding.logoWidth,
+              height: branding.logoHeight,
+              alignment: "center",
+              margin: [0, 0, 0, 10],
+            }]
+            : []),
           {
             text: "CLIENT INFORMATION",
             alignment: "center",
@@ -6812,6 +6844,25 @@ function buildContractPdfDefinition(
       ]),
     ],
   };
+
+  if (branding.logoDataUrl) {
+    contractPdfDefinition.background = (currentPage, pageSize) => {
+      const safePageWidth = pageSize?.width || 612;
+      const safePageHeight = pageSize?.height || 792;
+      return {
+        image: branding.logoDataUrl,
+        width: branding.watermarkWidth,
+        height: branding.watermarkHeight,
+        opacity: branding.watermarkOpacity,
+        absolutePosition: {
+          x: (safePageWidth - branding.watermarkWidth) / 2,
+          y: (safePageHeight - branding.watermarkHeight) / 2,
+        },
+      };
+    };
+  }
+
+  return contractPdfDefinition;
 }
 
 function shouldShowContractLineLaborBreakdown(item, printLabor, installationSteamRate) {
@@ -7018,13 +7069,17 @@ async function handleAcknowledgementReceipt() {
     const documentDefinition = buildAcknowledgementReceiptPdfDefinition(
       contract,
       assets,
-      { organization: state.pdfOrganization },
+      {
+        organization: state.pdfOrganization,
+        hideOrganization: state.pdfHideOrganization,
+      },
     );
     const pdfBlob = await getPdfBlob(pdfMake.createPdf(documentDefinition));
     const pdfUrl = URL.createObjectURL(pdfBlob);
     const fileName = buildAcknowledgementReceiptFileName(
       contract,
       state.pdfOrganization,
+      { hideOrganization: state.pdfHideOrganization },
     );
 
     if (openPdfPreviewWindow(popupWindow, pdfUrl, fileName)) {
@@ -7057,15 +7112,23 @@ async function handleAcknowledgementReceipt() {
   }
 }
 
-function buildAcknowledgementReceiptFileName(contract, organization = "luxe") {
+function buildAcknowledgementReceiptFileName(
+  contract,
+  organization = "luxe",
+  { hideOrganization = false } = {},
+) {
   const clientName = contract.clientName.replace(/\s+/g, " ").trim();
-  const orgPrefix =
-    organization === "nds"
-      ? "NDS"
-      : organization === "kk"
-        ? "KK"
-        : "LUXESHADE";
-  const prefix = `${orgPrefix} Acknowledgement Receipt`;
+  const prefix = hideOrganization
+    ? "Acknowledgement Receipt"
+    : (() => {
+      const orgPrefix =
+        organization === "nds"
+          ? "NDS"
+          : organization === "kk"
+            ? "KK"
+            : "LUXESHADE";
+      return `${orgPrefix} Acknowledgement Receipt`;
+    })();
   const rawName = clientName ? `${prefix} - ${clientName}` : prefix;
 
   const safeName = rawName
@@ -7079,11 +7142,11 @@ function buildAcknowledgementReceiptFileName(contract, organization = "luxe") {
 function buildAcknowledgementReceiptPdfDefinition(
   contract,
   assets,
-  { organization = "luxe" } = {},
+  { organization = "luxe", hideOrganization = false } = {},
 ) {
   const pageMargin = 43.2;
   const summaryTableWidths = [340, 146];
-  const branding = getContractPdfBranding(organization, assets);
+  const branding = getContractPdfBranding(organization, assets, { hideOrganization });
   const { borderColor, accentColor, textColor, lightFill, accentFill } = branding;
 
   const summaryTableLayout = {
@@ -7302,23 +7365,9 @@ function buildAcknowledgementReceiptPdfDefinition(
     margin: [0, 0, 0, 14],
   });
 
-  return {
+  const receiptPdfDefinition = {
     pageSize: "LETTER",
     pageMargins: [pageMargin, pageMargin, pageMargin, pageMargin],
-    background(currentPage, pageSize) {
-      const safePageWidth = pageSize?.width || 612;
-      const safePageHeight = pageSize?.height || 792;
-      return {
-        image: branding.logoDataUrl,
-        width: branding.watermarkWidth,
-        height: branding.watermarkHeight,
-        opacity: branding.watermarkOpacity,
-        absolutePosition: {
-          x: (safePageWidth - branding.watermarkWidth) / 2,
-          y: (safePageHeight - branding.watermarkHeight) / 2,
-        },
-      };
-    },
     footer(currentPage, pageCount) {
       return {
         text: `Page ${currentPage} of ${pageCount}`,
@@ -7335,13 +7384,15 @@ function buildAcknowledgementReceiptPdfDefinition(
       lineHeight: 1.25,
     },
     content: [
-      {
-        image: branding.logoDataUrl,
-        width: branding.logoWidth,
-        height: branding.logoHeight,
-        alignment: "center",
-        margin: [0, 0, 0, 10],
-      },
+      ...(branding.logoDataUrl
+        ? [{
+          image: branding.logoDataUrl,
+          width: branding.logoWidth,
+          height: branding.logoHeight,
+          alignment: "center",
+          margin: [0, 0, 0, 10],
+        }]
+        : []),
       {
         text: "ACKNOWLEDGEMENT RECEIPT",
         alignment: "center",
@@ -7424,6 +7475,25 @@ function buildAcknowledgementReceiptPdfDefinition(
       }),
     ],
   };
+
+  if (branding.logoDataUrl) {
+    receiptPdfDefinition.background = (currentPage, pageSize) => {
+      const safePageWidth = pageSize?.width || 612;
+      const safePageHeight = pageSize?.height || 792;
+      return {
+        image: branding.logoDataUrl,
+        width: branding.watermarkWidth,
+        height: branding.watermarkHeight,
+        opacity: branding.watermarkOpacity,
+        absolutePosition: {
+          x: (safePageWidth - branding.watermarkWidth) / 2,
+          y: (safePageHeight - branding.watermarkHeight) / 2,
+        },
+      };
+    };
+  }
+
+  return receiptPdfDefinition;
 }
 
 function formatContractDate(value) {
