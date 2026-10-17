@@ -6531,6 +6531,9 @@ function buildContractPdfDefinition(
               margin: [0, 0, 0, 10],
             }]
             : []),
+          ...(hideOrganization
+            ? []
+            : [
           {
             text: "CLIENT INFORMATION",
             alignment: "center",
@@ -6563,7 +6566,8 @@ function buildContractPdfDefinition(
             ],
             columnGap: 18,
           },
-          ...(contract.notes && !printBlank
+            ]),
+          ...(contract.notes && !printBlank && !hideOrganization
             ? [
                 {
                   stack: [
@@ -6580,7 +6584,9 @@ function buildContractPdfDefinition(
           ...(printBlank
             ? []
             : [
-          {
+          ...(hideOrganization
+            ? []
+            : [{
             text: "ORDER DETAILS",
             fontSize: 10,
             bold: true,
@@ -6588,8 +6594,11 @@ function buildContractPdfDefinition(
             color: accentColor,
             alignment: printClean ? "center" : "left",
             margin: [0, 26, 0, 10],
+          }]),
+          {
+            ...orderDetailsTableNode,
+            ...(hideOrganization ? { margin: [0, 4, 0, 0] } : {}),
           },
-          orderDetailsTableNode,
           ...(printClean
             ? []
             : [{
