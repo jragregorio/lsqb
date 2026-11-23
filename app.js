@@ -272,6 +272,7 @@ const refs = {
   quoteSaveIndicator: document.querySelector("#quote-save-indicator"),
   quoteStatus: document.querySelector("#quote-status"),
   saveReminderToast: document.querySelector("#save-reminder-toast"),
+  saveStatusToast: document.querySelector("#save-status-toast"),
   savedQuotesCount: document.querySelector("#saved-quotes-count"),
   savedQuotesList: document.querySelector("#saved-quotes-list"),
   materialPanel: document.querySelector("#material-setup-panel"),
@@ -307,9 +308,11 @@ const refs = {
 const state = loadState();
 const ACTIVE_QUOTE_BAR_REVEAL_SCROLL_Y = 300;
 /** Wait this long after Add Row before running autosave (debounce reset on each Add Row). */
-const AUTOSAVE_DELAY_MS = 6000;
-/** Debounced Supabase save after Measurements → Add Row (see AUTOSAVE_DELAY_MS). */
-const AUTOSAVE_ENABLED = false;
+/** Idle time after the last edit before a silent background save (typing resets the timer). */
+const AUTOSAVE_DELAY_MS = 20000;
+/** Silent debounced save of an already-saved quote; never touches focus or the UI (see handleSaveQuote). */
+const AUTOSAVE_ENABLED = true;
+const AUTOSAVE_RETRY_MAX_MS = 120000;
 /** Show save reminder after this long without a manual save. */
 const SAVE_REMINDER_DELAY_MS = 180000;
 /** Repeat save reminder toast while quote remains unsaved. */
@@ -339,10 +342,12 @@ const runtime = {
   loadedQuoteFingerprint: "",
   quoteWorkspaceActive: false,
   autosaveTimer: 0,
+  autosaveInFlight: false,
+  autosavePromise: null,
+  autosaveFailCount: 0,
   exportPdfBusy: false,
   acknowledgementReceiptBusy: false,
   lastDraftEditAtMs: 0,
-  autosaveInterval: 0,
   saveReminderTimer: 0,
   saveReminderRepeatTimer: 0,
   saveReminderActive: false,
@@ -535,18 +540,6 @@ async function bootstrap() {
     refreshSavedQuotes({ showAlertOnFailure: true }),
   );
 
-  if (AUTOSAVE_ENABLED && !runtime.autosaveInterval) {
-    runtime.autosaveInterval = window.setInterval(() => {
-      if (!canAutosaveCurrentQuote()) {
-        return;
-      }
-      // Only autosave when edits have been idle for a bit (debounce alone can be cancelled by constant typing).
-      if (Date.now() - (runtime.lastDraftEditAtMs || 0) < Math.max(1500, AUTOSAVE_DELAY_MS)) {
-        return;
-      }
-      void handleSaveQuote({ autosave: true });
-    }, 15000);
-  }
   refs.quoteClientName.addEventListener("input", (event) => {
     state.quoteMeta.clientName = event.target.value;
     persistDraftChange();
@@ -585,6 +578,8 @@ async function bootstrap() {
     state.quoteMeta.notes = event.target.value;
     persistDraftChange();
   });
+
+  document.addEventListener("visibilitychange", handleVisibilityChangeAutosave);
 
   ensureStarterRows();
   render();
@@ -1674,48 +1669,81 @@ async function handleSaveQuote(options = {}) {
   const { autosave = false } = options;
 
   clearQueuedAutosave();
-  if (!autosave) {
+  if (autosave) {
+    if (runtime.autosaveInFlight || runtime.quoteBusy) {
+      return false;
+    }
+  } else {
+    // A manual save waits for any background save so the two never interleave.
+    if (runtime.autosavePromise) {
+      await runtime.autosavePromise.catch(() => {});
+    }
     clearSaveReminder();
   }
   syncQuoteMetaFromInputs();
 
   await ensureQuoteSchemaSupport();
 
+  // Autosave is silent: any precondition failure just skips this round.
   if (!runtime.session) {
-    setQuoteStatus(
-      autosave
-        ? "Autosave paused. Sign in again to keep saving changes."
-        : "Sign in first before saving quotes.",
-      !autosave,
-    );
+    if (!autosave) {
+      setQuoteStatus("Sign in first before saving quotes.", true);
+    }
     return false;
   }
 
   const validation = validateQuoteForSave();
   if (!validation.ok) {
-    setQuoteStatus(
-      autosave
-        ? "Unsaved changes detected. Autosave will resume after the required fields are complete."
-        : validation.message,
-      !autosave,
-    );
     if (!autosave) {
+      setQuoteStatus(validation.message, true);
       window.alert(validation.message);
     }
     return false;
   }
 
   const shouldRefreshQuoteDateOnSave =
-    Boolean(state.quoteMeta.id) && hasLoadedQuoteUnsavedChanges();
+    !autosave && Boolean(state.quoteMeta.id) && hasLoadedQuoteUnsavedChanges();
   if (shouldRefreshQuoteDateOnSave) {
     state.quoteMeta.quoteDate = getCurrentDateInputValue();
   }
 
-  runtime.quoteBusy = true;
-  render();
-  setQuoteStatus(
-    autosave ? "Autosaving quote..." : state.quoteMeta.id ? "Updating quote..." : "Saving quote...",
-  );
+  let resolveAutosave = () => {};
+  if (autosave) {
+    // No quoteBusy / render(): disabling inputs and re-rendering is what stole focus while typing.
+    runtime.autosaveInFlight = true;
+    runtime.autosavePromise = new Promise((resolve) => {
+      resolveAutosave = resolve;
+    });
+    renderQuoteSaveIndicator();
+  } else {
+    runtime.quoteBusy = true;
+    render();
+    setQuoteStatus(state.quoteMeta.id ? "Updating quote..." : "Saving quote...");
+  }
+  showSaveStatusToast("Saving…");
+
+  // Snapshot everything up front so edits made while the save is in flight stay "unsaved".
+  const snapshotFingerprint = buildCurrentQuoteFingerprint();
+  const materialDrafts = getMaterialDraftsForSave();
+  const measurementDrafts = getMeasurementDraftsForSave();
+  const finishFailure = (error, fallbackMessage) => {
+    console.error(error);
+    if (autosave) {
+      runtime.autosaveInFlight = false;
+      runtime.autosavePromise = null;
+      runtime.autosaveFailCount += 1;
+      resolveAutosave();
+      renderQuoteSaveIndicator();
+      showSaveStatusToast("Couldn't save, will retry", { isError: true, autoHideMs: 3000 });
+      queueAutosave();
+      return false;
+    }
+    runtime.quoteBusy = false;
+    render();
+    setQuoteStatus(error?.message || fallbackMessage, true);
+    showSaveStatusToast("Save failed", { isError: true, autoHideMs: 3000 });
+    return false;
+  };
   const summaryTotals = getSummaryTotals();
   const installationAmountRaw =
     parseCurrencyLikeNumber(state.quoteMeta.installationAmount) || 0;
@@ -1765,14 +1793,10 @@ async function handleSaveQuote(options = {}) {
   const { data: savedQuote, error: quoteError } = await quoteQuery;
 
   if (quoteError) {
-    runtime.quoteBusy = false;
-    render();
-    console.error(quoteError);
-    setQuoteStatus(
-      quoteError.message || "Could not save the quote header. Run the quote security migration first.",
-      true,
+    return finishFailure(
+      quoteError,
+      "Could not save the quote header. Run the quote security migration first.",
     );
-    return false;
   }
 
   const { error: measurementDeleteError } = await supabase
@@ -1781,11 +1805,7 @@ async function handleSaveQuote(options = {}) {
     .eq("quote_id", savedQuote.id);
 
   if (measurementDeleteError) {
-    runtime.quoteBusy = false;
-    render();
-    console.error(measurementDeleteError);
-    setQuoteStatus(measurementDeleteError.message || "Could not replace saved measurements.", true);
-    return false;
+    return finishFailure(measurementDeleteError, "Could not replace saved measurements.");
   }
 
   const { error: materialDeleteError } = await supabase
@@ -1794,15 +1814,9 @@ async function handleSaveQuote(options = {}) {
     .eq("quote_id", savedQuote.id);
 
   if (materialDeleteError) {
-    runtime.quoteBusy = false;
-    render();
-    console.error(materialDeleteError);
-    setQuoteStatus(materialDeleteError.message || "Could not replace saved materials.", true);
-    return false;
+    return finishFailure(materialDeleteError, "Could not replace saved materials.");
   }
 
-  const materialDrafts = getMaterialDraftsForSave();
-  const measurementDrafts = getMeasurementDraftsForSave();
   const materialIdMap = new Map();
 
   if (materialDrafts.length > 0) {
@@ -1822,11 +1836,7 @@ async function handleSaveQuote(options = {}) {
       .select("id, category");
 
     if (materialInsertError) {
-      runtime.quoteBusy = false;
-      render();
-      console.error(materialInsertError);
-      setQuoteStatus(materialInsertError.message || "Could not save quote materials.", true);
-      return false;
+      return finishFailure(materialInsertError, "Could not save quote materials.");
     }
 
     materialDrafts.forEach((draft) => {
@@ -1891,12 +1901,28 @@ async function handleSaveQuote(options = {}) {
       );
 
     if (measurementInsertError) {
-      runtime.quoteBusy = false;
-      render();
-      console.error(measurementInsertError);
-      setQuoteStatus(measurementInsertError.message || "Could not save quote measurements.", true);
-      return false;
+      return finishFailure(measurementInsertError, "Could not save quote measurements.");
     }
+  }
+
+  if (autosave) {
+    // Don't overwrite state from the response: the user may have kept typing during the save.
+    if (state.quoteMeta.id === savedQuote.id) {
+      state.quoteMeta.updatedAt = savedQuote.updated_at || state.quoteMeta.updatedAt;
+      runtime.loadedQuoteFingerprint = snapshotFingerprint;
+      clearSaveReminder();
+      saveState();
+    }
+    runtime.autosaveInFlight = false;
+    runtime.autosavePromise = null;
+    runtime.autosaveFailCount = 0;
+    resolveAutosave();
+    renderQuoteSaveIndicator();
+    if (hasLoadedQuoteUnsavedChanges()) {
+      queueAutosave();
+    }
+    showSaveStatusToast("Saved", { autoHideMs: 1500 });
+    return true;
   }
 
   state.quoteMeta = {
@@ -1927,7 +1953,8 @@ async function handleSaveQuote(options = {}) {
   runtime.quoteBusy = false;
   await refreshSavedQuotes({ showAlertOnFailure: false, silent: true });
   render();
-  setQuoteStatus(autosave ? "Quote autosaved to Supabase." : "Quote saved to Supabase.");
+  setQuoteStatus("Quote saved to Supabase.");
+  showSaveStatusToast("Saved", { autoHideMs: 1500 });
   renderQuoteSaveIndicator();
   return true;
 }
@@ -5065,6 +5092,47 @@ function showSaveReminderToast() {
   }, 3200);
 }
 
+let saveStatusToastTimer = 0;
+
+/** Minimal top-center save status pill; non-interactive so it never steals focus. */
+function showSaveStatusToast(message, { isError = false, autoHideMs = 0 } = {}) {
+  const toast = refs.saveStatusToast;
+  if (!toast) {
+    return;
+  }
+  window.clearTimeout(saveStatusToastTimer);
+  toast.style.top = `${getSaveStatusToastTopPx()}px`;
+  toast.textContent = message;
+  toast.classList.toggle("is-error", isError);
+  toast.classList.add("is-visible");
+  if (autoHideMs > 0) {
+    saveStatusToastTimer = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+    }, autoHideMs);
+  }
+}
+
+/** Sits just below whichever sticky bars are currently pinned to the top, so it never covers them. */
+function getSaveStatusToastTopPx() {
+  let bottom = 0;
+  [refs.activeQuoteBar, refs.quoteStepFloat].forEach((el) => {
+    if (!el || el.classList.contains("hidden")) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const stuckTop = parseFloat(getComputedStyle(el).top) || 0;
+    if (rect.height > 0 && rect.top <= stuckTop + 1) {
+      bottom = Math.max(bottom, rect.bottom);
+    }
+  });
+  return Math.ceil(bottom) + 8;
+}
+
+function hideSaveStatusToast() {
+  window.clearTimeout(saveStatusToastTimer);
+  refs.saveStatusToast?.classList.remove("is-visible");
+}
+
 function hideSaveReminderToast() {
   refs.saveReminderToast?.classList.remove("is-visible");
 }
@@ -5074,7 +5142,9 @@ function scheduleSaveReminder() {
   clearSaveReminderRepeatTimer();
   runtime.saveReminderActive = false;
 
-  if (!runtime.session || runtime.quoteBusy || !hasMeaningfulDraftChanges()) {
+  const autosaveCovers =
+    AUTOSAVE_ENABLED && Boolean(state.quoteMeta.id) && !runtime.autosaveFailCount;
+  if (!runtime.session || runtime.quoteBusy || autosaveCovers || !hasMeaningfulDraftChanges()) {
     hideSaveReminderToast();
     renderSaveReminderButtons();
     return;
@@ -5126,7 +5196,7 @@ function canAutosaveCurrentQuote() {
     hasLoadedQuoteUnsavedChanges();
 }
 
-/** Schedules a debounced Supabase save. Call sites: Measurements → Add Row. */
+/** Schedules a debounced silent save for an already-saved quote; every edit resets the timer. */
 function queueAutosave() {
   clearQueuedAutosave();
 
@@ -5146,7 +5216,24 @@ function queueAutosave() {
     }
 
     void handleSaveQuote({ autosave: true });
-  }, AUTOSAVE_DELAY_MS);
+  }, getAutosaveDelayMs());
+}
+
+function getAutosaveDelayMs() {
+  if (!runtime.autosaveFailCount) {
+    return AUTOSAVE_DELAY_MS;
+  }
+  return Math.min(AUTOSAVE_RETRY_MAX_MS, 10000 * 2 ** (runtime.autosaveFailCount - 1));
+}
+
+/** Flush pending edits when the tablet screen locks or the tab is backgrounded. */
+function handleVisibilityChangeAutosave() {
+  if (document.visibilityState !== "hidden" || !AUTOSAVE_ENABLED) {
+    return;
+  }
+  if (canAutosaveCurrentQuote() && !runtime.autosaveInFlight) {
+    void handleSaveQuote({ autosave: true });
+  }
 }
 
 function isQuoteWorkspaceActive() {
@@ -5346,7 +5433,7 @@ function getQuoteSaveIndicatorState() {
     }
     return { text: "", tone: "" };
   }
-  if (runtime.quoteBusy) {
+  if (runtime.quoteBusy || runtime.autosaveInFlight) {
     return { text: "Saving...", tone: "" };
   }
   if (hasId && unsaved) {
