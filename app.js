@@ -6694,28 +6694,41 @@ function buildContractPdfDefinition(
                 table: {
                   widths: totalsTableWidths,
                   body: (() => {
-                    const buildTotalsRow = (label, value, { isTotal = false } = {}) => [
-                      {
-                        text: label,
-                        bold: true,
-                        ...(isTotal ? { fontSize: 14, fillColor: accentFill } : {}),
-                      },
-                      {
-                        text: value,
-                        font: "Roboto",
-                        alignment: "right",
-                        ...(isTotal
-                          ? {
-                              bold: true,
-                              fontSize: 14,
-                              fillColor: accentFill,
-                            }
-                          : {}),
-                      },
-                    ];
+                    const buildTotalsRow = (
+                      label,
+                      value,
+                      { isTotal = false, isCheckpoint = false } = {},
+                    ) => {
+                      const rowFill = isTotal ? accentFill : isCheckpoint ? lightFill : null;
+                      return [
+                        {
+                          text: label,
+                          bold: true,
+                          ...(isTotal ? { fontSize: 14 } : {}),
+                          ...(rowFill ? { fillColor: rowFill } : {}),
+                        },
+                        {
+                          text: value,
+                          font: "Roboto",
+                          alignment: "right",
+                          ...(isTotal ? { bold: true, fontSize: 14 } : {}),
+                          ...(rowFill ? { fillColor: rowFill } : {}),
+                        },
+                      ];
+                    };
+                    // Deductions get a leading minus sign (U+2212) so they read as subtractions.
+                    const formatDeduction = (amount) => `−${formatPdfPesoAmount(amount)}`;
+                    // Free services keep their list price, with a bold accent-colored (FREE) tag.
+                    const formatServiceValue = (service) =>
+                      service.isFree
+                        ? [
+                            formatPdfPesoAmount(service.amount),
+                            { text: " (FREE)", bold: true, color: accentColor },
+                          ]
+                        : formatPdfPesoAmount(service.amount);
 
                     // Layout: Sub Total (measurements) → services at list price → Total
-                    // → Discount + free services as deductions → Total Discount → Grand Total.
+                    // → Discount → Total Discount (discount + free services) → Grand Total.
                     const services = [
                       ["Delivery", contract.deliveryAmount, contract.deliveryIsFree],
                       ["Installation", contract.installationAmount, contract.installationIsFree],
@@ -6743,44 +6756,44 @@ function buildContractPdfDefinition(
                     ];
 
                     services.forEach((service) => {
-                      rows.push(buildTotalsRow(service.label, formatPdfPesoAmount(service.amount)));
+                      rows.push(
+                        buildTotalsRow(service.label, formatServiceValue(service)),
+                      );
                     });
 
                     if (services.length) {
-                      rows.push(buildTotalsRow("Total", formatPdfPesoAmount(grossTotal)));
+                      rows.push(
+                        buildTotalsRow("Total", formatPdfPesoAmount(grossTotal), {
+                          isCheckpoint: true,
+                        }),
+                      );
                     }
 
-                    const deductionRows = [];
-                    let deductionsTotal = 0;
-                    if (contract.hasDiscount && Number(contract.discountAmount) > 0) {
+                    const discountAmount =
+                      contract.hasDiscount && Number(contract.discountAmount) > 0
+                        ? Number(contract.discountAmount)
+                        : 0;
+                    if (discountAmount > 0) {
                       const discountSuffix =
                         contract.discountType === "percent" && Number(contract.discountPercent) > 0
                           ? ` (${Number(contract.discountPercent)}%)`
                           : "";
-                      deductionRows.push(
+                      rows.push(
                         buildTotalsRow(
                           `Discount${discountSuffix}`,
-                          formatPdfPesoAmount(contract.discountAmount),
+                          formatDeduction(discountAmount),
                         ),
                       );
-                      deductionsTotal += Number(contract.discountAmount);
                     }
-                    services
-                      .filter((service) => service.isFree)
-                      .forEach((service) => {
-                        deductionRows.push(
-                          buildTotalsRow(
-                            `${service.label} (FREE)`,
-                            formatPdfPesoAmount(service.amount),
-                          ),
-                        );
-                        deductionsTotal += service.amount;
-                      });
 
-                    rows.push(...deductionRows);
-                    if (deductionRows.length > 1) {
+                    // Free services are already marked (FREE) above; fold them into Total Discount.
+                    const freeServicesTotal = allServicesTotal - paidServicesTotal;
+                    if (freeServicesTotal > 0) {
                       rows.push(
-                        buildTotalsRow("Total Discount", formatPdfPesoAmount(deductionsTotal)),
+                        buildTotalsRow(
+                          "Total Discount",
+                          formatDeduction(discountAmount + freeServicesTotal),
+                        ),
                       );
                     }
 
