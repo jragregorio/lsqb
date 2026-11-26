@@ -223,6 +223,8 @@ const refs = {
   activeExportPdfBtn: document.querySelector("#active-export-pdf-btn"),
   activeAcknowledgementReceiptBtn: document.querySelector("#active-acknowledgement-receipt-btn"),
   unloadQuoteBtn: document.querySelector("#unload-quote-btn"),
+  activeQuoteMoreBtn: document.querySelector("#active-quote-more-btn"),
+  materialTotalsToggle: document.querySelector("#material-totals-toggle"),
   authForm: document.querySelector("#auth-form"),
   authSession: document.querySelector("#auth-session"),
   authStatus: document.querySelector("#auth-status"),
@@ -408,6 +410,35 @@ async function bootstrap() {
   refs.quoteBadge?.addEventListener("click", handleQuoteBadgeClick);
   refs.quoteBadge?.addEventListener("keydown", handleQuoteBadgeKeydown);
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
+  refs.activeQuoteMoreBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setActiveQuoteActionsOpen(!refs.activeQuoteBar?.classList.contains("is-actions-open"));
+  });
+  refs.activeQuoteBar?.addEventListener("click", (event) => {
+    const button = event.target instanceof Element ? event.target.closest("button") : null;
+    if (button && button !== refs.activeQuoteMoreBtn) {
+      setActiveQuoteActionsOpen(false);
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (
+      refs.activeQuoteBar?.classList.contains("is-actions-open") &&
+      !(event.target instanceof Node && refs.activeQuoteBar.contains(event.target))
+    ) {
+      setActiveQuoteActionsOpen(false);
+    }
+  });
+  refs.materialTotalsToggle?.addEventListener("click", () => {
+    const dock = refs.materialSqftFooter;
+    if (!dock) {
+      return;
+    }
+    const expanded = !dock.classList.contains("is-expanded");
+    dock.classList.toggle("is-expanded", expanded);
+    refs.materialTotalsToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+  });
+  document.addEventListener("focusin", handleMobileTypingFocus);
+  document.addEventListener("focusout", handleMobileTypingFocus);
   window.addEventListener(
     "resize",
     () => {
@@ -620,7 +651,56 @@ function handleGlobalKeydown(event) {
   }
 }
 
+const MOBILE_LAYOUT_QUERY = window.matchMedia("(max-width: 720px)");
+let lastWindowScrollY = window.scrollY;
+
+function setActiveQuoteActionsOpen(isOpen) {
+  if (!refs.activeQuoteBar) {
+    return;
+  }
+  refs.activeQuoteBar.classList.toggle("is-actions-open", Boolean(isOpen));
+  refs.activeQuoteMoreBtn?.setAttribute("aria-expanded", isOpen ? "true" : "false");
+}
+
+/** Mobile only: slide the Quote Flow pills away while scrolling down, bring them back on scroll up. */
+function syncQuoteStepScrollHide() {
+  const nav = refs.quoteStepFloat;
+  const y = window.scrollY;
+  const delta = y - lastWindowScrollY;
+  if (!nav) {
+    lastWindowScrollY = y;
+    return;
+  }
+  if (!MOBILE_LAYOUT_QUERY.matches || y < 120) {
+    nav.classList.remove("is-scroll-hidden");
+    lastWindowScrollY = y;
+    return;
+  }
+  if (Math.abs(delta) < 8) {
+    return;
+  }
+  nav.classList.toggle("is-scroll-hidden", delta > 0);
+  if (delta > 0) {
+    setActiveQuoteActionsOpen(false);
+  }
+  lastWindowScrollY = y;
+}
+
+/** Mobile only: hide the bottom material dock while the on-screen keyboard is likely open. */
+function handleMobileTypingFocus(event) {
+  const isTextEntry = (el) =>
+    el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLInputElement &&
+      !["checkbox", "radio", "button", "submit", "reset", "file", "range", "color"].includes(el.type));
+  // Defer so focus moving between two fields doesn't flash the dock back in.
+  setTimeout(() => {
+    const typing = MOBILE_LAYOUT_QUERY.matches && isTextEntry(document.activeElement);
+    document.body.classList.toggle("is-mobile-typing", typing);
+  }, 0);
+}
+
 function handleWindowScroll() {
+  syncQuoteStepScrollHide();
   syncQuoteStickyStack();
   renderQuoteStepPills();
   renderActiveQuoteBar();
