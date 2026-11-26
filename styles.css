@@ -2550,9 +2550,12 @@ tbody tr.measurement-row--drag-over {
     width: auto;
   }
 
+  /* Menu button now sits at the right end of the title line: open the dropdown
+     leftward from its right edge so it stays on screen. */
   .top-app-menu {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
+    max-width: calc(100vw - 1rem);
   }
 
   /* Quote header actions: keep buttons in a row within each group. */
