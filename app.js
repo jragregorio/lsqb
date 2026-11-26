@@ -236,7 +236,7 @@ const refs = {
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
   pdfHideOrgCheckbox: document.querySelector("#pdf-hide-org-checkbox"),
   pdfPaymentOptionsSelect: document.querySelector("#pdf-payment-options-select"),
-  pdfBlankPaymentCheckbox: document.querySelector("#pdf-blank-payment-checkbox"),
+  pdfHidePaymentCheckbox: document.querySelector("#pdf-hide-payment-checkbox"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
   printBlankBtn: document.querySelector("#print-blank-btn"),
@@ -438,10 +438,10 @@ async function bootstrap() {
       renderQuoteWorkspace();
     });
   }
-  if (refs.pdfBlankPaymentCheckbox) {
-    refs.pdfBlankPaymentCheckbox.checked = Boolean(state.pdfBlankPaymentOptions);
-    refs.pdfBlankPaymentCheckbox.addEventListener("change", (event) => {
-      state.pdfBlankPaymentOptions = Boolean(event.target.checked);
+  if (refs.pdfHidePaymentCheckbox) {
+    refs.pdfHidePaymentCheckbox.checked = Boolean(state.pdfHidePaymentOptions);
+    refs.pdfHidePaymentCheckbox.addEventListener("change", (event) => {
+      state.pdfHidePaymentOptions = Boolean(event.target.checked);
     });
   }
   if (refs.pdfPaymentOptionsSelect) {
@@ -1329,7 +1329,7 @@ function loadState() {
       pdfOrganization: "luxe",
       pdfHideOrganization: false,
       pdfPaymentOptions: "luxe",
-      pdfBlankPaymentOptions: false,
+      pdfHidePaymentOptions: false,
       laborRate: typeof parsed.laborRate === "string" ? parsed.laborRate : "",
       quoteMeta: getDefaultQuoteMeta(),
       selectedMaterials: [],
@@ -1350,7 +1350,7 @@ function getDefaultState() {
     pdfOrganization: "luxe",
     pdfHideOrganization: false,
     pdfPaymentOptions: "luxe",
-    pdfBlankPaymentOptions: false,
+    pdfHidePaymentOptions: false,
     laborRate: "",
     quoteMeta: getDefaultQuoteMeta(),
     selectedMaterials: [],
@@ -1366,7 +1366,7 @@ function saveState() {
     pdfOrganization: _pdfOrganization,
     pdfHideOrganization: _pdfHideOrganization,
     pdfPaymentOptions: _pdfPaymentOptions,
-    pdfBlankPaymentOptions: _pdfBlankPaymentOptions,
+    pdfHidePaymentOptions: _pdfHidePaymentOptions,
     ...persistedState
   } = state;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
@@ -5586,7 +5586,7 @@ async function exportContractPdf({
     const documentDefinition = buildContractPdfDefinition(contract, assets, {
       organization: state.pdfOrganization,
       paymentOption: state.pdfPaymentOptions,
-      blankPaymentOptions: state.pdfBlankPaymentOptions,
+      hidePaymentOptions: state.pdfHidePaymentOptions,
       hideOrganization: state.pdfHideOrganization,
       printClean,
       printBlank,
@@ -6133,26 +6133,6 @@ function normalizePdfPaymentOptions(value) {
     : "luxe";
 }
 
-/** Two account blocks with labels only and blank lines to fill in by hand. */
-function buildBlankPaymentOptionsItems() {
-  const blankLine = "_".repeat(34);
-  const buildBlankAccount = (isFirst) => [
-    {
-      text: [{ text: "Account type: " }, { text: blankLine }],
-      font: "Roboto",
-      ...(isFirst ? {} : { margin: [20, 6, 0, 4] }),
-    },
-    { text: [{ text: "Account name: " }, { text: blankLine }] },
-    { text: [{ text: "Account number: " }, { text: blankLine }] },
-  ];
-
-  return [
-    ...buildBlankAccount(true),
-    ...buildBlankAccount(false),
-    ...buildContractPaymentNoteItems(),
-  ];
-}
-
 function buildContractPaymentNoteItems() {
   return [
     {
@@ -6420,7 +6400,7 @@ function buildContractPdfDefinition(
   {
     organization = "luxe",
     paymentOption = "luxe",
-    blankPaymentOptions = false,
+    hidePaymentOptions = false,
     printClean = false,
     printBlank = false,
     printLabor = false,
@@ -6880,12 +6860,14 @@ function buildContractPdfDefinition(
                 "Payable on the same day of installation or within 24 hours upon completion of work.",
               ],
             },
-            {
-              title: "Payment Options",
-              items: blankPaymentOptions
-                ? buildBlankPaymentOptionsItems()
-                : buildContractPaymentOptionsItems(paymentOption),
-            },
+            ...(hidePaymentOptions
+              ? []
+              : [
+                  {
+                    title: "Payment Options",
+                    items: buildContractPaymentOptionsItems(paymentOption),
+                  },
+                ]),
           ]),
           buildStyledTermsSection("Section 2. Work and Delivery Lead Time", [
             {

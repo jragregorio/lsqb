@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LUXESHADE Quote Builder v5.4.9</title>
+    <title>LUXESHADE Quote Builder v5.4.10</title>
     <link rel="icon" href="./assets/LogoOnly.jpg" type="image/jpeg" />
     <link rel="apple-touch-icon" href="./assets/LogoOnly.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=5.4.9" />
+    <link rel="stylesheet" href="./styles.css?v=5.4.10" />
   </head>
   <body>
     <main class="app-shell">
@@ -25,7 +25,7 @@
             <div class="app-brand">
               <p class="eyebrow">JRAG</p>
               <h1 class="app-brand-title">LUXESHADE Quote Builder</h1>
-              <p class="app-brand-version">v5.4.9</p>
+              <p class="app-brand-version">v5.4.10</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -274,12 +274,12 @@
               </select>
             </div>
             <div class="admin-form-row admin-pdf-hide-org-row">
-              <label class="admin-checkbox-row" for="pdf-blank-payment-checkbox">
-                <input id="pdf-blank-payment-checkbox" type="checkbox" />
-                <span>Leave payment accounts blank</span>
+              <label class="admin-checkbox-row" for="pdf-hide-payment-checkbox">
+                <input id="pdf-hide-payment-checkbox" type="checkbox" />
+                <span>Remove payment options from PDF</span>
               </label>
               <p class="section-copy admin-pdf-hide-org-hint">
-                Keeps the Account type, name, and number labels in the PDF with blank lines to fill in by hand.
+                Omits item 3, Payment Options (bank accounts and check/cash notes), from Section 1 of the contract terms.
               </p>
             </div>
             <div class="admin-form-row">
@@ -844,6 +844,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=5.4.9"></script>
+    <script type="module" src="./app.js?v=5.4.10"></script>
   </body>
 </html>
