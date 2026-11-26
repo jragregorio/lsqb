@@ -6728,7 +6728,7 @@ function buildContractPdfDefinition(
                         : formatPdfPesoAmount(service.amount);
 
                     // Layout: Sub Total (measurements) → services at list price → Total
-                    // → Discount → Total Discount (discount + free services) → Grand Total.
+                    // → Discount (discount field + free services) → Grand Total.
                     const services = [
                       ["Delivery", contract.deliveryAmount, contract.deliveryIsFree],
                       ["Installation", contract.installationAmount, contract.installationIsFree],
@@ -6773,27 +6773,20 @@ function buildContractPdfDefinition(
                       contract.hasDiscount && Number(contract.discountAmount) > 0
                         ? Number(contract.discountAmount)
                         : 0;
-                    if (discountAmount > 0) {
+                    // One Discount row covers every deduction: the discount field plus
+                    // free services (already marked (FREE) above).
+                    const freeServicesTotal = allServicesTotal - paidServicesTotal;
+                    const allDiscounts = discountAmount + freeServicesTotal;
+                    if (allDiscounts > 0) {
+                      // The % suffix only describes the row when nothing else is folded in.
                       const discountSuffix =
-                        contract.discountType === "percent" && Number(contract.discountPercent) > 0
+                        freeServicesTotal === 0 &&
+                        contract.discountType === "percent" &&
+                        Number(contract.discountPercent) > 0
                           ? ` (${Number(contract.discountPercent)}%)`
                           : "";
                       rows.push(
-                        buildTotalsRow(
-                          `Discount${discountSuffix}`,
-                          formatDeduction(discountAmount),
-                        ),
-                      );
-                    }
-
-                    // Free services are already marked (FREE) above; fold them into Total Discount.
-                    const freeServicesTotal = allServicesTotal - paidServicesTotal;
-                    if (freeServicesTotal > 0) {
-                      rows.push(
-                        buildTotalsRow(
-                          "Total Discount",
-                          formatDeduction(discountAmount + freeServicesTotal),
-                        ),
+                        buildTotalsRow(`Discount${discountSuffix}`, formatDeduction(allDiscounts)),
                       );
                     }
 
