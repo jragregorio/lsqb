@@ -4097,3 +4097,77 @@ input[type="checkbox"]:checked,
     letter-spacing: 0.06em;
   }
 }
+
+/* Client details fold (mobile only): one-line summary that opens the fields. */
+.client-details-summary {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .client-details-summary:not(.hidden) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    margin: 0.25rem 0 0.75rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 0.9rem;
+    background: var(--table-cell-bg, #ffffff);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .client-details-summary-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .client-details-summary-caption {
+    color: var(--muted);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .client-details-summary-name {
+    font-size: 1rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  .client-details-summary-detail {
+    color: var(--muted);
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+  }
+
+  .client-details-summary-detail[hidden] {
+    display: none;
+  }
+
+  .client-details-summary-action {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0 0.85rem;
+    border: 1px solid var(--field-border);
+    border-radius: 0.7rem;
+    background: #ffffff;
+    color: var(--primary);
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  #quote-workspace-panel.is-client-folded .quote-meta-grid-client {
+    display: none;
+  }
+}

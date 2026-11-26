@@ -258,6 +258,11 @@ const refs = {
   quoteProjectProfessionalRole: document.querySelector("#quote-project-professional-role"),
   quoteProjectArchitect: document.querySelector("#quote-project-architect"),
   quoteContactNumber: document.querySelector("#quote-contact-number"),
+  clientDetailsSummary: document.querySelector("#client-details-summary"),
+  clientDetailsSummaryName: document.querySelector("#client-details-summary-name"),
+  clientDetailsSummaryDetail: document.querySelector("#client-details-summary-detail"),
+  clientDetailsSummaryAction: document.querySelector("#client-details-summary-action"),
+  quoteClientFields: document.querySelector("#quote-client-fields"),
   quoteEmailAddress: document.querySelector("#quote-email-address"),
   quoteNotes: document.querySelector("#quote-notes"),
   quoteWorkspaceHeading: document.querySelector("#quote-workspace-heading"),
@@ -358,6 +363,8 @@ const runtime = {
   quoteBadgeTooltipTimer: 0,
   recentMeasurementMaterialIds: [],
   expandedMeasurementRowId: null,
+  clientDetailsExpanded: false,
+  clientDetailsQuoteId: null,
 };
 
 let contractPdfAssetsPromise = null;
@@ -558,6 +565,19 @@ async function bootstrap() {
   });
   refs.activeQuoteSaveBtn?.addEventListener("click", () => {
     void handleSaveQuote();
+  });
+  refs.clientDetailsSummary?.addEventListener("click", () => {
+    runtime.clientDetailsExpanded = !runtime.clientDetailsExpanded;
+    syncClientDetailsFold();
+    if (!runtime.clientDetailsExpanded && refs.clientDetailsSummary) {
+      const top = refs.clientDetailsSummary.getBoundingClientRect().top;
+      if (top < 120) {
+        window.scrollTo({ top: window.scrollY + top - 140, behavior: "auto" });
+      }
+    }
+  });
+  refs.quoteClientFields?.addEventListener("focusin", () => {
+    runtime.clientDetailsExpanded = true;
   });
   refs.activeExportPdfBtn?.addEventListener("click", () => {
     void handleExportPdf();
@@ -2473,6 +2493,7 @@ function renderQuoteWorkspace() {
   refs.quoteContactNumber.value = state.quoteMeta.contactNumber;
   refs.quoteEmailAddress.value = state.quoteMeta.emailAddress;
   refs.quoteNotes.value = state.quoteMeta.notes;
+  syncClientDetailsFold();
 
   if (refs.deliveryAmount) {
     refs.deliveryAmount.value = formatThousandsInputValue(state.quoteMeta.deliveryAmount);
@@ -4496,6 +4517,43 @@ function renderMeasurements() {
   syncMeasurementRowCollapse();
 }
 
+// Mobile: once a client name is filled in, the client fields fold into a one-line
+// summary (name, contact, address) that opens on tap. Desktop CSS ignores this.
+function syncClientDetailsFold() {
+  const summary = refs.clientDetailsSummary;
+  const panel = document.querySelector("#quote-workspace-panel");
+  if (!summary || !panel) {
+    return;
+  }
+
+  const quoteId = state.quoteMeta.id || null;
+  if (quoteId !== runtime.clientDetailsQuoteId) {
+    runtime.clientDetailsQuoteId = quoteId;
+    runtime.clientDetailsExpanded = false;
+  }
+
+  const name = String(refs.quoteClientName?.value ?? state.quoteMeta.clientName ?? "").trim();
+  const canFold = Boolean(name);
+  const folded = canFold && !runtime.clientDetailsExpanded;
+
+  summary.classList.toggle("hidden", !canFold);
+  panel.classList.toggle("is-client-folded", folded);
+  summary.setAttribute("aria-expanded", String(!folded));
+
+  if (!canFold) {
+    return;
+  }
+
+  refs.clientDetailsSummaryName.textContent = name;
+  const detail = [refs.quoteContactNumber?.value, refs.quoteProjectName?.value]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" · ");
+  refs.clientDetailsSummaryDetail.textContent = detail;
+  refs.clientDetailsSummaryDetail.hidden = !detail;
+  refs.clientDetailsSummaryAction.textContent = folded ? "Edit" : "Done";
+}
+
 function isMeasurementRowComplete(row) {
   return !row.isNote && getMeasurementCost(row) !== null;
 }
@@ -5068,6 +5126,8 @@ function reportQuoteValidationFailure(validation) {
     return;
   }
   if (validation.field === "clientName" && refs.quoteClientName) {
+    runtime.clientDetailsExpanded = true;
+    syncClientDetailsFold();
     scrollElementBelowStickyBars(refs.quoteClientName);
     refs.quoteClientName.focus({ preventScroll: true });
   }
