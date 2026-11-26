@@ -357,6 +357,7 @@ const runtime = {
   quoteBadgeTooltipOpen: false,
   quoteBadgeTooltipTimer: 0,
   recentMeasurementMaterialIds: [],
+  expandedMeasurementRowId: null,
 };
 
 let contractPdfAssetsPromise = null;
@@ -1785,8 +1786,7 @@ async function handleSaveQuote(options = {}) {
   const validation = validateQuoteForSave();
   if (!validation.ok) {
     if (!autosave) {
-      setQuoteStatus(validation.message, true);
-      window.alert(validation.message);
+      reportQuoteValidationFailure(validation);
     }
     return false;
   }
@@ -2065,8 +2065,7 @@ async function handleSaveAsNewQuote() {
 
   const validation = validateQuoteForSave();
   if (!validation.ok) {
-    setQuoteStatus(validation.message, true);
-    window.alert(validation.message);
+    reportQuoteValidationFailure(validation);
     return;
   }
 
@@ -3772,17 +3771,7 @@ function buildMeasurementActionCell(row) {
   ].join("");
   removeButton.disabled = runtime.quoteBusy;
   removeButton.addEventListener("click", () => {
-    state.measurementRows = state.measurementRows.filter(
-      (measurement) => measurement.id !== row.id,
-    );
-
-    if (state.measurementRows.length === 0) {
-      state.measurementRows.push(createMeasurementRow());
-    }
-
-    persistDraftChange();
-    renderMeasurements();
-    renderSummary();
+    removeMeasurementRow(row.id);
   });
 
   const addNoteButton = document.createElement("button");
@@ -3831,6 +3820,43 @@ function buildMeasurementActionCell(row) {
   return actionCell;
 }
 
+function removeMeasurementRow(rowId) {
+  state.measurementRows = state.measurementRows.filter(
+    (measurement) => measurement.id !== rowId,
+  );
+
+  if (state.measurementRows.length === 0) {
+    state.measurementRows.push(createMeasurementRow());
+  }
+
+  persistDraftChange();
+  renderMeasurements();
+  renderSummary();
+}
+
+// Mobile-only: a labeled Remove control at the bottom of the card, kept away
+// from the Add note / Add below buttons at the top (hidden on desktop).
+function buildMeasurementMobileRemoveCell(row) {
+  const cell = document.createElement("td");
+  cell.className = "measurement-mobile-remove-cell";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "measurement-mobile-remove-button";
+  button.disabled = runtime.quoteBusy;
+  button.setAttribute("aria-label", row.isNote ? "Remove note" : "Remove this line");
+  button.innerHTML = [
+    '<svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true">',
+    '<path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v10h-2V9zm4 0h2v10h-2V9zM6 9h2v10H6V9zm2 12h8a2 2 0 0 0 2-2V9H4v10a2 2 0 0 0 2 2z"/>',
+    "</svg>",
+    `<span>${row.isNote ? "Remove note" : "Remove line"}</span>`,
+  ].join("");
+  button.addEventListener("click", () => {
+    removeMeasurementRow(row.id);
+  });
+  cell.append(button);
+  return cell;
+}
+
 function renderMeasurements() {
   refs.measurementBody.innerHTML = "";
 
@@ -3848,6 +3874,8 @@ function renderMeasurements() {
   const preferChevronReorder = Boolean(
     window.matchMedia?.("(pointer: coarse)")?.matches,
   );
+
+  let measurementLineNumber = 0;
 
   state.measurementRows.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
@@ -3872,7 +3900,12 @@ function renderMeasurements() {
         persistDraftChange();
       });
       noteCell.append(noteInput);
-      tr.append(dragCell, noteCell, buildMeasurementActionCell(row));
+      tr.append(
+        dragCell,
+        noteCell,
+        buildMeasurementActionCell(row),
+        buildMeasurementMobileRemoveCell(row),
+      );
       refs.measurementBody.append(tr);
       return;
     }
@@ -3882,7 +3915,73 @@ function renderMeasurements() {
       getMeasurementMaterialForRow(row),
     );
 
+    measurementLineNumber += 1;
+    const rowNumber = measurementLineNumber;
     const dragCell = buildMeasurementDragCell(row, tr, preferChevronReorder);
+
+    // Mobile-only collapsible header: "#n ROOM · LABEL / material · W × H / cost".
+    const summaryCell = document.createElement("td");
+    summaryCell.className = "measurement-summary-cell";
+    const summaryButton = document.createElement("button");
+    summaryButton.type = "button";
+    summaryButton.className = "measurement-summary-button";
+    const summaryNumber = document.createElement("span");
+    summaryNumber.className = "measurement-summary-number";
+    summaryNumber.textContent = `#${rowNumber}`;
+    const summaryText = document.createElement("span");
+    summaryText.className = "measurement-summary-text";
+    const summaryTitle = document.createElement("span");
+    summaryTitle.className = "measurement-summary-title";
+    const summaryDetail = document.createElement("span");
+    summaryDetail.className = "measurement-summary-detail";
+    const summarySize = document.createElement("span");
+    summarySize.className = "measurement-summary-size";
+    summaryText.append(summaryTitle, summaryDetail, summarySize);
+    const summaryCost = document.createElement("span");
+    summaryCost.className = "measurement-summary-cost";
+    const summaryChevron = document.createElement("span");
+    summaryChevron.className = "measurement-summary-chevron";
+    summaryChevron.setAttribute("aria-hidden", "true");
+    summaryChevron.innerHTML =
+      '<svg viewBox="0 0 24 24" width="18" height="18" focusable="false" aria-hidden="true"><path fill="currentColor" d="m7.41 8.41 4.59 4.59 4.59-4.59L18 9.83l-6 6-6-6z"/></svg>';
+    summaryButton.append(summaryNumber, summaryText, summaryCost, summaryChevron);
+    summaryButton.addEventListener("click", () => {
+      toggleMeasurementRowExpanded(row.id);
+    });
+    summaryCell.append(summaryButton);
+
+    const updateRowSummary = () => {
+      const place = [row.room, row.label]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ");
+      summaryTitle.textContent = place || "New line";
+
+      const material = getMeasurementMaterialForRow(row);
+      summaryDetail.textContent = material?.category || "No material yet";
+
+      let sizeText = "";
+      if (isMotorizedMaterialRow(row)) {
+        const qty = parseMotorQuantity(row.unitQuantity);
+        sizeText = qty ? `${qty} qty` : "";
+      } else if (row.width || row.height) {
+        sizeText = `${row.width || "?"} × ${row.height || "?"}`;
+      }
+      summarySize.textContent = sizeText;
+      summarySize.hidden = !sizeText;
+
+      const cost = getMeasurementCost(row);
+      summaryCost.textContent = row.isFree
+        ? "FREE"
+        : cost === null
+          ? "—"
+          : formatCurrency(cost);
+      summaryCost.classList.toggle("is-free", Boolean(row.isFree));
+      summaryButton.setAttribute(
+        "aria-label",
+        `Line ${rowNumber}: ${[summaryTitle.textContent, summaryDetail.textContent, sizeText, summaryCost.textContent].filter(Boolean).join(", ")}`,
+      );
+    };
 
     const roomCell = document.createElement("td");
     const roomInput = buildTextInput({
@@ -3893,6 +3992,7 @@ function renderMeasurements() {
       onInput: (value) => {
         row.room = value;
         persistDraftChange();
+        updateRowSummary();
       },
     });
     attachMeasurementFieldFit(roomInput);
@@ -4020,6 +4120,7 @@ function renderMeasurements() {
       onInput: (value) => {
         row.label = value;
         persistDraftChange();
+        updateRowSummary();
       },
     });
     attachMeasurementFieldFit(labelInput);
@@ -4303,6 +4404,7 @@ function renderMeasurements() {
     const costCell = document.createElement("td");
     costCell.className = "money-cell";
     const updateMeasurementOutputs = () => {
+      updateRowSummary();
       const cost = getMeasurementCost(row);
       const squareFootage = getMeasurementSquareFootage(row);
       const motorizedRow = isMotorizedMaterialRow(row);
@@ -4379,9 +4481,69 @@ function renderMeasurements() {
       noDiscCell,
       costCell,
       buildMeasurementActionCell(row),
+      summaryCell,
+      buildMeasurementMobileRemoveCell(row),
     );
+    tr.addEventListener("focusin", (event) => {
+      if (event.target === summaryButton) {
+        return;
+      }
+      runtime.expandedMeasurementRowId = row.id;
+    });
     refs.measurementBody.append(tr);
   });
+
+  syncMeasurementRowCollapse();
+}
+
+function isMeasurementRowComplete(row) {
+  return !row.isNote && getMeasurementCost(row) !== null;
+}
+
+// Mobile: finished rows fold to a one-line header; one row is open at a time.
+// Incomplete rows always stay open so nothing half-filled gets hidden.
+function syncMeasurementRowCollapse() {
+  if (!refs.measurementBody) {
+    return;
+  }
+  state.measurementRows.forEach((row) => {
+    if (row.isNote) {
+      return;
+    }
+    const tr = refs.measurementBody.querySelector(
+      `tr.measurement-row[data-measurement-row-id="${CSS.escape(String(row.id))}"]`,
+    );
+    if (!tr) {
+      return;
+    }
+    const collapsed =
+      row.id !== runtime.expandedMeasurementRowId && isMeasurementRowComplete(row);
+    tr.classList.toggle("is-collapsed", collapsed);
+    tr.classList.toggle("is-incomplete", !isMeasurementRowComplete(row));
+    const button = tr.querySelector(".measurement-summary-button");
+    button?.setAttribute("aria-expanded", String(!collapsed));
+  });
+}
+
+function toggleMeasurementRowExpanded(rowId) {
+  const row = state.measurementRows.find((item) => item.id === rowId);
+  if (!row || !isMeasurementRowComplete(row)) {
+    return;
+  }
+  runtime.expandedMeasurementRowId =
+    runtime.expandedMeasurementRowId === rowId ? null : rowId;
+  syncMeasurementRowCollapse();
+
+  const tr = refs.measurementBody?.querySelector(
+    `tr.measurement-row[data-measurement-row-id="${CSS.escape(String(rowId))}"]`,
+  );
+  if (tr && MOBILE_LAYOUT_QUERY.matches) {
+    const stickyOffset = 150;
+    const top = tr.getBoundingClientRect().top + window.scrollY - stickyOffset;
+    if (tr.getBoundingClientRect().top < stickyOffset) {
+      window.scrollTo({ top, behavior: "auto" });
+    }
+  }
 }
 
 function renderSummary() {
@@ -4895,9 +5057,89 @@ function getAppliedDiscountAmount(discountableSubtotal = getDiscountableSubtotal
   return Math.min(Math.max(rawDiscountValue, 0), discountableSubtotal);
 }
 
+// Shows why a save/export was blocked, then takes the user to the problem:
+// the incomplete measurement line (opened and highlighted) or the field.
+function reportQuoteValidationFailure(validation) {
+  setQuoteStatus(validation.message, true);
+  window.alert(validation.message);
+
+  if (validation.rowId) {
+    revealMeasurementRowProblem(validation.rowId, validation.message);
+    return;
+  }
+  if (validation.field === "clientName" && refs.quoteClientName) {
+    scrollElementBelowStickyBars(refs.quoteClientName);
+    refs.quoteClientName.focus({ preventScroll: true });
+  }
+}
+
+function scrollElementBelowStickyBars(element) {
+  const stickyOffset = MOBILE_LAYOUT_QUERY.matches ? 160 : 120;
+  const top = element.getBoundingClientRect().top + window.scrollY - stickyOffset;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+function describeMeasurementRowProblem(rowId) {
+  const row = state.measurementRows.find((item) => item.id === rowId);
+  if (!row) {
+    return "";
+  }
+  const material = state.selectedMaterials.find((item) => item.id === row.materialId);
+  if (!material || parseCurrencyLikeNumber(material.askingPrice) === null) {
+    return "This line has no material yet. Pick one in the Material field below to save or export.";
+  }
+  if (isMotorizedCategoryFromMaterial(material)) {
+    return "This motorized line needs a quantity. Pick the material again and enter a whole number.";
+  }
+  if (parseCurrencyLikeNumber(row.width) === null || parseCurrencyLikeNumber(row.height) === null) {
+    return "This line needs both a width and a height to save or export.";
+  }
+  return "";
+}
+
+function revealMeasurementRowProblem(rowId, message) {
+  runtime.expandedMeasurementRowId = rowId;
+  syncMeasurementRowCollapse();
+  const tr = refs.measurementBody?.querySelector(
+    `tr.measurement-row[data-measurement-row-id="${CSS.escape(String(rowId))}"]`,
+  );
+  if (!tr) {
+    return;
+  }
+
+  refs.measurementBody
+    .querySelectorAll(".measurement-row-problem")
+    .forEach((el) => el.remove());
+  refs.measurementBody
+    .querySelectorAll("tr.has-problem")
+    .forEach((el) => el.classList.remove("has-problem"));
+
+  const banner = document.createElement("td");
+  banner.className = "measurement-row-problem";
+  banner.setAttribute("role", "alert");
+  banner.textContent = describeMeasurementRowProblem(rowId) || message;
+  tr.append(banner);
+  tr.classList.add("has-problem");
+
+  const clearProblem = () => {
+    banner.remove();
+    tr.classList.remove("has-problem");
+    tr.removeEventListener("input", clearProblem);
+    tr.removeEventListener("change", clearProblem);
+  };
+  tr.addEventListener("input", clearProblem);
+  tr.addEventListener("change", clearProblem);
+
+  scrollElementBelowStickyBars(tr);
+}
+
 function validateQuoteForSave() {
   if (!state.quoteMeta.clientName.trim()) {
-    return { ok: false, message: "Client Name is required before saving a quote." };
+    return {
+      ok: false,
+      field: "clientName",
+      message: "Client Name is required before saving a quote.",
+    };
   }
 
   const deliveryAmount = parseCurrencyLikeNumber(state.quoteMeta.deliveryAmount) || 0;
@@ -5027,6 +5269,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
     if (!selectedMaterial || askingPrice === null) {
       return {
         ok: false,
+        rowId: row.id,
         message:
           "Every measurement row must use a configured material with a valid asking price before saving.",
       };
@@ -5073,6 +5316,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
     if (width === null || height === null) {
       return {
         ok: false,
+        rowId: row.id,
         message:
           "Every measurement row must have width, height, and a configured material before saving.",
       };
@@ -5082,6 +5326,7 @@ function getMeasurementDraftsForSave(validateOnly = false) {
     if (squareFootage === null) {
       return {
         ok: false,
+        rowId: row.id,
         message:
           "Every measurement row must have width, height, and a configured material before saving.",
       };
@@ -5622,8 +5867,7 @@ async function exportContractPdf({
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
-    setQuoteStatus(validation.message, true);
-    window.alert(validation.message);
+    reportQuoteValidationFailure(validation);
     return;
   }
 
@@ -7255,8 +7499,7 @@ async function handleAcknowledgementReceipt() {
   syncQuoteMetaFromInputs();
   const validation = validateQuoteForSave();
   if (!validation.ok) {
-    setQuoteStatus(validation.message, true);
-    window.alert(validation.message);
+    reportQuoteValidationFailure(validation);
     return;
   }
 

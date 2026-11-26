@@ -3551,3 +3551,425 @@ input[type="checkbox"]:checked,
     min-width: 0;
   }
 }
+
+/* Collapsible measurement cards (mobile). The summary header cell is mobile-only. */
+.measurements-table td.measurement-summary-cell {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) {
+    grid-template-areas:
+      "summary summary"
+      "reorder actions"
+      "room label"
+      "type type"
+      "code control"
+      "width height"
+      "material material"
+      "free nodisc"
+      "cost cost";
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td.measurement-summary-cell {
+    grid-area: summary;
+    display: block;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row):not(.is-collapsed) > td.measurement-summary-cell {
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .measurement-summary-button {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.1rem 0.1rem;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .measurement-summary-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 10%, #ffffff);
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .measurement-summary-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .measurement-summary-title,
+  .measurement-summary-detail {
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+
+  .measurement-summary-title {
+    font-size: 0.86rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .measurement-summary-detail {
+    color: var(--muted);
+    font-size: 0.74rem;
+  }
+
+  .measurement-summary-size {
+    color: var(--text);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .measurement-summary-size[hidden] {
+    display: none;
+  }
+
+  .measurement-summary-cost {
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .measurement-summary-cost.is-free {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: var(--success-bg);
+    color: var(--success);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+  }
+
+  .measurement-summary-chevron {
+    display: inline-flex;
+    color: var(--muted);
+    transform: rotate(180deg);
+    transition: transform 0.15s ease;
+  }
+
+  tr.is-collapsed .measurement-summary-chevron {
+    transform: none;
+  }
+
+  tr.is-incomplete .measurement-summary-chevron {
+    visibility: hidden;
+  }
+
+  tr.is-incomplete .measurement-summary-button {
+    cursor: default;
+  }
+
+  /* Collapsed: only the header line shows. */
+  #measurements-panel .measurements-table tr.measurement-row.is-collapsed:not(.measurement-note-row) {
+    grid-template-areas: "summary summary";
+    padding: 0.45rem 0.6rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 2px 8px rgba(var(--shadow-tint), 0.05);
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row.is-collapsed:not(.measurement-note-row) > td:not(.measurement-summary-cell) {
+    display: none;
+  }
+}
+
+/* Blocked save/export: highlight the measurement line that needs fixing. */
+.measurements-table td.measurement-row-problem {
+  display: none;
+}
+
+.measurements-table tr.measurement-row.has-problem > td {
+  background: var(--danger-bg);
+}
+
+@media (max-width: 720px) {
+  #measurements-panel .measurements-table tr.measurement-row.has-problem:not(.measurement-note-row) {
+    grid-template-areas:
+      "summary summary"
+      "problem problem"
+      "reorder actions"
+      "room label"
+      "type type"
+      "code control"
+      "width height"
+      "material material"
+      "free nodisc"
+      "cost cost";
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row.has-problem > td {
+    background: transparent;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row.has-problem > td.measurement-row-problem {
+    grid-area: problem;
+    display: block;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--danger-border);
+    border-radius: 0.7rem;
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+}
+
+/* Measurement card buttons (mobile): Remove sits alone at the bottom; the rest are
+   44px tap targets, with labeled Add note / Add below. */
+.measurements-table td.measurement-mobile-remove-cell {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) {
+    grid-template-areas:
+      "summary summary"
+      "reorder actions"
+      "room label"
+      "type type"
+      "code control"
+      "width height"
+      "material material"
+      "free nodisc"
+      "cost cost"
+      "remove remove";
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row.has-problem:not(.measurement-note-row) {
+    grid-template-areas:
+      "summary summary"
+      "problem problem"
+      "reorder actions"
+      "room label"
+      "type type"
+      "code control"
+      "width height"
+      "material material"
+      "free nodisc"
+      "cost cost"
+      "remove remove";
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row {
+    grid-template-areas:
+      "reorder actions"
+      "note note"
+      "remove remove";
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row > td.measurement-mobile-remove-cell {
+    grid-area: remove;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 0.35rem;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row.is-collapsed > td.measurement-mobile-remove-cell {
+    display: none;
+  }
+
+  #measurements-panel .measurement-mobile-remove-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--danger-border);
+    border-radius: 0.7rem;
+    background: #ffffff;
+    color: var(--danger);
+    font: inherit;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  #measurements-panel .measurement-mobile-remove-button:active {
+    background: var(--danger-bg);
+  }
+
+  /* The old icon-only delete next to Add is hidden on mobile. */
+  #measurements-panel .measurements-table tr.measurement-row[data-measurement-row-id] .measurement-row-actions button.measurement-remove-button {
+    display: none;
+  }
+
+  /* 44px reorder buttons. */
+  #measurements-panel .measurements-table tr.measurement-row[data-measurement-row-id] button.measurement-reorder-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  /* Labeled Add note / Add below, 44px tall. */
+  #measurements-panel .measurements-table tr.measurement-row[data-measurement-row-id] .measurement-row-actions button.measurement-add-note-button,
+  #measurements-panel .measurements-table tr.measurement-row[data-measurement-row-id] .measurement-row-actions button.measurement-add-below-button {
+    width: auto;
+    min-width: 0;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 0.7rem;
+    font-size: 0.74rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  #measurements-panel .measurement-row-actions .measurement-add-note-label,
+  #measurements-panel .measurement-row-actions .measurement-add-below-label,
+  #measurements-panel .measurement-row-actions .measurement-add-note-icon,
+  #measurements-panel .measurement-row-actions .measurement-add-below-icon {
+    display: none;
+  }
+
+  #measurements-panel .measurement-row-actions .measurement-add-note-button::after {
+    content: "+ Note";
+  }
+
+  #measurements-panel .measurement-row-actions .measurement-add-below-button::after {
+    content: "+ Line";
+  }
+}
+
+/* Material Setup on mobile: each material is a card (full name, then Retail /
+   Asking / Pocket side by side, Remove at the bottom) instead of a wide table. */
+@media (max-width: 720px) {
+  #material-setup-panel .table-shell {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+  }
+
+  #material-setup-panel .data-table {
+    display: block;
+    min-width: 0;
+  }
+
+  #material-setup-panel .data-table thead {
+    display: none;
+  }
+
+  #material-setup-panel .data-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  #material-setup-panel .data-table tbody tr:not(:has(.empty-state-cell)) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      "material material material"
+      "retail asking pocket"
+      "remove remove remove";
+    gap: 0.6rem 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 1rem;
+    background: var(--table-row-card-bg, #ffffff);
+    box-shadow: 0 4px 14px rgba(var(--shadow-tint), 0.06);
+  }
+
+  #material-setup-panel .data-table tbody tr > td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(1) { grid-area: material; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(2) { grid-area: retail; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(3) { grid-area: asking; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(4) { grid-area: pocket; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(5) {
+    grid-area: remove;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -0.15rem;
+  }
+
+  #material-setup-panel .data-table tbody tr:not(:has(.empty-state-cell)) > td:nth-child(-n + 4)::before {
+    display: block;
+    margin: 0 0 0.25rem 0.1rem;
+    line-height: 1.2;
+    color: var(--muted);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(1)::before { content: "Material"; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(2)::before { content: "Retail"; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(3)::before { content: "Asking"; }
+  #material-setup-panel .data-table tbody tr > td:nth-child(4)::before { content: "Pocket"; }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(1) .material-combobox,
+  #material-setup-panel .data-table tbody tr > td:nth-child(1) input,
+  #material-setup-panel .data-table tbody tr > td:nth-child(3) input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(1) input {
+    min-height: 2.75rem;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+    font-size: 0.84rem;
+    letter-spacing: 0.01em;
+  }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(3) input {
+    min-height: 2.6rem;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.95rem;
+  }
+
+  /* Retail and Pocket read as values in a light box the same height as Asking. */
+  #material-setup-panel .data-table tbody tr > td.money-cell {
+    line-height: 2.6rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(4) {
+    color: var(--success);
+  }
+
+  #material-setup-panel .data-table tbody tr > td:nth-child(5) .ghost-danger-button {
+    min-height: 2.6rem;
+    padding: 0 0.9rem;
+    background: #ffffff;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+}
