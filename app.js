@@ -517,7 +517,7 @@ async function bootstrap() {
   });
 
   refs.deliveryAmount?.addEventListener("input", (event) => {
-    state.quoteMeta.deliveryAmount = normalizeInputNumber(event.target.value);
+    state.quoteMeta.deliveryAmount = applyThousandsInputFormat(event.target);
     persistDraftChange();
     renderSummary();
   });
@@ -527,7 +527,7 @@ async function bootstrap() {
     renderSummary();
   });
   refs.installationAmount?.addEventListener("input", (event) => {
-    state.quoteMeta.installationAmount = normalizeInputNumber(event.target.value);
+    state.quoteMeta.installationAmount = applyThousandsInputFormat(event.target);
     persistDraftChange();
     renderSummary();
   });
@@ -537,7 +537,7 @@ async function bootstrap() {
     renderSummary();
   });
   refs.steamAmount?.addEventListener("input", (event) => {
-    state.quoteMeta.steamAmount = normalizeInputNumber(event.target.value);
+    state.quoteMeta.steamAmount = applyThousandsInputFormat(event.target);
     persistDraftChange();
     renderSummary();
   });
@@ -2476,7 +2476,7 @@ function renderQuoteWorkspace() {
   refs.quoteNotes.value = state.quoteMeta.notes;
 
   if (refs.deliveryAmount) {
-    refs.deliveryAmount.value = state.quoteMeta.deliveryAmount || "";
+    refs.deliveryAmount.value = formatThousandsInputValue(state.quoteMeta.deliveryAmount);
     refs.deliveryAmount.disabled = runtime.quoteBusy;
   }
   if (refs.deliveryFree) {
@@ -2484,7 +2484,7 @@ function renderQuoteWorkspace() {
     refs.deliveryFree.disabled = runtime.quoteBusy;
   }
   if (refs.installationAmount) {
-    refs.installationAmount.value = state.quoteMeta.installationAmount || "";
+    refs.installationAmount.value = formatThousandsInputValue(state.quoteMeta.installationAmount);
     refs.installationAmount.disabled = runtime.quoteBusy;
   }
   if (refs.installationFree) {
@@ -2492,7 +2492,7 @@ function renderQuoteWorkspace() {
     refs.installationFree.disabled = runtime.quoteBusy;
   }
   if (refs.steamAmount) {
-    refs.steamAmount.value = state.quoteMeta.steamAmount || "";
+    refs.steamAmount.value = formatThousandsInputValue(state.quoteMeta.steamAmount);
     refs.steamAmount.disabled = runtime.quoteBusy;
   }
   if (refs.steamFree) {
@@ -5794,12 +5794,14 @@ function syncQuoteMetaFromInputs() {
   state.quoteMeta.contactNumber = refs.quoteContactNumber.value;
   state.quoteMeta.emailAddress = refs.quoteEmailAddress.value;
   state.quoteMeta.notes = refs.quoteNotes.value;
-  state.quoteMeta.deliveryAmount = refs.deliveryAmount?.value || state.quoteMeta.deliveryAmount || "";
+  state.quoteMeta.deliveryAmount =
+    stripThousandsSeparators(refs.deliveryAmount?.value) || state.quoteMeta.deliveryAmount || "";
   state.quoteMeta.deliveryIsFree = Boolean(refs.deliveryFree?.checked);
   state.quoteMeta.installationAmount =
-    refs.installationAmount?.value || state.quoteMeta.installationAmount || "";
+    stripThousandsSeparators(refs.installationAmount?.value) || state.quoteMeta.installationAmount || "";
   state.quoteMeta.installationIsFree = Boolean(refs.installationFree?.checked);
-  state.quoteMeta.steamAmount = refs.steamAmount?.value || state.quoteMeta.steamAmount || "";
+  state.quoteMeta.steamAmount =
+    stripThousandsSeparators(refs.steamAmount?.value) || state.quoteMeta.steamAmount || "";
   state.quoteMeta.steamIsFree = Boolean(refs.steamFree?.checked);
   saveState();
 }
@@ -7990,6 +7992,67 @@ function buildEmptyBlock(copy) {
   block.className = "empty-state-cell";
   block.textContent = copy;
   return block;
+}
+
+function stripThousandsSeparators(value) {
+  return String(value ?? "").replace(/,/g, "").trim();
+}
+
+function sanitizeAmountInputText(value) {
+  const cleaned = String(value ?? "").replace(/[^0-9.]/g, "");
+  const dotIndex = cleaned.indexOf(".");
+  if (dotIndex === -1) {
+    return cleaned;
+  }
+  const whole = cleaned.slice(0, dotIndex);
+  const decimals = cleaned.slice(dotIndex + 1).replace(/\./g, "").slice(0, 2);
+  return `${whole}.${decimals}`;
+}
+
+function formatThousandsInputValue(value) {
+  const raw = sanitizeAmountInputText(stripThousandsSeparators(value));
+  if (!raw) {
+    return "";
+  }
+  const [whole, decimals] = raw.split(".");
+  const groupedWhole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decimals === undefined ? groupedWhole : `${groupedWhole || "0"}.${decimals}`;
+}
+
+// Reformats an amount field with thousands separators while typing and keeps the caret
+// after the same digit. Returns the raw value (no commas) for state.
+function applyThousandsInputFormat(input) {
+  const typed = input.value;
+  const caret = input.selectionStart ?? typed.length;
+  const significantBeforeCaret = typed.slice(0, caret).replace(/[^0-9.]/g, "").length;
+  const raw = sanitizeAmountInputText(typed);
+  const formatted = formatThousandsInputValue(raw);
+
+  if (formatted !== typed) {
+    input.value = formatted;
+    let seen = 0;
+    let nextCaret = formatted.length;
+    if (significantBeforeCaret === 0) {
+      nextCaret = 0;
+    } else {
+      for (let index = 0; index < formatted.length; index += 1) {
+        if (/[0-9.]/.test(formatted[index])) {
+          seen += 1;
+        }
+        if (seen >= significantBeforeCaret) {
+          nextCaret = index + 1;
+          break;
+        }
+      }
+    }
+    try {
+      input.setSelectionRange(nextCaret, nextCaret);
+    } catch {
+      // Some input types do not support selection; ignore.
+    }
+  }
+
+  return raw;
 }
 
 function normalizeInputNumber(value) {

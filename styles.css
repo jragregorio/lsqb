@@ -3448,3 +3448,72 @@ input[type="checkbox"]:checked,
     font-weight: 600;
   }
 }
+
+/* Compact Additional Charges on mobile: one row per charge (label | amount | FREE) */
+@media (max-width: 720px) {
+  #charges-panel .charges-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  #charges-panel .charges-grid .summary-input-card {
+    display: grid;
+    grid-template-columns: 6.6rem minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+    min-height: 0;
+    padding: 0.5rem 0.6rem 0.5rem 0.75rem;
+    border-radius: 0.9rem;
+  }
+
+  #charges-panel .charges-grid .summary-input-card > span {
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  #charges-panel .charges-grid .summary-input-card > input {
+    margin-top: 0;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.55rem;
+    font-size: 0.95rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #charges-panel .charges-grid .charge-free-row {
+    margin-top: 0;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Mobile read-only summary cards: centered, larger values for easy review */
+@media (max-width: 720px) {
+  #review-export-panel article.summary-card {
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 108px;
+    padding: 1rem 0.9rem;
+    text-align: center;
+  }
+
+  #review-export-panel article.summary-card > span {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  #review-export-panel article.summary-card > strong {
+    font-size: clamp(1.65rem, 8vw, 2.1rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+
+  #review-export-panel article.summary-card.accent-card > strong {
+    color: var(--primary);
+  }
+}
