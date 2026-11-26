@@ -6714,66 +6714,78 @@ function buildContractPdfDefinition(
                       },
                     ];
 
-                    const rows = [buildTotalsRow("Sub Total", formatPdfPesoAmount(contract.subtotal))];
+                    // Layout: Sub Total (measurements) → services at list price → Total
+                    // → Discount + free services as deductions → Total Discount → Grand Total.
+                    const services = [
+                      ["Delivery", contract.deliveryAmount, contract.deliveryIsFree],
+                      ["Installation", contract.installationAmount, contract.installationIsFree],
+                      ["Steam", contract.steamAmount, contract.steamIsFree],
+                    ]
+                      .map(([label, amount, isFree]) => ({
+                        label,
+                        amount: Number(amount) || 0,
+                        isFree: Boolean(isFree),
+                      }))
+                      .filter((service) => service.amount > 0);
 
-                    const shouldShowDelivery =
-                      Boolean(contract.deliveryIsFree) || Number(contract.deliveryAmount) > 0;
-                    if (shouldShowDelivery) {
-                      rows.push(
-                        buildTotalsRow(
-                          "Delivery",
-                          formatPdfAdditionalChargeDisplay(
-                            contract.deliveryAmount,
-                            contract.deliveryIsFree,
-                          ),
-                        ),
-                      );
+                    const paidServicesTotal = services
+                      .filter((service) => !service.isFree)
+                      .reduce((sum, service) => sum + service.amount, 0);
+                    const allServicesTotal = services.reduce(
+                      (sum, service) => sum + service.amount,
+                      0,
+                    );
+                    const measurementsSubtotal = contract.subtotal - paidServicesTotal;
+                    const grossTotal = measurementsSubtotal + allServicesTotal;
+
+                    const rows = [
+                      buildTotalsRow("Sub Total", formatPdfPesoAmount(measurementsSubtotal)),
+                    ];
+
+                    services.forEach((service) => {
+                      rows.push(buildTotalsRow(service.label, formatPdfPesoAmount(service.amount)));
+                    });
+
+                    if (services.length) {
+                      rows.push(buildTotalsRow("Total", formatPdfPesoAmount(grossTotal)));
                     }
 
-                    const shouldShowInstallation =
-                      Boolean(contract.installationIsFree) ||
-                      Number(contract.installationAmount) > 0;
-                    if (shouldShowInstallation) {
-                      rows.push(
-                        buildTotalsRow(
-                          "Installation",
-                          formatPdfAdditionalChargeDisplay(
-                            contract.installationAmount,
-                            contract.installationIsFree,
-                          ),
-                        ),
-                      );
-                    }
-
-                    const shouldShowSteam =
-                      Boolean(contract.steamIsFree) || Number(contract.steamAmount) > 0;
-                    if (shouldShowSteam) {
-                      rows.push(
-                        buildTotalsRow(
-                          "Steam",
-                          formatPdfAdditionalChargeDisplay(
-                            contract.steamAmount,
-                            contract.steamIsFree,
-                          ),
-                        ),
-                      );
-                    }
-
-                    if (contract.hasDiscount) {
+                    const deductionRows = [];
+                    let deductionsTotal = 0;
+                    if (contract.hasDiscount && Number(contract.discountAmount) > 0) {
                       const discountSuffix =
                         contract.discountType === "percent" && Number(contract.discountPercent) > 0
                           ? ` (${Number(contract.discountPercent)}%)`
                           : "";
-                      rows.push(
+                      deductionRows.push(
                         buildTotalsRow(
-                          "Discount",
-                          `${formatPdfPesoAmount(contract.discountAmount)}${discountSuffix}`,
+                          `Discount${discountSuffix}`,
+                          formatPdfPesoAmount(contract.discountAmount),
                         ),
+                      );
+                      deductionsTotal += Number(contract.discountAmount);
+                    }
+                    services
+                      .filter((service) => service.isFree)
+                      .forEach((service) => {
+                        deductionRows.push(
+                          buildTotalsRow(
+                            `${service.label} (FREE)`,
+                            formatPdfPesoAmount(service.amount),
+                          ),
+                        );
+                        deductionsTotal += service.amount;
+                      });
+
+                    rows.push(...deductionRows);
+                    if (deductionRows.length > 1) {
+                      rows.push(
+                        buildTotalsRow("Total Discount", formatPdfPesoAmount(deductionsTotal)),
                       );
                     }
 
                     rows.push(
-                      buildTotalsRow("Total", formatPdfPesoAmount(contract.finalTotal), {
+                      buildTotalsRow("Grand Total", formatPdfPesoAmount(contract.finalTotal), {
                         isTotal: true,
                       }),
                     );
