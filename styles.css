@@ -4171,3 +4171,142 @@ input[type="checkbox"]:checked,
     display: none;
   }
 }
+
+/* In-app messages (replace native alert pop-ups). */
+.app-message {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 4000;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+  width: min(560px, calc(100vw - 1.5rem));
+  padding: 0.75rem 0.5rem 0.75rem 1rem;
+  border: 1px solid var(--danger-border);
+  border-left: 4px solid var(--danger);
+  border-radius: 0.85rem;
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 12px 32px rgba(var(--shadow-tint), 0.18);
+  transform: translate(-50%, -0.5rem);
+  opacity: 0;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.app-message[hidden] {
+  display: none;
+}
+
+.app-message.is-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+.app-message[data-tone="info"] {
+  border-color: var(--panel-border);
+  border-left-color: var(--primary);
+}
+
+.app-message-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.app-message-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-top: -0.35rem;
+  border: 0;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-message-close:hover {
+  background: var(--surface-alt);
+}
+
+/* Dialogs: match the neutral theme. */
+.app-dialog {
+  border-color: var(--panel-border);
+  background: #ffffff;
+  color: var(--text);
+}
+
+.app-dialog::backdrop {
+  background: rgba(17, 24, 39, 0.4);
+}
+
+.app-dialog-title {
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .app-dialog-actions {
+    flex-wrap: wrap;
+  }
+
+  .app-dialog-actions > button {
+    flex: 1 1 auto;
+    min-height: 2.75rem;
+  }
+}
+
+/* Quote Flow on mobile: drop the "Quote Flow" caption and let the four pills share
+   the full width equally so all of them fit without sideways scrolling. */
+@media (max-width: 720px) {
+  .quote-step-float-card,
+  .quote-layout:has(.active-quote-bar:not(.hidden)) .quote-step-float-card {
+    overflow-x: visible;
+    gap: 0.3rem;
+  }
+
+  .quote-step-float-header {
+    display: none;
+  }
+
+  .quote-step-pill,
+  .quote-layout:has(.active-quote-bar:not(.hidden)) .quote-step-pill {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 2rem;
+    padding: 0.2rem 0.2rem;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* iPhone Safari zooms into any field whose text is under 16px when it is tapped.
+   Only iOS Safari supports -webkit-touch-callout, so this applies on iPhones/iPads
+   alone; Android and desktop keep the compact field sizes. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 720px) {
+    html body input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    html body select,
+    html body textarea {
+      font-size: 16px !important;
+    }
+
+    /* Long material names: tighter spacing, and an ellipsis if still too long. */
+    #material-setup-panel .data-table tbody tr > td:nth-child(1) input {
+      letter-spacing: -0.01em;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      text-overflow: ellipsis;
+    }
+  }
+}

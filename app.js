@@ -519,7 +519,11 @@ async function bootstrap() {
     renderSummary();
   });
   refs.discountValue.addEventListener("input", (event) => {
-    state.discountValue = normalizeInputNumber(event.target.value);
+    // Peso amounts get thousands separators as you type; percents stay plain.
+    state.discountValue =
+      state.discountType === "amount"
+        ? applyThousandsInputFormat(event.target)
+        : applyPlainDecimalInput(event.target);
     persistDraftChange();
     renderSummary();
   });
@@ -566,6 +570,7 @@ async function bootstrap() {
   refs.activeQuoteSaveBtn?.addEventListener("click", () => {
     void handleSaveQuote();
   });
+  document.querySelector("#app-message-close")?.addEventListener("click", hideAppMessage);
   refs.clientDetailsSummary?.addEventListener("click", () => {
     runtime.clientDetailsExpanded = !runtime.clientDetailsExpanded;
     syncClientDetailsFold();
@@ -1201,14 +1206,19 @@ function renderAdminDrawer() {
   );
 }
 
-function handleUnloadQuote() {
+async function handleUnloadQuote() {
   if (!state.quoteMeta.id) {
     return;
   }
 
   if (
     hasLoadedQuoteUnsavedChanges() &&
-    !window.confirm("Unload this quote and discard the unsaved changes?")
+    !(await confirmInApp({
+      title: "Unload quote?",
+      message: "Unload this quote and discard the unsaved changes?",
+      confirmLabel: "Discard and unload",
+      danger: true,
+    }))
   ) {
     return;
   }
@@ -1545,7 +1555,7 @@ async function loadMaterialsFromSupabase({ showAlertOnFailure }) {
     setAuthStatus(error.message || "Could not load material catalog.", true);
     renderSourceStatus();
     if (showAlertOnFailure) {
-      window.alert("Supabase materials could not be loaded. Check the auth user.");
+      showAppMessage("Supabase materials could not be loaded. Check the auth user.");
     }
     return;
   }
@@ -1596,7 +1606,7 @@ async function refreshSavedQuotes({
     );
     renderQuoteWorkspace();
     if (showAlertOnFailure) {
-      window.alert("Saved quotes could not be loaded from Supabase.");
+      showAppMessage("Saved quotes could not be loaded from Supabase.");
     }
     return;
   }
@@ -1627,7 +1637,7 @@ async function handleCsvUpload(event) {
     refs.csvInput.value = "";
   } catch (error) {
     console.error(error);
-    window.alert("The CSV file could not be read.");
+    showAppMessage("The CSV file could not be read.");
   }
 }
 
@@ -1642,7 +1652,7 @@ async function handleLoadBundledSample() {
     hydrateSourceMaterials(csvText, "Bundled sample pricelist");
   } catch (error) {
     console.error(error);
-    window.alert(
+    showAppMessage(
       "The bundled sample could not be loaded. Upload the CSV manually instead.",
     );
   }
@@ -1736,7 +1746,7 @@ function sanitizeMeasurementMaterialSelections() {
 
 function handleAddMaterial() {
   if (state.sourceMaterials.length === 0) {
-    window.alert("Load materials from Supabase or CSV first before adding rows.");
+    showAppMessage("Load materials from Supabase or CSV first before adding rows.");
     return;
   }
 
@@ -1748,7 +1758,7 @@ function handleAddMaterial() {
 
 function handleAddMeasurement() {
   if (getConfiguredMaterials().length === 0) {
-    window.alert("Add at least one configured material before adding measurements.");
+    showAppMessage("Add at least one configured material before adding measurements.");
     return;
   }
 
@@ -1759,10 +1769,15 @@ function handleAddMeasurement() {
   renderSummary();
 }
 
-function handleNewQuote() {
+async function handleNewQuote() {
   if (
     hasMeaningfulDraftChanges() &&
-    !window.confirm("Start a new quote and clear the current draft?")
+    !(await confirmInApp({
+      title: "Start a new quote?",
+      message: "Start a new quote and clear the current draft?",
+      confirmLabel: "Clear and start new",
+      danger: true,
+    }))
   ) {
     return;
   }
@@ -2074,12 +2089,12 @@ async function handleSaveAsNewQuote() {
 
   if (!runtime.session) {
     setQuoteStatus("Sign in first before saving quotes.", true);
-    window.alert("Sign in first before saving quotes.");
+    showAppMessage("Sign in first before saving quotes.");
     return;
   }
 
   if (!isQuoteWorkspaceActive() || !hasMeaningfulDraftChanges()) {
-    window.alert("Nothing to save yet.");
+    showAppMessage("Nothing to save yet.");
     return;
   }
 
@@ -2090,9 +2105,11 @@ async function handleSaveAsNewQuote() {
   }
 
   if (state.quoteMeta.id) {
-    const ok = window.confirm(
-      "Save this quote as a new copy? The original quote will remain unchanged.",
-    );
+    const ok = await confirmInApp({
+      title: "Save as new?",
+      message: "Save this quote as a new copy? The original quote will remain unchanged.",
+      confirmLabel: "Save copy",
+    });
     if (!ok) {
       return;
     }
@@ -2284,9 +2301,12 @@ async function deleteQuoteById(quoteId) {
 
 function confirmQuoteDeleteWithCountdown(quoteName, seconds = 5) {
   if (!refs.deleteQuoteDialog || !refs.deleteQuoteForm || !refs.deleteQuoteConfirm) {
-    return Promise.resolve(
-      window.confirm(`Delete ${quoteName}? This cannot be undone.`),
-    );
+    return confirmInApp({
+      title: "Delete quote?",
+      message: `Delete ${quoteName}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
   }
 
   if (deleteQuoteDialogSession?.cleanup) {
@@ -3173,16 +3193,20 @@ function renderMaterials() {
     removeButton.className = "ghost-danger-button";
     removeButton.textContent = "Remove";
     removeButton.disabled = runtime.quoteBusy;
-    removeButton.addEventListener("click", () => {
+    removeButton.addEventListener("click", async () => {
       const isUsed = state.measurementRows.some(
         (measurement) => measurement.materialId === row.id,
       );
 
       if (
         isUsed &&
-        !window.confirm(
-          "This material is used in the measurement table. Remove it and clear those selections?",
-        )
+        !(await confirmInApp({
+          title: "Remove material?",
+          message:
+            "This material is used in the measurement table. Remove it and clear those selections?",
+          confirmLabel: "Remove",
+          danger: true,
+        }))
       ) {
         return;
       }
@@ -4606,13 +4630,18 @@ function toggleMeasurementRowExpanded(rowId) {
 
 function renderSummary() {
   refs.discountType.value = state.discountType;
-  refs.discountValue.value = getDiscountInputDisplayValue(state.discountValue);
+  // Leave the box alone while it is being typed in, so the caret and the
+  // live comma formatting are not overwritten on every keystroke.
+  if (document.activeElement !== refs.discountValue) {
+    const rawDiscount = getDiscountInputDisplayValue(state.discountValue);
+    refs.discountValue.value =
+      state.discountType === "amount" ? formatThousandsInputValue(rawDiscount) : rawDiscount;
+  }
   refs.discountType.disabled = runtime.quoteBusy;
   refs.discountValue.disabled = runtime.quoteBusy;
   refs.discountValue.placeholder =
     state.discountType === "percent" ? "Enter percent" : "Enter amount";
-  refs.discountValue.step = state.discountType === "percent" ? "0.01" : "0.01";
-  refs.discountValue.max = state.discountType === "percent" ? "100" : "";
+
 
   const { subtotal, discountAmount, finalTotal, half } = getSummaryTotals();
 
@@ -5119,7 +5148,7 @@ function getAppliedDiscountAmount(discountableSubtotal = getDiscountableSubtotal
 // the incomplete measurement line (opened and highlighted) or the field.
 function reportQuoteValidationFailure(validation) {
   setQuoteStatus(validation.message, true);
-  window.alert(validation.message);
+  showAppMessage(validation.message);
 
   if (validation.rowId) {
     revealMeasurementRowProblem(validation.rowId, validation.message);
@@ -5937,7 +5966,7 @@ async function exportContractPdf({
       const message =
         "Enter a labor rate greater than 0 for Installation & Steam in Admin Tools before printing with labor.";
       setQuoteStatus(message, true);
-      window.alert(message);
+      showAppMessage(message);
       return;
     }
   }
@@ -5946,7 +5975,7 @@ async function exportContractPdf({
   if (!pdfMake?.createPdf) {
     const message = "PDF export library did not load. Refresh the page and try again.";
     setQuoteStatus(message, true);
-    window.alert(message);
+    showAppMessage(message);
     return;
   }
 
@@ -6003,7 +6032,7 @@ async function exportContractPdf({
     const details = error?.message ? `\n\nDetails: ${error.message}` : "";
     const message = `Could not generate the ${pdfLabel}.${details}\n\nTry refreshing the page, then export again. If the issue persists, confirm you're signed in and that your internet connection is stable.`;
     setQuoteStatus(message, true);
-    window.alert(message);
+    showAppMessage(message);
   } finally {
     runtime.exportPdfBusy = false;
     renderQuoteWorkspace();
@@ -7568,7 +7597,7 @@ async function handleAcknowledgementReceipt() {
     const message =
       "PDF export library did not load. Refresh the page and try again.";
     setQuoteStatus(message, true);
-    window.alert(message);
+    showAppMessage(message);
     return;
   }
 
@@ -7624,7 +7653,7 @@ async function handleAcknowledgementReceipt() {
     const details = error?.message ? `\n\nDetails: ${error.message}` : "";
     const message = `Could not generate the acknowledgement receipt.${details}\n\nTry refreshing the page, then try again. If the issue persists, confirm you're signed in and that your internet connection is stable.`;
     setQuoteStatus(message, true);
-    window.alert(message);
+    showAppMessage(message);
   } finally {
     runtime.acknowledgementReceiptBusy = false;
     renderQuoteWorkspace();
@@ -8297,6 +8326,106 @@ function buildEmptyBlock(copy) {
   return block;
 }
 
+let appMessageTimer = 0;
+let appConfirmSession = null;
+
+// In-app replacement for window.alert: a dismissible bar at the top of the screen.
+// Native pop-ups are jarring on phones and some in-app browsers never show them.
+function showAppMessage(message, { tone = "error", duration } = {}) {
+  const bar = document.querySelector("#app-message");
+  const text = document.querySelector("#app-message-text");
+  if (!bar || !text) {
+    window.alert(message);
+    return;
+  }
+  text.textContent = String(message ?? "");
+  bar.dataset.tone = tone;
+  bar.hidden = false;
+  // Restart the entrance animation on repeat messages.
+  bar.classList.remove("is-visible");
+  void bar.offsetWidth;
+  bar.classList.add("is-visible");
+
+  window.clearTimeout(appMessageTimer);
+  const ms = duration ?? Math.min(12000, 5000 + text.textContent.length * 40);
+  appMessageTimer = window.setTimeout(hideAppMessage, ms);
+}
+
+function hideAppMessage() {
+  const bar = document.querySelector("#app-message");
+  window.clearTimeout(appMessageTimer);
+  appMessageTimer = 0;
+  if (!bar || bar.hidden) {
+    return;
+  }
+  bar.classList.remove("is-visible");
+  bar.hidden = true;
+}
+
+// In-app replacement for window.confirm. Resolves true only on the confirm button.
+function confirmInApp({
+  title = "Are you sure?",
+  message = "",
+  confirmLabel = "Continue",
+  cancelLabel = "Cancel",
+  danger = false,
+} = {}) {
+  const dialog = document.querySelector("#app-confirm-dialog");
+  const form = document.querySelector("#app-confirm-form");
+  const okBtn = document.querySelector("#app-confirm-ok");
+  const cancelBtn = document.querySelector("#app-confirm-cancel");
+  if (!dialog || !form || !okBtn || !cancelBtn || typeof dialog.showModal !== "function") {
+    return Promise.resolve(window.confirm(message));
+  }
+
+  appConfirmSession?.cancel();
+
+  document.querySelector("#app-confirm-title").textContent = title;
+  document.querySelector("#app-confirm-copy").textContent = message;
+  okBtn.textContent = confirmLabel;
+  cancelBtn.textContent = cancelLabel;
+  okBtn.className = danger ? "ghost-danger-button" : "primary-button";
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      form.removeEventListener("submit", onSubmit);
+      cancelBtn.removeEventListener("click", onCancel);
+      dialog.removeEventListener("close", onClose);
+      appConfirmSession = null;
+      if (dialog.open) {
+        dialog.close();
+      }
+      resolve(value);
+    };
+    const onSubmit = (event) => {
+      event.preventDefault();
+      finish(true);
+    };
+    const onCancel = () => finish(false);
+    // The close event is dispatched asynchronously; a late one from a previous
+    // dialog can arrive after this one opened. Only treat it as a cancel when
+    // the dialog really is closed (e.g. Escape key).
+    const onClose = () => {
+      if (dialog.open) {
+        return;
+      }
+      finish(false);
+    };
+
+    appConfirmSession = { cancel: () => finish(false) };
+    form.addEventListener("submit", onSubmit);
+    cancelBtn.addEventListener("click", onCancel);
+    dialog.addEventListener("close", onClose);
+    dialog.showModal();
+    cancelBtn.focus();
+  });
+}
+
 function stripThousandsSeparators(value) {
   return String(value ?? "").replace(/,/g, "").trim();
 }
@@ -8355,6 +8484,25 @@ function applyThousandsInputFormat(input) {
     }
   }
 
+  return raw;
+}
+
+// Percent-style input: digits and one decimal point (2 places), no separators.
+function applyPlainDecimalInput(input) {
+  const typed = input.value;
+  const raw = sanitizeAmountInputText(stripThousandsSeparators(typed));
+  if (raw !== typed) {
+    const caret = input.selectionStart ?? typed.length;
+    const removedBeforeCaret =
+      typed.slice(0, caret).length - sanitizeAmountInputText(typed.slice(0, caret)).length;
+    input.value = raw;
+    const next = Math.max(0, Math.min(raw.length, caret - removedBeforeCaret));
+    try {
+      input.setSelectionRange(next, next);
+    } catch {
+      // Ignore inputs without selection support.
+    }
+  }
   return raw;
 }
 
