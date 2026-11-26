@@ -1050,6 +1050,11 @@ function renderCurrentQuoteBadge() {
     refs.currentQuoteStatus.classList.toggle("hidden", !badge.showStatus);
   }
   if (refs.quoteBadge) {
+    // Highlight the "No quote selected" state so it stands out.
+    refs.quoteBadge.classList.toggle(
+      "is-no-quote",
+      !state.quoteMeta.id && !hasMeaningfulDraftChanges(),
+    );
     refs.quoteBadge.classList.toggle("is-tooltip-enabled", hasClientName);
     refs.quoteBadge.tabIndex = hasClientName ? 0 : -1;
     refs.quoteBadge.setAttribute(

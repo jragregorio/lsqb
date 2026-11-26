@@ -4310,3 +4310,23 @@ input[type="checkbox"]:checked,
     }
   }
 }
+
+/* "No quote selected": red, all caps, so it is noticeable. */
+#current-quote-badge.quote-badge.is-no-quote {
+  justify-content: center;
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.quote-badge.is-no-quote .quote-badge-name {
+  flex: 1 1 auto;
+  text-align: center;
+  color: var(--danger);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.quote-badge.is-no-quote .quote-save-indicator:empty,
+.quote-badge.is-no-quote .quote-badge-status:empty {
+  display: none;
+}
