@@ -2362,16 +2362,23 @@ tbody tr.measurement-row--drag-over {
     width: min(calc(100% - 1rem), 1440px);
   }
 
+  /* Menu sits on the same line as the title to save vertical space. */
   .page-header-toolbar {
     flex-direction: row;
-    flex-wrap: wrap;
-    align-items: stretch;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 0.65rem;
     padding: 0.1rem 0;
   }
 
   .app-brand {
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .app-nav {
+    flex: 0 0 auto;
   }
 
   .app-nav {
@@ -2470,6 +2477,34 @@ tbody tr.measurement-row--drag-over {
 
   .quote-toolbar-group-actions {
     gap: 0.5rem;
+  }
+
+  /* Desktop rules on #quote-workspace-panel out-rank the mobile ones above:
+     stretch the groups to full width, and stop the Current Quote group's
+     360px flex-basis from becoming its height once the toolbar is a column. */
+  #quote-workspace-panel .quote-toolbar-groups {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  #quote-workspace-panel .quote-toolbar-group-current {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  /* Two equal columns: Save Quote full width on top, then paired buttons. */
+  #quote-workspace-panel .quote-toolbar-group-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #quote-workspace-panel #save-quote-btn {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  #quote-workspace-panel .quote-toolbar-group-actions .accent-button {
+    white-space: nowrap;
   }
 
   .quote-meta-grid {
@@ -2618,99 +2653,203 @@ tbody tr.measurement-row--drag-over {
     width: 100%;
   }
 
+  /* Drop the outer frame around the row cards (avoids a double border). */
+  #measurements-panel .table-shell {
+    border: 0;
+    border-radius: 0;
+  }
+
+  #measurements-panel .measurements-table {
+    border-spacing: 0;
+  }
+
   #measurements-panel .measurements-table tr.measurement-row {
-    margin: 0 0 0.85rem;
-    padding: 0.85rem;
+    margin: 0 0 0.7rem;
+    padding: 0.7rem;
     border: 1px solid var(--panel-border);
     border-radius: 1rem;
     background: var(--table-row-card-bg);
     box-shadow: 0 8px 24px rgba(var(--shadow-tint), 0.08);
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.65rem;
+    gap: 0.5rem 0.6rem;
   }
 
-  /* Each cell becomes a "field block" inside the card */
+  /* Each cell becomes a "field block" inside the card; ignore desktop column widths. */
   #measurements-panel .measurements-table tr.measurement-row > td {
+    width: auto;
+    min-width: 0;
+    max-width: none;
     padding: 0;
     border-bottom: 0;
     background: transparent;
   }
 
-  /* Order/placement by column index (td order) */
-  /* 1: reorder controls */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(1) {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: flex-start;
+  /* Compact card: reorder + row actions share the top line, fields pair up two per line. */
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) {
+    grid-template-areas:
+      "reorder actions"
+      "room label"
+      "type type"
+      "code control"
+      "width height"
+      "material material"
+      "free nodisc"
+      "cost cost";
   }
 
-  /* 2: room, 3: label, 4: type, 5: material code */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(2),
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(3),
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(4),
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(5) {
-    grid-column: 1 / -1;
-  }
-
-  /* 6: control */
-  #measurements-panel .measurements-table tr.measurement-row > td:nth-child(6) {
-    grid-column: 1 / -1;
-  }
-
-  /* 7: width, 8: height */
-  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(7),
-  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(8) {
-    grid-column: span 1;
-  }
-
-  /* 9: material spans full width */
-  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(9) {
-    grid-column: 1 / -1;
-  }
-
-  /* 10: free + 11: no disc + 12: cost on same row */
-  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(10) {
-    grid-column: span 1;
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(1) {
+    grid-area: reorder;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
   }
 
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) .measurement-reorder-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 0.35rem;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) .measurement-reorder-button {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(2) { grid-area: room; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(3) { grid-area: label; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(4) { grid-area: type; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(5) { grid-area: code; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(6) { grid-area: control; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(7) { grid-area: width; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(8) { grid-area: height; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(9) { grid-area: material; }
+
+  /* Fields fill their grid cell regardless of desktop widths. */
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(n + 2):nth-child(-n + 9) > *,
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(n + 2):nth-child(-n + 9) input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Field captions (the table header is hidden on mobile). */
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(n + 2):nth-child(-n + 9)::before {
+    display: block;
+    margin: 0 0 0.2rem 0.15rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(2)::before { content: "Room / Section"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(3)::before { content: "Label"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(4)::before { content: "Type"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(5)::before { content: "Material code"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(6)::before { content: "Control"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(7)::before { content: "Width (mm)"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(8)::before { content: "Height (mm)"; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(9)::before { content: "Material"; }
+
+  /* 10: Free, 11: No discount — labeled tap targets side by side. */
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(10),
   #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(11) {
-    grid-column: span 1;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
+    min-height: 2.2rem;
+    padding: 0 0.6rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 0.7rem;
   }
 
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(10) { grid-area: free; }
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(11) { grid-area: nodisc; }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(10) input,
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(11) input {
+    width: 1.1rem;
+    min-height: 0;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(10)::after {
+    content: "Free";
+    font-size: 0.8rem;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(11)::after {
+    content: "No discount";
+    font-size: 0.8rem;
+  }
+
+  /* 12: cost — amount left, sqft right, under a thin divider. */
   #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(12) {
-    grid-column: span 1;
+    grid-area: cost;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed var(--panel-border);
   }
 
-  /* 13: actions pinned right */
+  /* 13: row actions, in a row at the top right. */
   #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) > td:nth-child(13) {
-    grid-column: 1 / -1;
+    grid-area: actions;
     display: flex;
     justify-content: flex-end;
   }
 
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) .measurement-row-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-row:not(.measurement-note-row) .measurement-row-actions button {
+    width: 2.1rem;
+    height: 2.1rem;
+    min-height: 0;
+  }
+
+  /* Note rows: same compact top line (reorder left, actions right), note below. */
   #measurements-panel .measurements-table tr.measurement-note-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "reorder actions"
+      "note note";
   }
 
   #measurements-panel .measurements-table tr.measurement-note-row > td:nth-child(1) {
-    grid-column: 1 / -1;
+    grid-area: reorder;
+    display: flex;
+    align-items: center;
   }
 
   #measurements-panel .measurements-table tr.measurement-note-row > td:nth-child(2) {
-    grid-column: 1 / -1;
+    grid-area: note;
   }
 
   #measurements-panel .measurements-table tr.measurement-note-row > td:nth-child(3) {
-    grid-column: 1 / -1;
+    grid-area: actions;
     display: flex;
     justify-content: flex-end;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row .measurement-reorder-controls,
+  #measurements-panel .measurements-table tr.measurement-note-row .measurement-row-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  #measurements-panel .measurements-table tr.measurement-note-row .measurement-reorder-button,
+  #measurements-panel .measurements-table tr.measurement-note-row .measurement-row-actions button {
+    width: 2.1rem;
+    height: 2.1rem;
+    min-height: 0;
   }
 
   #measurements-panel .measurement-row-actions {
