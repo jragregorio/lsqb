@@ -4068,7 +4068,7 @@ function renderMeasurements() {
     const materialCodeCell = document.createElement("td");
     const materialCodeInput = buildTextInput({
       value: row.materialCode,
-      placeholder: "Material code",
+      placeholder: "Optional",
       className: "measurement-fit-field",
       disabled: runtime.quoteBusy,
       onInput: (value) => {
