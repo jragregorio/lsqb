@@ -6548,7 +6548,10 @@ function normalizePdfOrganization(organization) {
 }
 
 function normalizePdfPaymentOptions(value) {
-  return value === "monique-elena" || value === "jan-monique" || value === "jeremiah"
+  return value === "monique-elena" ||
+    value === "jan-monique" ||
+    value === "monique" ||
+    value === "jeremiah"
     ? value
     : "luxe";
 }
@@ -6662,6 +6665,31 @@ function buildContractPaymentOptionsItems(paymentOption = "luxe") {
         text: [
           { text: "Account number: " },
           { text: "0110-1002-1573", bold: true, fontSize: 11.5 },
+        ],
+      },
+      ...paymentNoteItems,
+    ];
+  }
+
+  if (option === "monique") {
+    return [
+      {
+        text: [
+          { text: "Account type: " },
+          { text: "Metrobank", bold: true, fontSize: 11.5 },
+        ],
+        font: "Roboto",
+      },
+      {
+        text: [
+          { text: "Account name: " },
+          { text: "Monique Lorenzo Gregorio", bold: true, fontSize: 11.5 },
+        ],
+      },
+      {
+        text: [
+          { text: "Account number: " },
+          { text: "494-349-463-4199", bold: true, fontSize: 11.5 },
         ],
       },
       ...paymentNoteItems,
