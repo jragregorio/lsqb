@@ -191,7 +191,10 @@ const QUOTE_SELECT_COLUMN_LIST = [
 
 let supportsProjectProfessionalRoleColumn = false;
 let supportsMeasurementNoteRowColumns = false;
+let supportsQuoteDisclaimerColumns = false;
 let quoteSchemaSupportChecked = false;
+
+const QUOTE_DISCLAIMER_COLUMNS = ["disclaimer_enabled", "disclaimer_text"];
 
 const refs = {
   topAppMenuShell: document.querySelector(".top-app-menu-shell"),
@@ -238,6 +241,8 @@ const refs = {
   pdfOrgSelect: document.querySelector("#pdf-org-select"),
   pdfHideOrgCheckbox: document.querySelector("#pdf-hide-org-checkbox"),
   pdfPaymentOptionsSelect: document.querySelector("#pdf-payment-options-select"),
+  pdfDisclaimerCheckbox: document.querySelector("#pdf-disclaimer-checkbox"),
+  pdfDisclaimerText: document.querySelector("#pdf-disclaimer-text"),
   pdfHidePaymentCheckbox: document.querySelector("#pdf-hide-payment-checkbox"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
@@ -491,6 +496,18 @@ async function bootstrap() {
       renderQuoteWorkspace();
     });
   }
+  refs.pdfDisclaimerCheckbox?.addEventListener("change", (event) => {
+    state.quoteMeta.disclaimerEnabled = Boolean(event.target.checked);
+    persistDraftChange();
+    syncDisclaimerControls();
+    if (state.quoteMeta.disclaimerEnabled) {
+      refs.pdfDisclaimerText?.focus();
+    }
+  });
+  refs.pdfDisclaimerText?.addEventListener("input", (event) => {
+    state.quoteMeta.disclaimerText = event.target.value;
+    persistDraftChange();
+  });
   if (refs.pdfLaborRateInput) {
     refs.pdfLaborRateInput.value = state.laborRate || "";
     refs.pdfLaborRateInput.addEventListener("input", (event) => {
@@ -1302,6 +1319,7 @@ function applySession(session) {
   if (!session) {
     supportsProjectProfessionalRoleColumn = false;
     supportsMeasurementNoteRowColumns = false;
+    supportsQuoteDisclaimerColumns = false;
     quoteSchemaSupportChecked = false;
     clearQueuedAutosave();
     runtime.authBusy = false;
@@ -1417,6 +1435,8 @@ function getDefaultQuoteMeta() {
     emailAddress: "",
     quoteReference: "",
     notes: "",
+    disclaimerEnabled: false,
+    disclaimerText: "",
     deliveryAmount: "",
     deliveryIsFree: false,
     installationAmount: "",
@@ -2068,6 +2088,14 @@ async function handleSaveQuote(options = {}) {
     emailAddress: savedQuote.email_address || "",
     quoteReference: savedQuote.quote_reference || "",
     notes: savedQuote.notes || "",
+    ...mapQuoteDisclaimerFromRow(
+      supportsQuoteDisclaimerColumns
+        ? savedQuote
+        : {
+            disclaimer_enabled: state.quoteMeta.disclaimerEnabled,
+            disclaimer_text: state.quoteMeta.disclaimerText,
+          },
+    ),
     ...mapQuoteChargesMetaFromRow(savedQuote),
     createdAt: savedQuote.created_at || "",
     updatedAt: savedQuote.updated_at || "",
@@ -2188,6 +2216,7 @@ async function loadQuoteById(quoteId) {
     emailAddress: quoteResult.data.email_address || "",
     quoteReference: quoteResult.data.quote_reference || "",
     notes: quoteResult.data.notes || "",
+    ...mapQuoteDisclaimerFromRow(quoteResult.data),
     ...mapQuoteChargesMetaFromRow(quoteResult.data),
     createdAt: quoteResult.data.created_at || "",
     updatedAt: quoteResult.data.updated_at || "",
@@ -2519,6 +2548,7 @@ function renderQuoteWorkspace() {
   refs.quoteEmailAddress.value = state.quoteMeta.emailAddress;
   refs.quoteNotes.value = state.quoteMeta.notes;
   syncClientDetailsFold();
+  syncDisclaimerControls();
 
   if (refs.deliveryAmount) {
     refs.deliveryAmount.value = formatThousandsInputValue(state.quoteMeta.deliveryAmount);
@@ -4583,6 +4613,23 @@ function syncClientDetailsFold() {
   refs.clientDetailsSummaryAction.textContent = folded ? "Edit" : "Done";
 }
 
+// Admin Tools disclaimer: the checkbox shows the text box; both belong to the quote.
+function syncDisclaimerControls() {
+  const checkbox = refs.pdfDisclaimerCheckbox;
+  const textBox = refs.pdfDisclaimerText;
+  if (!checkbox || !textBox) {
+    return;
+  }
+  const enabled = Boolean(state.quoteMeta.disclaimerEnabled);
+  checkbox.checked = enabled;
+  checkbox.disabled = runtime.quoteBusy;
+  textBox.hidden = !enabled;
+  textBox.disabled = runtime.quoteBusy;
+  if (document.activeElement !== textBox) {
+    textBox.value = state.quoteMeta.disclaimerText || "";
+  }
+}
+
 function isMeasurementRowComplete(row) {
   return !row.isNote && getMeasurementCost(row) !== null;
 }
@@ -5719,6 +5766,8 @@ function buildCurrentQuoteFingerprint() {
     contactNumber: state.quoteMeta.contactNumber.trim(),
     emailAddress: state.quoteMeta.emailAddress.trim(),
     notes: state.quoteMeta.notes.trim(),
+    disclaimerEnabled: Boolean(state.quoteMeta.disclaimerEnabled),
+    disclaimerText: String(state.quoteMeta.disclaimerText || "").trim(),
     discountType: state.discountType,
     discountValue: state.discountValue,
     selectedMaterials: state.selectedMaterials.map((row) => ({
@@ -6199,6 +6248,9 @@ function buildContractPreviewData() {
     contactNumber: state.quoteMeta.contactNumber.trim() || "—",
     emailAddress: state.quoteMeta.emailAddress.trim() || "—",
     notes: state.quoteMeta.notes.trim(),
+    disclaimerText: state.quoteMeta.disclaimerEnabled
+      ? String(state.quoteMeta.disclaimerText || "").trim()
+      : "",
     deliveryAmount,
     deliveryIsFree: Boolean(state.quoteMeta.deliveryIsFree),
     installationAmount,
@@ -7268,8 +7320,32 @@ function buildContractPdfDefinition(
             ],
             unbreakable: true,
             margin: [0, 14, 0, 0],
-            pageBreak: "after",
+            ...(contract.disclaimerText ? {} : { pageBreak: "after" }),
           }]),
+          ...(contract.disclaimerText
+            ? [
+                {
+                  stack: [
+                    {
+                      text: "DISCLAIMER",
+                      fontSize: 9,
+                      bold: true,
+                      characterSpacing: 1.2,
+                      color: accentColor,
+                      margin: [0, 0, 0, 4],
+                    },
+                    {
+                      text: contract.disclaimerText,
+                      fontSize: 9,
+                      color: "#4b5563",
+                      lineHeight: 1.3,
+                    },
+                  ],
+                  margin: [0, 16, 0, 0],
+                  ...(printClean ? {} : { pageBreak: "after" }),
+                },
+              ]
+            : []),
             ]),
         ],
       },
@@ -8105,8 +8181,12 @@ function getPdfOrganizationLabel() {
 
 function getQuoteSelectColumns() {
   const columns = supportsProjectProfessionalRoleColumn
-    ? QUOTE_SELECT_COLUMN_LIST
+    ? [...QUOTE_SELECT_COLUMN_LIST]
     : QUOTE_SELECT_COLUMN_LIST.filter((column) => column !== PROJECT_PROFESSIONAL_ROLE_COLUMN);
+
+  if (supportsQuoteDisclaimerColumns) {
+    columns.push(...QUOTE_DISCLAIMER_COLUMNS);
+  }
 
   return columns.join(", ");
 }
@@ -8140,6 +8220,7 @@ async function ensureQuoteSchemaSupport() {
   if (!runtime.session) {
     supportsProjectProfessionalRoleColumn = false;
     supportsMeasurementNoteRowColumns = false;
+    supportsQuoteDisclaimerColumns = false;
     quoteSchemaSupportChecked = false;
     return;
   }
@@ -8161,10 +8242,22 @@ async function ensureQuoteSchemaSupport() {
     .limit(1);
 
   supportsMeasurementNoteRowColumns = !noteRowError;
+
+  const { error: disclaimerError } = await supabase
+    .from("quotes")
+    .select(QUOTE_DISCLAIMER_COLUMNS.join(", "))
+    .limit(1);
+
+  supportsQuoteDisclaimerColumns = !disclaimerError;
   quoteSchemaSupportChecked = true;
 }
 
 function applyOptionalQuotePayloadFields(payload) {
+  if (supportsQuoteDisclaimerColumns) {
+    payload.disclaimer_enabled = Boolean(state.quoteMeta.disclaimerEnabled);
+    payload.disclaimer_text = String(state.quoteMeta.disclaimerText || "");
+  }
+
   if (!supportsProjectProfessionalRoleColumn) {
     return payload;
   }
@@ -8173,6 +8266,13 @@ function applyOptionalQuotePayloadFields(payload) {
     state.quoteMeta.projectProfessionalRole,
   );
   return payload;
+}
+
+function mapQuoteDisclaimerFromRow(row) {
+  return {
+    disclaimerEnabled: Boolean(row?.disclaimer_enabled),
+    disclaimerText: String(row?.disclaimer_text || ""),
+  };
 }
 
 function normalizeProjectProfessionalRole(value) {

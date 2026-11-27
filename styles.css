@@ -4330,3 +4330,31 @@ input[type="checkbox"]:checked,
 .quote-badge.is-no-quote .quote-badge-status:empty {
   display: none;
 }
+
+/* Admin Tools: per-quote disclaimer text box. */
+.admin-disclaimer-text {
+  width: 100%;
+  min-height: 6rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--field-border);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-transform: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.admin-disclaimer-text[hidden] {
+  display: none;
+}
+
+.admin-disclaimer-text:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
