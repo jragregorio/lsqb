@@ -7111,10 +7111,13 @@ function getContractPdfBranding(organization, assets, { hideOrganization = false
 }
 
 const CONTRACT_TABLE_LINE_WIDTH = 0.75;
-const CONTRACT_ORDER_TABLE_WIDTHS = [74, 64, 88, 46, 50, 50, 44, 65];
-// Totals table widths: [label column, amount column]
-// Keep this explicit for easier tuning against ORDER DETAILS table.
-const CONTRACT_TOTALS_TABLE_WIDTHS = [300, 181];
+// Letter page (612pt) minus 43.2pt margins = 525.6pt of content width. Both tables
+// fill exactly that so their edges line up: 8 columns + 4pt padding each side
+// (64pt) + 9 rules (6.75pt) + these widths (454pt) = 524.75pt.
+const CONTRACT_ORDER_TABLE_WIDTHS = [70, 60, 80, 44, 47, 47, 42, 64];
+// Totals table widths: [label column, amount column]. The label column stretches
+// so the table spans the same full content width as ORDER DETAILS.
+const CONTRACT_TOTALS_TABLE_WIDTHS = ["*", 181];
 
 const PRINT_CLEAN_DATA_COLUMN_WIDTHS = [74, 64, 88, 46, 50, 50, 44];
 const PRINT_CLEAN_DATA_COLUMN_COUNT = PRINT_CLEAN_DATA_COLUMN_WIDTHS.length;
