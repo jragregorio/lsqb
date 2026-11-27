@@ -243,6 +243,8 @@ const refs = {
   pdfPaymentOptionsSelect: document.querySelector("#pdf-payment-options-select"),
   pdfDisclaimerCheckbox: document.querySelector("#pdf-disclaimer-checkbox"),
   pdfDisclaimerText: document.querySelector("#pdf-disclaimer-text"),
+  pdfDisclaimerEditor: document.querySelector("#pdf-disclaimer-editor"),
+  pdfDisclaimerPreview: document.querySelector("#pdf-disclaimer-preview"),
   pdfHidePaymentCheckbox: document.querySelector("#pdf-hide-payment-checkbox"),
   pdfBrandThemeHint: document.querySelector("#pdf-brand-theme-hint"),
   printCleanBtn: document.querySelector("#print-clean-btn"),
@@ -507,6 +509,14 @@ async function bootstrap() {
   refs.pdfDisclaimerText?.addEventListener("input", (event) => {
     state.quoteMeta.disclaimerText = event.target.value;
     persistDraftChange();
+    renderDisclaimerPreview();
+  });
+  refs.pdfDisclaimerEditor?.querySelectorAll("[data-format]").forEach((button) => {
+    // Keep the text selection: don't let the button take focus on press.
+    button.addEventListener("mousedown", (event) => event.preventDefault());
+    button.addEventListener("click", () => {
+      applyDisclaimerFormat(button.dataset.format);
+    });
   });
   if (refs.pdfLaborRateInput) {
     refs.pdfLaborRateInput.value = state.laborRate || "";
@@ -4628,11 +4638,223 @@ function syncDisclaimerControls() {
   const enabled = Boolean(state.quoteMeta.disclaimerEnabled);
   checkbox.checked = enabled;
   checkbox.disabled = runtime.quoteBusy;
-  textBox.hidden = !enabled;
+  if (refs.pdfDisclaimerEditor) {
+    refs.pdfDisclaimerEditor.hidden = !enabled;
+  }
   textBox.disabled = runtime.quoteBusy;
+  refs.pdfDisclaimerEditor
+    ?.querySelectorAll("[data-format]")
+    .forEach((button) => {
+      button.disabled = runtime.quoteBusy;
+    });
   if (document.activeElement !== textBox) {
     textBox.value = state.quoteMeta.disclaimerText || "";
   }
+  renderDisclaimerPreview();
+}
+
+// ---- Disclaimer rich text: **bold**, *italic*, __underline__, "- " bullets ----
+
+const DISCLAIMER_FORMAT_MARKERS = { bold: "**", italic: "*", underline: "__" };
+
+// Wraps the selection in the format's markers (or removes them if already
+// wrapped), or prefixes the selected lines with "- " for bullets.
+function applyDisclaimerFormat(format) {
+  const textBox = refs.pdfDisclaimerText;
+  if (!textBox || textBox.disabled) {
+    return;
+  }
+  const value = textBox.value;
+  let start = textBox.selectionStart ?? value.length;
+  let end = textBox.selectionEnd ?? value.length;
+  let next = value;
+  let selStart = start;
+  let selEnd = end;
+
+  if (format === "bullet") {
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    const lineEndIndex = value.indexOf("\n", end);
+    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+    const block = value.slice(lineStart, lineEnd);
+    const lines = block.split("\n");
+    const allBulleted = lines.every((line) => /^\s*- /.test(line) || !line.trim());
+    const updated = lines
+      .map((line) => {
+        if (!line.trim()) {
+          return line;
+        }
+        return allBulleted ? line.replace(/^(\s*)- /, "$1") : `- ${line.replace(/^\s*/, "")}`;
+      })
+      .join("\n");
+    next = value.slice(0, lineStart) + updated + value.slice(lineEnd);
+    selStart = lineStart;
+    selEnd = lineStart + updated.length;
+  } else {
+    const marker = DISCLAIMER_FORMAT_MARKERS[format];
+    if (!marker) {
+      return;
+    }
+    const before = value.slice(0, start);
+    const selected = value.slice(start, end);
+    const after = value.slice(end);
+    const isWrapped =
+      before.endsWith(marker) &&
+      after.startsWith(marker) &&
+      // "*" must not be half of a "**" bold marker.
+      !(marker === "*" && (before.endsWith("**") || after.startsWith("**")));
+    if (isWrapped) {
+      next = before.slice(0, -marker.length) + selected + after.slice(marker.length);
+      selStart = start - marker.length;
+      selEnd = end - marker.length;
+    } else {
+      next = before + marker + selected + marker + after;
+      selStart = start + marker.length;
+      selEnd = end + marker.length;
+    }
+  }
+
+  textBox.value = next;
+  textBox.focus();
+  textBox.setSelectionRange(selStart, selEnd);
+  textBox.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+// Splits one line into styled runs. Markers toggle styles; an unmatched
+// marker is kept as literal text.
+function parseDisclaimerInline(line) {
+  const tokens = [];
+  const pattern = /(\*\*|__|\*)/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = pattern.exec(line))) {
+    if (match.index > lastIndex) {
+      tokens.push({ type: "text", value: line.slice(lastIndex, match.index) });
+    }
+    tokens.push({ type: "marker", value: match[0] });
+    lastIndex = pattern.lastIndex;
+  }
+  if (lastIndex < line.length) {
+    tokens.push({ type: "text", value: line.slice(lastIndex) });
+  }
+
+  // Markers without a partner later in the line are plain text.
+  const counts = {};
+  tokens.forEach((token) => {
+    if (token.type === "marker") {
+      counts[token.value] = (counts[token.value] || 0) + 1;
+    }
+  });
+  const seen = {};
+  tokens.forEach((token) => {
+    if (token.type !== "marker") {
+      return;
+    }
+    seen[token.value] = (seen[token.value] || 0) + 1;
+    if (counts[token.value] % 2 === 1 && seen[token.value] === counts[token.value]) {
+      token.type = "text";
+    }
+  });
+
+  const runs = [];
+  const style = { bold: false, italic: false, underline: false };
+  const markerStyle = { "**": "bold", "*": "italic", __: "underline" };
+  tokens.forEach((token) => {
+    if (token.type === "marker") {
+      const key = markerStyle[token.value];
+      style[key] = !style[key];
+      return;
+    }
+    if (!token.value) {
+      return;
+    }
+    const lastRun = runs[runs.length - 1];
+    if (
+      lastRun &&
+      lastRun.bold === style.bold &&
+      lastRun.italic === style.italic &&
+      lastRun.underline === style.underline
+    ) {
+      lastRun.text += token.value;
+    } else {
+      runs.push({ text: token.value, ...style });
+    }
+  });
+  return runs;
+}
+
+// Groups lines into paragraphs and bullet lists.
+function parseDisclaimerBlocks(text) {
+  const blocks = [];
+  String(text || "")
+    .split(/\r?\n/)
+    .forEach((rawLine) => {
+      const bulletMatch = rawLine.match(/^\s*[-•]\s+(.*)$/);
+      if (bulletMatch) {
+        const runs = parseDisclaimerInline(bulletMatch[1].trim());
+        if (!runs.length) {
+          return;
+        }
+        const last = blocks[blocks.length - 1];
+        if (last?.type === "list") {
+          last.items.push(runs);
+        } else {
+          blocks.push({ type: "list", items: [runs] });
+        }
+        return;
+      }
+      const line = rawLine.trim();
+      if (!line) {
+        return;
+      }
+      blocks.push({ type: "paragraph", runs: parseDisclaimerInline(line) });
+    });
+  return blocks;
+}
+
+// pdfmake text runs. Tenor Sans has one weight, so bold/italic runs switch to
+// Roboto, the same way the Terms show bold amounts.
+function buildPdfDisclaimerRuns(runs) {
+  return runs.map((run) => ({
+    text: run.text,
+    ...(run.bold || run.italic ? { font: "Roboto" } : {}),
+    ...(run.bold ? { bold: true } : {}),
+    ...(run.italic ? { italics: true } : {}),
+    ...(run.underline ? { decoration: "underline" } : {}),
+  }));
+}
+
+function renderDisclaimerRunsHtml(runs) {
+  return runs
+    .map((run) => {
+      let html = escapeHtml(run.text);
+      if (run.underline) {
+        html = `<u>${html}</u>`;
+      }
+      if (run.italic) {
+        html = `<em>${html}</em>`;
+      }
+      if (run.bold) {
+        html = `<strong>${html}</strong>`;
+      }
+      return html;
+    })
+    .join("");
+}
+
+function renderDisclaimerPreview() {
+  const preview = refs.pdfDisclaimerPreview;
+  if (!preview) {
+    return;
+  }
+  const blocks = parseDisclaimerBlocks(state.quoteMeta.disclaimerText);
+  preview.closest(".admin-disclaimer-preview-wrap")?.toggleAttribute("hidden", !blocks.length);
+  preview.innerHTML = blocks
+    .map((block) =>
+      block.type === "list"
+        ? `<ul>${block.items.map((runs) => `<li>${renderDisclaimerRunsHtml(runs)}</li>`).join("")}</ul>`
+        : `<p>${renderDisclaimerRunsHtml(block.runs)}</p>`,
+    )
+    .join("");
 }
 
 function isMeasurementRowComplete(row) {
@@ -7363,16 +7585,24 @@ function buildContractPdfDefinition(
                       layout: termsSectionLayout,
                       margin: [0, 0, 0, 10],
                     },
-                    ...contract.disclaimerText
-                      .split(/\n+/)
-                      .map((paragraph) => paragraph.trim())
-                      .filter(Boolean)
-                      .map((paragraph) => ({
-                        text: paragraph,
-                        color: textColor,
-                        alignment: "justify",
-                        margin: [10, 0, 10, 5],
-                      })),
+                    ...parseDisclaimerBlocks(contract.disclaimerText).map((block) =>
+                      block.type === "list"
+                        ? {
+                            ul: block.items.map((runs) => ({
+                              text: buildPdfDisclaimerRuns(runs),
+                              margin: [0, 0, 0, 3],
+                            })),
+                            color: textColor,
+                            markerColor: accentColor,
+                            margin: [14, 0, 10, 5],
+                          }
+                        : {
+                            text: buildPdfDisclaimerRuns(block.runs),
+                            color: textColor,
+                            alignment: "justify",
+                            margin: [10, 0, 10, 5],
+                          },
+                    ),
                   ],
                   margin: [0, 18, 0, 22],
                   unbreakable: true,

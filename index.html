@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <title>LUXESHADE Quote Builder v5.4.25</title>
+    <title>LUXESHADE Quote Builder v5.4.26</title>
     <link rel="icon" href="./assets/LogoOnly.jpg" type="image/jpeg" />
     <link rel="apple-touch-icon" href="./assets/LogoOnly.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,7 +15,7 @@
       href="https://fonts.googleapis.com/css2?family=Tenor+Sans&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=5.4.25" />
+    <link rel="stylesheet" href="./styles.css?v=5.4.26" />
   </head>
   <body>
     <main class="app-shell">
@@ -25,7 +25,7 @@
             <div class="app-brand">
               <p class="eyebrow">JRAG</p>
               <h1 class="app-brand-title">LUXESHADE Quote Builder</h1>
-              <p class="app-brand-version">v5.4.25</p>
+              <p class="app-brand-version">v5.4.26</p>
             </div>
             <nav class="app-nav" aria-label="Main tools">
               <div class="top-app-menu-shell">
@@ -301,14 +301,28 @@
               <p class="section-copy admin-pdf-hide-org-hint">
                 Prints this text after the quote totals on the contract PDF. Saved with this quote.
               </p>
-              <textarea
-                id="pdf-disclaimer-text"
-                class="admin-disclaimer-text"
-                data-keep-case
-                rows="4"
-                placeholder="e.g. Prices are valid for 30 days from the quote date. Final measurements are confirmed on site."
-                hidden
-              ></textarea>
+              <div id="pdf-disclaimer-editor" class="admin-disclaimer-editor" hidden>
+                <div class="admin-disclaimer-toolbar" role="toolbar" aria-label="Disclaimer formatting">
+                  <button type="button" class="admin-format-btn" data-format="bold" aria-label="Bold" title="Bold"><strong>B</strong></button>
+                  <button type="button" class="admin-format-btn" data-format="italic" aria-label="Italic" title="Italic"><em>I</em></button>
+                  <button type="button" class="admin-format-btn" data-format="underline" aria-label="Underline" title="Underline"><span class="admin-format-underline">U</span></button>
+                  <button type="button" class="admin-format-btn" data-format="bullet" aria-label="Bullet list" title="Bullet list">&bull; List</button>
+                </div>
+                <textarea
+                  id="pdf-disclaimer-text"
+                  class="admin-disclaimer-text"
+                  data-keep-case
+                  rows="5"
+                  placeholder="e.g. Prices are valid for 30 days from the quote date. Final measurements are confirmed on site."
+                ></textarea>
+                <p class="admin-disclaimer-help">
+                  Select text and tap a button. **bold**, *italic*, __underline__; start a line with "- " for a bullet.
+                </p>
+                <div class="admin-disclaimer-preview-wrap">
+                  <span class="admin-disclaimer-preview-label">PDF preview</span>
+                  <div id="pdf-disclaimer-preview" class="admin-disclaimer-preview"></div>
+                </div>
+              </div>
             </div>
             <div class="admin-form-row">
               <label for="pdf-labor-rate-input">
@@ -909,6 +923,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/pdfmake.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdfmake/build/vfs_fonts.min.js"></script>
-    <script type="module" src="./app.js?v=5.4.25"></script>
+    <script type="module" src="./app.js?v=5.4.26"></script>
   </body>
 </html>

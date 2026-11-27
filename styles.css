@@ -4358,3 +4358,114 @@ input[type="checkbox"]:checked,
   border-color: var(--primary);
   box-shadow: var(--focus-ring);
 }
+
+/* Disclaimer editor: format buttons, help line and PDF preview. */
+.admin-disclaimer-editor {
+  margin-top: 0.5rem;
+}
+
+.admin-disclaimer-editor[hidden] {
+  display: none;
+}
+
+.admin-disclaimer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.admin-format-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--field-border);
+  border-radius: 0.6rem;
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.95rem;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.admin-format-btn strong {
+  font-family: Roboto, Arial, sans-serif;
+  font-weight: 700;
+}
+
+.admin-format-btn em {
+  font-family: Roboto, Arial, sans-serif;
+  font-style: italic;
+}
+
+.admin-format-underline {
+  text-decoration: underline;
+}
+
+.admin-format-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-format-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-disclaimer-editor .admin-disclaimer-text {
+  margin-top: 0.4rem;
+}
+
+.admin-disclaimer-help {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.admin-disclaimer-preview-wrap {
+  margin-top: 0.6rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px dashed var(--field-border);
+  border-radius: 0.75rem;
+  background: var(--surface-alt);
+}
+
+.admin-disclaimer-preview-wrap[hidden] {
+  display: none;
+}
+
+.admin-disclaimer-preview-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-disclaimer-preview {
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+.admin-disclaimer-preview p {
+  margin: 0 0 0.35rem;
+}
+
+.admin-disclaimer-preview ul {
+  margin: 0 0 0.35rem;
+  padding-left: 1.2rem;
+}
+
+.admin-disclaimer-preview strong,
+.admin-disclaimer-preview em {
+  font-family: Roboto, Arial, sans-serif;
+}
