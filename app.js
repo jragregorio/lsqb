@@ -7116,6 +7116,20 @@ function buildContractPdfDefinition(
         fontSize: 9,
         margin: [pageMargin, 12, pageMargin, 22],
       }),
+    // With a disclaimer, the totals no longer force a page break. Start the Terms
+    // on a new page only if they would share a page with the totals; if the
+    // disclaimer already moved to a new page, the Terms follow it directly.
+    // pdfmake 0.3 passes a query object; 0.2 passes the node arrays directly.
+    pageBreakBefore: (currentNode, nodeQueries, _nodesOnNextPage, previousNodesArg) => {
+      if (currentNode.id !== "contract-terms-start" || !contract.disclaimerText) {
+        return false;
+      }
+      const previousNodesOnPage =
+        typeof nodeQueries?.getPreviousNodesOnPage === "function"
+          ? nodeQueries.getPreviousNodesOnPage()
+          : previousNodesArg || [];
+      return previousNodesOnPage.some((node) => node.id === "contract-totals-block");
+    },
     defaultStyle: {
       font: "TenorSans",
       fontSize: 10,
@@ -7318,6 +7332,7 @@ function buildContractPdfDefinition(
                 layout: totalsTableLayout,
               },
             ],
+            id: "contract-totals-block",
             unbreakable: true,
             margin: [0, 14, 0, 0],
             ...(contract.disclaimerText ? {} : { pageBreak: "after" }),
@@ -7325,24 +7340,37 @@ function buildContractPdfDefinition(
           ...(contract.disclaimerText
             ? [
                 {
+                  // Same look as the Terms of Contract sections: shaded heading bar
+                  // with an accent underline, then body paragraphs in the body style.
                   stack: [
                     {
-                      text: "DISCLAIMER",
-                      fontSize: 9,
-                      bold: true,
-                      characterSpacing: 1.2,
-                      color: accentColor,
-                      margin: [0, 0, 0, 4],
+                      table: {
+                        widths: ["*"],
+                        body: [[{
+                          text: "DISCLAIMER",
+                          bold: true,
+                          fontSize: 11,
+                          characterSpacing: 0.2,
+                          color: textColor,
+                          fillColor: lightFill,
+                        }]],
+                      },
+                      layout: termsSectionLayout,
+                      margin: [0, 0, 0, 10],
                     },
-                    {
-                      text: contract.disclaimerText,
-                      fontSize: 9,
-                      color: "#4b5563",
-                      lineHeight: 1.3,
-                    },
+                    ...contract.disclaimerText
+                      .split(/\n+/)
+                      .map((paragraph) => paragraph.trim())
+                      .filter(Boolean)
+                      .map((paragraph) => ({
+                        text: paragraph,
+                        color: textColor,
+                        alignment: "justify",
+                        margin: [10, 0, 10, 5],
+                      })),
                   ],
-                  margin: [0, 16, 0, 0],
-                  ...(printClean ? {} : { pageBreak: "after" }),
+                  margin: [0, 18, 0, 22],
+                  unbreakable: true,
                 },
               ]
             : []),
@@ -7353,6 +7381,7 @@ function buildContractPdfDefinition(
         ? []
         : [
       {
+        id: "contract-terms-start",
         stack: [
           buildStyledTermsDocumentHeading("Terms of Contract"),
           buildStyledTermsSection("Section 1. Payment Schedule and Conditions", [
