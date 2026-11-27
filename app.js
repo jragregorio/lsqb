@@ -756,6 +756,11 @@ function handleForceUppercaseInput(event) {
     return;
   }
 
+  // Fields marked data-keep-case (e.g. the PDF disclaimer) keep the text as typed.
+  if (target.hasAttribute("data-keep-case")) {
+    return;
+  }
+
   if (target instanceof HTMLInputElement) {
     const supportedTypes = new Set(["text", "email", "search", "tel"]);
     if (!supportedTypes.has(target.type)) {
